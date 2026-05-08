@@ -1,0 +1,18 @@
+*.csproj.old.*
+
+# Mono specific ignores
+.vs/
+*.old
+# Misc
+*.log
+# Husky ignores
+node_modules
+
+# Build artifacts
+**/bin/
+**/obj/
+local-feed/
+
+# Rider
+.idea/
+.aider*
