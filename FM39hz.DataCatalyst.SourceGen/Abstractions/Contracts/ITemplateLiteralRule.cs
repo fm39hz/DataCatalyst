@@ -6,14 +6,14 @@ namespace FM39hz.DataCatalyst.Abstractions;
 /// </summary>
 public interface ITemplateLiteralRule {
 	/// <summary>Returns true when this rule can emit defaults for <paramref name="declaredType" />.</summary>
-	bool CanEmitDefault(string declaredType);
+	public bool CanEmitDefault(string declaredType);
 
 	/// <summary>Returns true when this rule can emit <paramref name="declaredType" /> from <paramref name="value" />.</summary>
-	bool CanEmit(string declaredType, JsonValueModel value);
+	public bool CanEmit(string declaredType, JsonValueModel value);
 
 	/// <summary>Returns a C# literal for <paramref name="declaredType" />.</summary>
-	string EmitLiteral(string declaredType, JsonValueModel value);
+	public string EmitLiteral(string declaredType, JsonValueModel value);
 
 	/// <summary>Returns a C# default expression for <paramref name="declaredType" />.</summary>
-	string EmitDefault(string declaredType);
+	public string EmitDefault(string declaredType);
 }

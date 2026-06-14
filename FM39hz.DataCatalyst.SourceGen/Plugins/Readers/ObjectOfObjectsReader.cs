@@ -3,9 +3,9 @@ namespace FM39hz.DataCatalyst.Plugins.Readers;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
-using Microsoft.CodeAnalysis;
 using FM39hz.DataCatalyst.Abstractions;
 using FM39hz.DataCatalyst.Core;
+using Microsoft.CodeAnalysis;
 
 /// <summary>
 ///     Reads the canonical <em>object-of-objects</em> shape: each top-level property name becomes a row key,

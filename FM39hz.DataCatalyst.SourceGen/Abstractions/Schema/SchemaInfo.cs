@@ -6,10 +6,6 @@ using System.Collections.Immutable;
 ///     The full column set for every row of a DataCatalyst target. Columns are ordered: the order here is the order
 ///     in which fields appear inside the generated partial type.
 /// </summary>
-public sealed class SchemaInfo {
-	public ImmutableArray<SchemaColumn> Columns { get; }
-
-	public SchemaInfo(ImmutableArray<SchemaColumn> columns) {
-		Columns = columns;
-	}
+public sealed class SchemaInfo(ImmutableArray<SchemaColumn> columns) {
+	public ImmutableArray<SchemaColumn> Columns { get; } = columns;
 }

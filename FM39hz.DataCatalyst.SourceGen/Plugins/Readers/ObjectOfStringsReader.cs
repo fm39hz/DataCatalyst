@@ -3,9 +3,9 @@ namespace FM39hz.DataCatalyst.Plugins.Readers;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
-using Microsoft.CodeAnalysis;
 using FM39hz.DataCatalyst.Abstractions;
 using FM39hz.DataCatalyst.Core;
+using Microsoft.CodeAnalysis;
 
 /// <summary>
 ///     Reads an object whose values are all <see cref="JsonValueKind.String" />. Emits one row per property,

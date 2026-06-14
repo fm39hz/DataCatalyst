@@ -13,9 +13,9 @@ using System.Collections.Generic;
 ///     </para>
 /// </summary>
 public interface ITypeEmitter {
-	string Name { get; }
+	public string Name { get; }
 
-	bool Applies(DcGenerationContext ctx);
+	public bool Applies(DcGenerationContext ctx);
 
-	string Emit(IReadOnlyList<RowData> rows, SchemaInfo schema, DcGenerationContext ctx);
+	public string Emit(IReadOnlyList<RowData> rows, SchemaInfo schema, DcGenerationContext ctx);
 }

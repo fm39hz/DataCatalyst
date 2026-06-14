@@ -1,8 +1,8 @@
 namespace FM39hz.DataCatalyst;
 
+using FM39hz.DataCatalyst.Core;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using FM39hz.DataCatalyst.Core;
 
 // Note: `Where`/`Select` on IncrementalValuesProvider are extension methods in Microsoft.CodeAnalysis,
 // not LINQ. No System.Linq using is needed.
@@ -25,7 +25,7 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 	public void Initialize(IncrementalGeneratorInitializationContext context) {
 		var targets = context.SyntaxProvider
 			.ForAttributeWithMetadataName(
-				DcConstants.CatalystDataAttributeMetadata,
+				DcConstants.CATALYST_DATA_ATTRIBUTE_METADATA,
 				static (node, _) => node is TypeDeclarationSyntax,
 				static (ctx, _) => TargetInfo.Extract(ctx))
 			.Where(static t => t is not null)

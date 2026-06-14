@@ -119,17 +119,10 @@ public static class DcPluginRegistry {
 		return ordered;
 	}
 
-	private readonly struct PluginEntry<TPlugin> {
-		public TPlugin Plugin { get; }
-		public string TypeName { get; }
-		public HashSet<string> Dependencies { get; }
-		public int Sequence { get; }
-
-		public PluginEntry(TPlugin plugin, HashSet<string> dependencies, int sequence) {
-			Plugin = plugin;
-			TypeName = plugin?.GetType().FullName ?? string.Empty;
-			Dependencies = dependencies;
-			Sequence = sequence;
-		}
+	private readonly struct PluginEntry<TPlugin>(TPlugin plugin, HashSet<string> dependencies, int sequence) {
+		public TPlugin Plugin { get; } = plugin;
+		public string TypeName { get; } = plugin?.GetType().FullName ?? string.Empty;
+		public HashSet<string> Dependencies { get; } = dependencies;
+		public int Sequence { get; } = sequence;
 	}
 }

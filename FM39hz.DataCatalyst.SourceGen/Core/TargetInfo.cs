@@ -2,9 +2,9 @@ namespace FM39hz.DataCatalyst.Core;
 
 using System.Collections.Immutable;
 using System.Linq;
+using FM39hz.DataCatalyst.Abstractions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using FM39hz.DataCatalyst.Abstractions;
 
 /// <summary>
 ///     Captures everything the pipeline driver needs to know about a single target type tagged with
@@ -60,9 +60,9 @@ internal sealed class TargetInfo {
 			return null;
 		}
 
-		string jsonPath = string.Empty;
-		string entryPoint = string.Empty;
-		string keyField = string.Empty;
+		var jsonPath = string.Empty;
+		var entryPoint = string.Empty;
+		var keyField = string.Empty;
 		ITypeSymbol? template = null;
 
 		if (attr.ConstructorArguments.Length >= 1 && attr.ConstructorArguments[0].Value is string jp) {
@@ -90,6 +90,8 @@ internal sealed class TargetInfo {
 					break;
 				case "KeyField" when na.Value.Value is string kf:
 					keyField = kf;
+					break;
+				default:
 					break;
 			}
 		}
@@ -134,19 +136,16 @@ internal sealed class TargetInfo {
 				case IFieldSymbol { IsStatic: false, IsConst: false } f when f.DeclaredAccessibility == Accessibility.Public:
 					b.Add(new TemplateMember(f.Name, f.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat), TemplateMemberKind.Field));
 					break;
+				default:
+					break;
 			}
 		}
 
 		return b.ToImmutable();
 	}
 
-	private sealed class TemplateMetadata : ITemplateMetadata {
-		public string FullyQualifiedName { get; }
-		public ImmutableArray<TemplateMember> Members { get; }
-
-		public TemplateMetadata(string fqn, ImmutableArray<TemplateMember> members) {
-			FullyQualifiedName = fqn;
-			Members = members;
-		}
+	private sealed class TemplateMetadata(string fqn, ImmutableArray<TemplateMember> members) : ITemplateMetadata {
+		public string FullyQualifiedName { get; } = fqn;
+		public ImmutableArray<TemplateMember> Members { get; } = members;
 	}
 }

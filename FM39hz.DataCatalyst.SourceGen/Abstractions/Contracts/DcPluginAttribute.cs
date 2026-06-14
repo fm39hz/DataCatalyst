@@ -9,10 +9,6 @@ using System;
 ///     pipeline driver does not.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class)]
-public sealed class DcPluginAttribute : Attribute {
-	public Type Contract { get; }
-
-	public DcPluginAttribute(Type contract) {
-		Contract = contract;
-	}
+public sealed class DcPluginAttribute(Type contract) : Attribute {
+	public Type Contract { get; } = contract;
 }

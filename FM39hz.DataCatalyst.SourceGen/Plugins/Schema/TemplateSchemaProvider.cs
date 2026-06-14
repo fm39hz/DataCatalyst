@@ -3,9 +3,9 @@ namespace FM39hz.DataCatalyst.Plugins.Schema;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
-using Microsoft.CodeAnalysis;
 using FM39hz.DataCatalyst.Abstractions;
 using FM39hz.DataCatalyst.Core;
+using Microsoft.CodeAnalysis;
 
 /// <summary>
 ///     Builds the schema directly from the user-supplied <c>TemplateType</c>. Every public property/field of

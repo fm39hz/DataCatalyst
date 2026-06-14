@@ -13,12 +13,7 @@ using System.Collections.Generic;
 ///         camelCase resolve against PascalCase template members without any manual mapping.
 ///     </para>
 /// </summary>
-public sealed class RowData {
-	public string Key { get; }
-	public Dictionary<string, JsonValueModel> Values { get; }
-
-	public RowData(string key, Dictionary<string, JsonValueModel> values) {
-		Key = key;
-		Values = values;
-	}
+public sealed class RowData(string key, Dictionary<string, JsonValueModel> values) {
+	public string Key { get; } = key;
+	public Dictionary<string, JsonValueModel> Values { get; } = values;
 }

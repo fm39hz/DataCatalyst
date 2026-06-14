@@ -6,9 +6,9 @@
 
 namespace System.Runtime.CompilerServices;
 
-[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+[ComponentModel.EditorBrowsable(ComponentModel.EditorBrowsableState.Never)]
 internal static class IsExternalInit { }
 
 [AttributeUsage(AttributeTargets.Method, Inherited = false)]
-[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+[ComponentModel.EditorBrowsable(ComponentModel.EditorBrowsableState.Never)]
 internal sealed class ModuleInitializerAttribute : Attribute { }

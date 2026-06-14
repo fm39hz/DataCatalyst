@@ -5,9 +5,9 @@ using System.Collections.Immutable;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using FM39hz.DataCatalyst.Abstractions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
-using FM39hz.DataCatalyst.Abstractions;
 
 /// <summary>
 ///     Orchestrates one DataCatalyst generation per <see cref="TargetInfo" />. The driver is intentionally lean:

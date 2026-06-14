@@ -4,9 +4,9 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
-using Microsoft.CodeAnalysis;
 using FM39hz.DataCatalyst.Abstractions;
 using FM39hz.DataCatalyst.Core;
+using Microsoft.CodeAnalysis;
 
 /// <summary>
 ///     Walks every row's columns and infers a unified <see cref="SchemaInfo" /> by:
@@ -31,7 +31,7 @@ internal sealed class InferenceSchemaProvider : ISchemaProvider {
 
 	public SchemaInfo? Build(IReadOnlyList<RowData> rows, DcGenerationContext ctx) {
 		if (rows.Count == 0) {
-			return new SchemaInfo(ImmutableArray<SchemaColumn>.Empty);
+			return new SchemaInfo([]);
 		}
 
 		var columns = new Dictionary<string, SchemaColumn>(System.StringComparer.OrdinalIgnoreCase);
@@ -76,45 +76,46 @@ internal sealed class InferenceSchemaProvider : ISchemaProvider {
 				return InferPrimitive(v, ctx, path);
 
 			case JsonValueKind.Array: {
-				if (v.ArrayItems!.Count == 0) {
-					ctx.ReportDiagnostic(Diagnostic.Create(DcDiagnostics.InferenceUnsupported, ctx.Location, ctx.TargetFullyQualifiedName, path, "empty array — element type cannot be inferred"));
-					return null;
-				}
-
-				SchemaType? element = null;
-				for (var i = 0; i < v.ArrayItems.Count; i++) {
-					var inferred = InferTypeFromValue(v.ArrayItems[i], ctx, $"{path}[{i}]");
-					if (inferred is null) {
+					if (v.ArrayItems!.Count == 0) {
+						ctx.ReportDiagnostic(Diagnostic.Create(DcDiagnostics.InferenceUnsupported, ctx.Location, ctx.TargetFullyQualifiedName, path, "empty array — element type cannot be inferred"));
 						return null;
 					}
 
-					element = element is null ? inferred : WidenSchemaType(element, inferred, ctx, path);
-					if (element is null) {
-						return null;
-					}
-				}
+					SchemaType? element = null;
+					for (var i = 0; i < v.ArrayItems.Count; i++) {
+						var inferred = InferTypeFromValue(v.ArrayItems[i], ctx, $"{path}[{i}]");
+						if (inferred is null) {
+							return null;
+						}
 
-				return SchemaType.OfArray(element!);
-			}
+						element = element is null ? inferred : WidenSchemaType(element, inferred, ctx, path);
+						if (element is null) {
+							return null;
+						}
+					}
+
+					return SchemaType.OfArray(element!);
+				}
 
 			case JsonValueKind.Object: {
-				var nestedRow = new Dictionary<string, JsonValueModel>(System.StringComparer.Ordinal);
-				foreach (var kv in v.ObjectMembers!) {
-					nestedRow[kv.Key] = kv.Value;
-				}
+					var nestedRow = new Dictionary<string, JsonValueModel>(System.StringComparer.Ordinal);
+					foreach (var kv in v.ObjectMembers!) {
+						nestedRow[kv.Key] = kv.Value;
+					}
 
-				var nestedRows = new List<RowData> { new("__inline__", nestedRow) };
-				var nested = Build(nestedRows, ctx);
-				if (nested is null) {
-					return null;
-				}
+					var nestedRows = new List<RowData> { new("__inline__", nestedRow) };
+					var nested = Build(nestedRows, ctx);
+					if (nested is null) {
+						return null;
+					}
 
-				return SchemaType.OfObject(nested.Columns);
-			}
+					return SchemaType.OfObject(nested.Columns);
+				}
 
 			case JsonValueKind.Null:
 				ctx.ReportDiagnostic(Diagnostic.Create(DcDiagnostics.InferenceUnsupported, ctx.Location, ctx.TargetFullyQualifiedName, path, "null leading value — type cannot be inferred"));
 				return null;
+			case JsonValueKind.Undefined:
 			default:
 				ctx.ReportDiagnostic(Diagnostic.Create(DcDiagnostics.InferenceUnsupported, ctx.Location, ctx.TargetFullyQualifiedName, path, $"unsupported JSON kind {v.Kind}"));
 				return null;

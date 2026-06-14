@@ -6,9 +6,9 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
-using Microsoft.CodeAnalysis;
 using FM39hz.DataCatalyst.Abstractions;
 using FM39hz.DataCatalyst.Core;
+using Microsoft.CodeAnalysis;
 
 /// <summary>
 ///     Default DataCatalyst type emitter. Produces a partial type that exposes:
@@ -143,6 +143,19 @@ internal sealed class PartialStructEmitter : ITypeEmitter {
 			TypeKind.Class => "class",
 			TypeKind.Struct when ctx.IsRecord => "record struct",
 			TypeKind.Struct => "struct",
+			TypeKind.Unknown => throw new System.NotImplementedException(),
+			TypeKind.Array => throw new System.NotImplementedException(),
+			TypeKind.Delegate => throw new System.NotImplementedException(),
+			TypeKind.Dynamic => throw new System.NotImplementedException(),
+			TypeKind.Enum => throw new System.NotImplementedException(),
+			TypeKind.Error => throw new System.NotImplementedException(),
+			TypeKind.Interface => throw new System.NotImplementedException(),
+			TypeKind.Module => throw new System.NotImplementedException(),
+			TypeKind.Pointer => throw new System.NotImplementedException(),
+			TypeKind.TypeParameter => throw new System.NotImplementedException(),
+			TypeKind.Submission => throw new System.NotImplementedException(),
+			TypeKind.FunctionPointer => throw new System.NotImplementedException(),
+			TypeKind.Extension => throw new System.NotImplementedException(),
 			_ => "struct",
 		};
 
@@ -160,7 +173,7 @@ internal sealed class PartialStructEmitter : ITypeEmitter {
 				sb.AppendLine();
 			}
 			else if (col.Type.IsArray && col.Type.ArrayElement!.IsObject) {
-				EmitNestedTypes(sb, ImmutableArray.Create(new SchemaColumn(col.Name, col.Type.ArrayElement)), indent);
+				EmitNestedTypes(sb, [new SchemaColumn(col.Name, col.Type.ArrayElement)], indent);
 			}
 		}
 	}

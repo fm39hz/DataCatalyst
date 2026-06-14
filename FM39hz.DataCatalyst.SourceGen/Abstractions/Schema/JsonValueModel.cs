@@ -49,43 +49,44 @@ public sealed class JsonValueModel {
 			case JsonValueKind.Null:
 				return new JsonValueModel { Kind = JsonValueKind.Null };
 			case JsonValueKind.Number: {
-				var raw = el.GetRawText();
-				var integral = raw.IndexOf('.') < 0 && raw.IndexOf('e') < 0 && raw.IndexOf('E') < 0;
-				var asDouble = el.GetDouble();
-				long asLong = 0;
-				var fitsInt = false;
-				if (integral && el.TryGetInt64(out var v)) {
-					asLong = v;
-					fitsInt = v >= int.MinValue && v <= int.MaxValue;
-				}
+					var raw = el.GetRawText();
+					var integral = raw.IndexOf('.') < 0 && raw.IndexOf('e') < 0 && raw.IndexOf('E') < 0;
+					var asDouble = el.GetDouble();
+					long asLong = 0;
+					var fitsInt = false;
+					if (integral && el.TryGetInt64(out var v)) {
+						asLong = v;
+						fitsInt = v is >= int.MinValue and <= int.MaxValue;
+					}
 
-				return new JsonValueModel {
-					Kind = JsonValueKind.Number,
-					NumberIsIntegral = integral,
-					NumberAsDouble = asDouble,
-					NumberAsLong = asLong,
-					NumberFitsInt = fitsInt,
-				};
-			}
+					return new JsonValueModel {
+						Kind = JsonValueKind.Number,
+						NumberIsIntegral = integral,
+						NumberAsDouble = asDouble,
+						NumberAsLong = asLong,
+						NumberFitsInt = fitsInt,
+					};
+				}
 
 			case JsonValueKind.Array: {
-				var list = new List<JsonValueModel>();
-				foreach (var item in el.EnumerateArray()) {
-					list.Add(From(item));
-				}
+					var list = new List<JsonValueModel>();
+					foreach (var item in el.EnumerateArray()) {
+						list.Add(From(item));
+					}
 
-				return new JsonValueModel { Kind = JsonValueKind.Array, ArrayItems = list };
-			}
+					return new JsonValueModel { Kind = JsonValueKind.Array, ArrayItems = list };
+				}
 
 			case JsonValueKind.Object: {
-				var dict = new Dictionary<string, JsonValueModel>(System.StringComparer.Ordinal);
-				foreach (var p in el.EnumerateObject()) {
-					dict[p.Name] = From(p.Value);
+					var dict = new Dictionary<string, JsonValueModel>(System.StringComparer.Ordinal);
+					foreach (var p in el.EnumerateObject()) {
+						dict[p.Name] = From(p.Value);
+					}
+
+					return new JsonValueModel { Kind = JsonValueKind.Object, ObjectMembers = dict };
 				}
 
-				return new JsonValueModel { Kind = JsonValueKind.Object, ObjectMembers = dict };
-			}
-
+			case JsonValueKind.Undefined:
 			default:
 				return new JsonValueModel { Kind = JsonValueKind.Undefined };
 		}

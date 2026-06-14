@@ -20,7 +20,7 @@ public sealed class SchemaType : IEquatable<SchemaType> {
 	public bool IsObject { get; private set; }
 	public string? Primitive { get; private set; }
 	public SchemaType? ArrayElement { get; private set; }
-	public ImmutableArray<SchemaColumn> ObjectColumns { get; private set; } = ImmutableArray<SchemaColumn>.Empty;
+	public ImmutableArray<SchemaColumn> ObjectColumns { get; private set; } = [];
 	public string? OwningColumnName { get; set; }
 
 	public static SchemaType OfPrimitive(string fullName) => new() { IsPrimitive = true, Primitive = fullName };
@@ -70,13 +70,13 @@ public sealed class SchemaType : IEquatable<SchemaType> {
 		}
 
 		if (IsArray) {
-			return unchecked(17 * 31 + (ArrayElement?.GetHashCode() ?? 0));
+			return unchecked((17 * 31) + (ArrayElement?.GetHashCode() ?? 0));
 		}
 
 		if (IsObject) {
 			var h = 17;
 			foreach (var c in ObjectColumns) {
-				h = unchecked(h * 31 + c.Name.GetHashCode());
+				h = unchecked((h * 31) + c.Name.GetHashCode());
 			}
 
 			return h;

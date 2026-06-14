@@ -13,9 +13,9 @@ using System.Collections.Generic;
 ///     <see cref="Applies(DcGenerationContext)" /> for any given context.
 /// </summary>
 public interface ISchemaProvider {
-	string Name { get; }
+	public string Name { get; }
 
-	bool Applies(DcGenerationContext ctx);
+	public bool Applies(DcGenerationContext ctx);
 
-	SchemaInfo? Build(IReadOnlyList<RowData> rows, DcGenerationContext ctx);
+	public SchemaInfo? Build(IReadOnlyList<RowData> rows, DcGenerationContext ctx);
 }

@@ -10,5 +10,5 @@ namespace FM39hz.DataCatalyst.Abstractions;
 ///     <para>Post-processors must NOT mutate <paramref name="emittedSource" />; that string is already final.</para>
 /// </summary>
 public interface IDcPostProcessor {
-	void After(string emittedSource, DcGenerationContext ctx);
+	public void After(string emittedSource, DcGenerationContext ctx);
 }

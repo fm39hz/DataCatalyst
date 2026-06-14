@@ -19,7 +19,7 @@ internal sealed class BoolPrimitiveRule : IPrimitiveTypeRule {
 	public JsonValueKind BoundKind => JsonValueKind.True;
 
 	public bool TryInfer(JsonValueModel value) =>
-		value.Kind == JsonValueKind.True || value.Kind == JsonValueKind.False;
+		value.Kind is JsonValueKind.True or JsonValueKind.False;
 
 	public string EmitLiteral(JsonValueModel value) =>
 		value.Kind == JsonValueKind.True ? "true" : value.Kind == JsonValueKind.False ? "false" : "false";

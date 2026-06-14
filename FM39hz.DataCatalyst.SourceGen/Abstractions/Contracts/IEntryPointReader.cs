@@ -22,9 +22,9 @@ using System.Text.Json;
 /// </summary>
 public interface IEntryPointReader {
 	/// <summary>Stable identifier (e.g. <c>"ObjectOfObjects"</c>). Used in diagnostics and tests.</summary>
-	string Name { get; }
+	public string Name { get; }
 
-	bool CanRead(JsonElement entryPoint, DcGenerationContext ctx);
+	public bool CanRead(JsonElement entryPoint, DcGenerationContext ctx);
 
-	IReadOnlyList<RowData>? Read(JsonElement entryPoint, DcGenerationContext ctx);
+	public IReadOnlyList<RowData>? Read(JsonElement entryPoint, DcGenerationContext ctx);
 }
