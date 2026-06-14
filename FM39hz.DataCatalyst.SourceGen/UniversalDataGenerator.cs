@@ -23,6 +23,26 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 [Generator]
 public sealed class UniversalDataGenerator : IIncrementalGenerator {
 	public void Initialize(IncrementalGeneratorInitializationContext context) {
+		context.RegisterPostInitializationOutput(static ctx => {
+			ctx.AddSource("CatalystDataAttribute.g.cs", """
+				namespace FM39hz.DataCatalyst;
+
+				[System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Struct | System.AttributeTargets.Enum, AllowMultiple = false, Inherited = false)]
+				public sealed class CatalystDataAttribute : System.Attribute {
+					public string JsonPath { get; }
+					public string EntryPoint { get; }
+					public System.Type TemplateType { get; }
+					public string KeyField { get; init; } = string.Empty;
+
+					public CatalystDataAttribute(string jsonPath, string entryPoint = "", System.Type templateType = null) {
+						JsonPath = jsonPath;
+						EntryPoint = entryPoint;
+						TemplateType = templateType;
+					}
+				}
+				""");
+		});
+
 		var targets = context.SyntaxProvider
 			.ForAttributeWithMetadataName(
 				DcConstants.CATALYST_DATA_ATTRIBUTE_METADATA,
