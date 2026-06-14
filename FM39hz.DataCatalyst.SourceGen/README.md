@@ -1,4 +1,4 @@
-# FM39hz.DataCatalyst.SourceGen
+# DataCatalyst.SourceGen
 
 Universal Data-Driven Source Generator (DataCatalyst). It reads JSON files declared as
 `<AdditionalFiles>` and emits strongly-typed, **reflection-free** static catalogs
@@ -35,10 +35,10 @@ For each target type `Foo`, DataCatalyst emits:
 - `All : FrozenDictionary<FooKind, Foo>`
 - `KindByName : FrozenDictionary<string, FooKind>` (ordinal comparer)
 - Convenience helpers:
-  - `Get(FooKind kind)`, `TryGet(FooKind kind, out Foo value)`, `Contains(FooKind kind)`
-  - `GetKind(string name)`, `TryGetKind(string name, out FooKind kind)`, `Contains(string name)`
-  - `Get(string name)`, `TryGet(string name, out Foo value)`
-  - `Count`, `Kinds`, `Values`
+    - `Get(FooKind kind)`, `TryGet(FooKind kind, out Foo value)`, `Contains(FooKind kind)`
+    - `GetKind(string name)`, `TryGetKind(string name, out FooKind kind)`, `Contains(string name)`
+    - `Get(string name)`, `TryGet(string name, out Foo value)`
+    - `Count`, `Kinds`, `Values`
 
 This gives ergonomic key-based access while keeping lookups O(1) and allocation-free
 on steady-state read paths.
@@ -112,16 +112,16 @@ live OCP regression test for this story.
 
 ## Supported entry-point shapes (built-in)
 
-| Shape              | Reader                  | Notes                                                                                  |
-| ------------------ | ----------------------- | -------------------------------------------------------------------------------------- |
-| object-of-strings  | `ObjectOfStringsReader` | Single synthetic `value` column. Selected when every property is a JSON string.        |
-| object-of-objects  | `ObjectOfObjectsReader` | Default for object roots. Property names become enum members.                          |
-| array-of-objects   | `ArrayOfObjectsReader`  | Requires `KeyField`; declared in `[CatalystData(..., KeyField = "id")]`.           |
+| Shape             | Reader                  | Notes                                                                           |
+| ----------------- | ----------------------- | ------------------------------------------------------------------------------- |
+| object-of-strings | `ObjectOfStringsReader` | Single synthetic `value` column. Selected when every property is a JSON string. |
+| object-of-objects | `ObjectOfObjectsReader` | Default for object roots. Property names become enum members.                   |
+| array-of-objects  | `ArrayOfObjectsReader`  | Requires `KeyField`; declared in `[CatalystData(..., KeyField = "id")]`.        |
 
 ## Diagnostics
 
-| ID         | Severity | Trigger                                                                                              |
-| ---------- | -------- | ---------------------------------------------------------------------------------------------------- |
+| ID     | Severity | Trigger                                                                                              |
+| ------ | -------- | ---------------------------------------------------------------------------------------------------- |
 | ID     | Severity | Trigger                                                                                              |
 | ------ | -------- | ---------------------------------------------------------------------------------------------------- |
 | DC0001 | Error    | JSON file not found in `<AdditionalFiles>`.                                                          |
@@ -130,11 +130,11 @@ live OCP regression test for this story.
 | DC0004 | Error    | Entry-point shape unsupported by the matched reader.                                                 |
 | DC0005 | Error    | Target type missing the `partial` modifier.                                                          |
 | DC0006 | Warning  | JSON column has no member on the supplied template type.                                             |
-| DC0007 | Error    | Inference fell over (mixed shapes, empty array, leading null ...).                                  |
+| DC0007 | Error    | Inference fell over (mixed shapes, empty array, leading null ...).                                   |
 | DC0008 | Error    | Row key/identifier rejected (must be a non-empty C# identifier).                                     |
 | DC0009 | Error    | Array entry-point contains a non-object item.                                                        |
 | DC0010 | Error    | Array entry-point used without `KeyField`.                                                           |
-| DC0011 | Error    | Column member name resolves to `Kind` (collides with the synthetic enum property).                  |
+| DC0011 | Error    | Column member name resolves to `Kind` (collides with the synthetic enum property).                   |
 | DC0012 | Error    | No `IEntryPointReader` accepted the entry-point.                                                     |
 | DC0013 | Error    | No `ISchemaProvider` matched the target.                                                             |
 | DC0014 | Error    | No `ITypeEmitter` matched the target.                                                                |
@@ -148,5 +148,5 @@ live OCP regression test for this story.
 - Plugins discover each other through `[ModuleInitializer]` and deterministic
   topo ordering over declared dependencies; **no numeric priority hardcode** and
   **no central manifest**.
-Runtime builds contain **no** analyzer code and **no** reflection for these tables
-— only generated static data (AOT / trim safe).
+  Runtime builds contain **no** analyzer code and **no** reflection for these tables
+  — only generated static data (AOT / trim safe).
