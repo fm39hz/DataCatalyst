@@ -1,4 +1,0 @@
-<Solution>
-  <Project Path="UniversalDataDriven.SourceGen/UniversalDataDriven.SourceGen.csproj" />
-  <Project Path="UniversalDataDriven.Test/UniversalDataDriven.Test.csproj" />
-</Solution>

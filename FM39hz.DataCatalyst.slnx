@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="FM39hz.DataCatalyst.SourceGen/FM39hz.DataCatalyst.SourceGen.csproj" />
+  <Project Path="FM39hz.DataCatalyst.Test/FM39hz.DataCatalyst.Test.csproj" />
+</Solution>

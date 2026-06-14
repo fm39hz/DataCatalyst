@@ -1,4 +1,4 @@
-# UniversalDataDriven
+# FM39hz.DataCatalyst
 
 A Roslyn source generator that bakes JSON data into strongly-typed static C# catalogs. Designed for performance-critical paths where reflection and runtime parsing are unacceptable.
 
@@ -28,9 +28,9 @@ Add the JSON files as `AdditionalFiles` in your `.csproj`:
 Mark a `partial` class with the attribute. The generator will fill in the rest.
 
 ```csharp
-using UniversalDataDriven.SourceGen;
+using FM39hz.DataCatalyst;
 
-[GenerateFromData("Data/Heroes.json")]
+[CatalystData("Data/Heroes.json")]
 public partial class HeroCatalog { }
 
 ```
