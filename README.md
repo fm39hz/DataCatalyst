@@ -14,7 +14,7 @@ Roslyn source generator: **JSON → strongly-typed C# struct + enum + FrozenDict
 ### Installation
 
 ```
-dotnet add package FM39hz.DataCatalyst --version 0.2.4
+dotnet add package FM39hz.DataCatalyst --version 0.2.5
 ```
 
 ### Project setup
