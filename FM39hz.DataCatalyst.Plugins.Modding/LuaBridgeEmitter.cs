@@ -34,11 +34,9 @@ public sealed class LuaBridgeEmitter : ITypeEmitter {
 		sb.Append("public static class ").Append(t).AppendLine("Lua {");
 		sb.AppendLine("\tpublic static void Register(global::MoonSharp.Interpreter.Script lua) {");
 
-		// Add → one delegate per column set
 		EmitRegisterAdd(sb, t, modType, schema);
 		sb.AppendLine();
 
-		// Get by Kind string (Kind → T lookup via TryGetKind)
 		sb.Append("\t\tlua.Globals[\"").Append(t).Append("_Get\"] = (global::System.Func<string, ").Append(t).Append(">)Get;\n");
 
 		sb.AppendLine("\t}");

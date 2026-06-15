@@ -2,7 +2,7 @@ namespace FM39hz.DataCatalyst;
 
 using Microsoft.CodeAnalysis;
 
-internal static class DcDiagnostics {
+public static class DcDiagnostics {
 	public static readonly DiagnosticDescriptor JsonNotFound = new("DC0001", "DataCatalyst: JSON file not found",
 		"[CatalystData] on '{0}' references '{1}' which is not present in <AdditionalFiles>",
 		"FM39hz.DataCatalyst", DiagnosticSeverity.Error, isEnabledByDefault: true);
