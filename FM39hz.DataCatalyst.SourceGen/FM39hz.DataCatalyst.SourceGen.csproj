@@ -9,7 +9,7 @@
     <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
     <DevelopmentDependency>true</DevelopmentDependency>
     <PackageId>FM39hz.DataCatalyst</PackageId>
-    <Version>0.2.3</Version>
+    <Version>0.2.4</Version>
     <Description>Roslyn source generator that bakes JSON files into strongly-typed static C# catalogs at compile time. AOT-safe, zero reflection.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <NoWarn>RS2008</NoWarn>

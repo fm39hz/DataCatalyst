@@ -3,7 +3,7 @@
 Roslyn source generator: **JSON → strongly-typed C# struct + enum + FrozenDictionary** at compile time. Zero reflection. NativeAOT-safe. Engine-agnostic.
 
 ```
-dotnet add package FM39hz.DataCatalyst --version 0.2.3
+dotnet add package FM39hz.DataCatalyst --version 0.2.4
 ```
 
 ---
