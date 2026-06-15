@@ -9,7 +9,7 @@ using System.Collections.Generic;
 ///         <item><c>InferenceSchemaProvider</c>: walks the rows and infers types via <see cref="IPrimitiveTypeRule" />.</item>
 ///         <item><c>TemplateSchemaProvider</c>: copies the schema from a user-declared template type.</item>
 ///     </list>
-///     Providers must be mutually exclusive — at most one returns <c>true</c> from
+///     Providers must be mutually exclusive - at most one returns <c>true</c> from
 ///     <see cref="Applies(DcGenerationContext)" /> for any given context.
 /// </summary>
 public interface ISchemaProvider {

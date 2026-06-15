@@ -33,7 +33,7 @@ internal sealed class ObjectOfObjectsReader : IEntryPointReader {
 		}
 
 		// Must contain at least one property whose value is an object. An empty object would also match
-		// vacuously here but produces zero rows downstream — the driver tolerates that case.
+		// vacuously here but produces zero rows downstream - the driver tolerates that case.
 		foreach (var prop in entryPoint.EnumerateObject()) {
 			if (prop.Value.ValueKind != JsonValueKind.Object) {
 				return false;

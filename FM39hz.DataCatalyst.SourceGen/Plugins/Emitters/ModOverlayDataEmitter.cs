@@ -1,13 +1,10 @@
 namespace FM39hz.DataCatalyst.Plugins.Emitters;
 
-using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
 using FM39hz.DataCatalyst.Abstractions;
 using FM39hz.DataCatalyst.Core;
-using Microsoft.CodeAnalysis;
 
 [DcPlugin(typeof(ITypeEmitter))]
 public sealed class ModOverlayDataEmitter : ITypeEmitter {

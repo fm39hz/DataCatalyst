@@ -10,7 +10,7 @@ using System.Text.Json;
 ///         <item>Widening: when two rows disagree on a column, the rule with the higher <see cref="Rank" /> wins.</item>
 ///         <item>Emission: produce a C# literal (and a default literal) for the type.</item>
 ///     </list>
-///     Adding a new primitive (e.g. <c>decimal</c>, <c>Guid</c>) is a single class — no edits to core or to
+///     Adding a new primitive (e.g. <c>decimal</c>, <c>Guid</c>) is a single class - no edits to core or to
 ///     existing rules.
 /// </summary>
 public interface IPrimitiveTypeRule {

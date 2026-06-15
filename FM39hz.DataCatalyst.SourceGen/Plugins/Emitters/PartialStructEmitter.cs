@@ -127,7 +127,7 @@ internal sealed class PartialStructEmitter : ITypeEmitter {
 		sb.AppendLine($"\tpublic static global::System.Collections.Generic.IEnumerable<{t}> Values => All.Values;");
 		sb.AppendLine();
 
-		// Get(Kind) — type-safe, backend-aware, mod-aware
+		// Get(Kind) - type-safe, backend-aware, mod-aware
 		if (hasBackend && hasMods) {
 			sb.AppendLine($"\tpublic static {t} Get({enumName} kind) {{");
 			sb.AppendLine($"\t\tif ({t}Mod.TryGet({t}Mod.KindToString(kind), out var m)) return m;");
@@ -135,22 +135,25 @@ internal sealed class PartialStructEmitter : ITypeEmitter {
 			sb.AppendLine($"\t\tif (b != 0) return ResolveRepository().Get(kind);");
 			sb.AppendLine($"\t\treturn All[kind];");
 			sb.AppendLine("\t}");
-		} else if (hasBackend) {
+		}
+		else if (hasBackend) {
 			sb.AppendLine($"\tpublic static {t} Get({enumName} kind) {{");
 			sb.AppendLine($"\t\tvar b = global::FM39hz.DataCatalyst.Runtime.DataBackendSelector.Current;");
 			sb.AppendLine($"\t\tif (b != 0) return ResolveRepository().Get(kind);");
 			sb.AppendLine($"\t\treturn All[kind];");
 			sb.AppendLine("\t}");
-		} else if (hasMods) {
+		}
+		else if (hasMods) {
 			sb.AppendLine($"\tpublic static {t} Get({enumName} kind) {{");
 			sb.AppendLine($"\t\tif ({t}Mod.TryGet({t}Mod.KindToString(kind), out var m)) return m;");
 			sb.AppendLine($"\t\treturn All[kind];");
 			sb.AppendLine("\t}");
-		} else {
+		}
+		else {
 			sb.AppendLine($"\tpublic static {t} Get({enumName} kind) => All[kind];");
 		}
 
-		// TryGet(Kind, out) — type-safe, backend-aware, mod-aware
+		// TryGet(Kind, out) - type-safe, backend-aware, mod-aware
 		if (hasBackend && hasMods) {
 			sb.AppendLine($"\tpublic static bool TryGet({enumName} kind, out {t} value) {{");
 			sb.AppendLine($"\t\tif ({t}Mod.TryGet({t}Mod.KindToString(kind), out var m)) {{ value = m; return true; }}");
@@ -158,18 +161,21 @@ internal sealed class PartialStructEmitter : ITypeEmitter {
 			sb.AppendLine($"\t\tif (b != 0) return ResolveRepository().TryGet(kind, out value);");
 			sb.AppendLine($"\t\treturn All.TryGetValue(kind, out value!);");
 			sb.AppendLine("\t}");
-		} else if (hasBackend) {
+		}
+		else if (hasBackend) {
 			sb.AppendLine($"\tpublic static bool TryGet({enumName} kind, out {t} value) {{");
 			sb.AppendLine($"\t\tvar b = global::FM39hz.DataCatalyst.Runtime.DataBackendSelector.Current;");
 			sb.AppendLine($"\t\tif (b != 0) return ResolveRepository().TryGet(kind, out value);");
 			sb.AppendLine($"\t\treturn All.TryGetValue(kind, out value!);");
 			sb.AppendLine("\t}");
-		} else if (hasMods) {
+		}
+		else if (hasMods) {
 			sb.AppendLine($"\tpublic static bool TryGet({enumName} kind, out {t} value) {{");
 			sb.AppendLine($"\t\tif ({t}Mod.TryGet({t}Mod.KindToString(kind), out var m)) {{ value = m; return true; }}");
 			sb.AppendLine($"\t\treturn All.TryGetValue(kind, out value!);");
 			sb.AppendLine("\t}");
-		} else {
+		}
+		else {
 			sb.AppendLine($"\tpublic static bool TryGet({enumName} kind, out {t} value) => All.TryGetValue(kind, out value!);");
 		}
 

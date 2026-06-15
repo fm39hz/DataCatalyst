@@ -13,7 +13,7 @@ using System.Text.Json;
 ///     <para>
 ///         <see cref="CanRead" /> implementations MUST be conservative: a reader returns <c>true</c> only
 ///         when it is structurally certain the entry-point matches its shape. Two readers must never both
-///         return <c>true</c> for the same input — overlapping claims are a contract violation.
+///         return <c>true</c> for the same input - overlapping claims are a contract violation.
 ///     </para>
 ///     <para>
 ///         When <see cref="Read(JsonElement, DcGenerationContext)" /> returns <c>null</c> the reader has

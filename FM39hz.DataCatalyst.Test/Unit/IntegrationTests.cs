@@ -11,7 +11,7 @@ public sealed class IntegrationTests : IntegrationTestBase {
 
 	[Fact]
 	public void CoreGen_ProducesEnumAndFrozenDictionary() {
-		var json = """
+		var json = /*lang=json,strict*/ """
 			{ "Potion": { "Health": 50 }, "Elixir": { "Health": 200 } }
 			""";
 		var (_, diags, sources) = RunGenerator("""
@@ -35,7 +35,7 @@ public sealed class IntegrationTests : IntegrationTestBase {
 
 	[Fact]
 	public void ModSupportGen_ProducesModClass() {
-		var json = """
+		var json = /*lang=json,strict*/ """
 			{ "Potion": { "Health": 50 } }
 			""";
 		var (_, diags, sources) = RunGenerator("""
@@ -65,7 +65,7 @@ public sealed class IntegrationTests : IntegrationTestBase {
 
 	[Fact]
 	public void BackendJsonGen_ProducesJsonReader() {
-		var json = """
+		var json = /*lang=json,strict*/ """
 			{ "Potion": { "Health": 50 } }
 			""";
 		var (_, diags, sources) = RunGenerator("""
@@ -88,7 +88,7 @@ public sealed class IntegrationTests : IntegrationTestBase {
 
 	[Fact]
 	public void BackendSqliteGen_ProducesSqlReader() {
-		var json = """
+		var json = /*lang=json,strict*/ """
 			{ "Potion": { "Health": 50 } }
 			""";
 		var (_, diags, sources) = RunGenerator("""
@@ -112,7 +112,7 @@ public sealed class IntegrationTests : IntegrationTestBase {
 
 	[Fact]
 	public void AllBackendsWithModSupport_ProducesFourFiles() {
-		var json = """
+		var json = /*lang=json,strict*/ """
 			{ "Potion": { "Health": 50 } }
 			""";
 		var (_, diags, sources) = RunGenerator("""
@@ -135,7 +135,7 @@ public sealed class IntegrationTests : IntegrationTestBase {
 
 	[Fact]
 	public void RuntimeSource_ContainsAllContracts() {
-		var json = """{ "Potion": { "Health": 50 } }""";
+		var json = /*lang=json,strict*/ """{ "Potion": { "Health": 50 } }""";
 		var (_, diags, sources) = RunGenerator("""
 			using FM39hz.DataCatalyst;
 			[CatalystData("test.json")]
@@ -163,7 +163,7 @@ public sealed class IntegrationTests : IntegrationTestBase {
 
 	[Fact]
 	public void NonPartialType_ReportsError() {
-		var json = """{ "Potion": { "Health": 50 } }""";
+		var json = /*lang=json,strict*/ """{ "Potion": { "Health": 50 } }""";
 		var (_, diags, _) = RunGenerator("""
 			using FM39hz.DataCatalyst;
 			[CatalystData("test.json")]
@@ -192,7 +192,7 @@ public sealed class IntegrationTests : IntegrationTestBase {
 
 	[Fact]
 	public void AttributeFile_ContainsBothAttributes() {
-		var json = """{ "Potion": { "Health": 50 } }""";
+		var json = /*lang=json,strict*/ """{ "Potion": { "Health": 50 } }""";
 		var (_, diags, sources) = RunGenerator("""
 			using FM39hz.DataCatalyst;
 			[CatalystData("test.json")]
@@ -213,7 +213,7 @@ public sealed class IntegrationTests : IntegrationTestBase {
 
 	[Fact]
 	public void CoreGen_ProducesQueryAndFind() {
-		var json = """{ "Potion": { "Health": 50 } }""";
+		var json = /*lang=json,strict*/ """{ "Potion": { "Health": 50 } }""";
 		var (_, diags, sources) = RunGenerator("""
 			using FM39hz.DataCatalyst;
 			[CatalystData("test.json")]
@@ -231,7 +231,7 @@ public sealed class IntegrationTests : IntegrationTestBase {
 
 	[Fact]
 	public void ModOverlay_ProducesAddRange() {
-		var json = """{ "Potion": { "Health": 50 } }""";
+		var json = /*lang=json,strict*/ """{ "Potion": { "Health": 50 } }""";
 		var (_, diags, sources) = RunGenerator("""
 			using FM39hz.DataCatalyst;
 			[CatalystData("test.json", ModSupport = true)]
@@ -253,7 +253,7 @@ public sealed class IntegrationTests : IntegrationTestBase {
 			[CatalystData("test.json")]
 			public partial struct Item { }
 			""",
-			new TestAdditionalText("test.json", """{ "Potion": { "Health": 50 } }"""));
+			new TestAdditionalText("test.json", /*lang=json,strict*/ """{ "Potion": { "Health": 50 } }"""));
 
 		diags.Where(d => d.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
 		var runtime = FindSource(sources, "IDataRepository<");
@@ -264,7 +264,7 @@ public sealed class IntegrationTests : IntegrationTestBase {
 
 	[Fact]
 	public void CoreGen_RegistersCatalog() {
-		var json = """{ "Potion": { "Health": 50 } }""";
+		var json = /*lang=json,strict*/ """{ "Potion": { "Health": 50 } }""";
 		var (_, diags, sources) = RunGenerator("""
 			using FM39hz.DataCatalyst;
 			[CatalystData("test.json")]

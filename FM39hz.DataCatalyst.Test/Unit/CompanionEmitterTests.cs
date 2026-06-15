@@ -1,6 +1,5 @@
 namespace FM39hz.DataCatalyst.Test.Unit;
 
-using System.Collections.Immutable;
 using System.Text.Json;
 using FluentAssertions;
 using FM39hz.DataCatalyst.Abstractions;
@@ -10,13 +9,13 @@ using Microsoft.CodeAnalysis;
 using Xunit;
 
 public sealed class CompanionEmitterTests {
-	private static readonly SchemaInfo FlatSchema = new SchemaInfo([
+	private static readonly SchemaInfo FlatSchema = new([
 		new SchemaColumn("Name", SchemaType.OfPrimitive("string")),
 		new SchemaColumn("Health", SchemaType.OfPrimitive("int")),
 		new SchemaColumn("Weight", SchemaType.OfPrimitive("float")),
 	]);
 
-	private static readonly SchemaInfo NestedSchema = new SchemaInfo([
+	private static readonly SchemaInfo NestedSchema = new([
 		new SchemaColumn("Name", SchemaType.OfPrimitive("string")),
 		new SchemaColumn("Stats", SchemaType.OfObject([
 			new SchemaColumn("Str", SchemaType.OfPrimitive("int")),
@@ -28,12 +27,12 @@ public sealed class CompanionEmitterTests {
 
 	private static readonly IReadOnlyList<RowData> Rows = [
 		new RowData("Potion", new Dictionary<string, JsonValueModel> {
-			["Name"] = Json("{\"x\": \"Potion of Healing\"}").ObjectMembers!["x"],
+			["Name"] = Json(/*lang=json,strict*/ "{\"x\": \"Potion of Healing\"}").ObjectMembers!["x"],
 			["Health"] = Json("50"),
 			["Weight"] = Json("0.5"),
 		}),
 		new RowData("Elixir", new Dictionary<string, JsonValueModel> {
-			["Name"] = Json("{\"x\": \"Elixir of Power\"}").ObjectMembers!["x"],
+			["Name"] = Json(/*lang=json,strict*/ "{\"x\": \"Elixir of Power\"}").ObjectMembers!["x"],
 			["Health"] = Json("200"),
 			["Weight"] = Json("0.3"),
 		}),
@@ -42,28 +41,20 @@ public sealed class CompanionEmitterTests {
 	// --- Registry Discovery ---
 
 	[Fact]
-	public void CompanionEmitters_ShouldContainSqliteDataEmitter() {
-		DcPluginRegistry.CompanionEmitters
+	public void CompanionEmitters_ShouldContainSqliteDataEmitter() => DcPluginRegistry.CompanionEmitters
 			.Should().Contain(e => e is SqliteDataEmitter);
-	}
 
 	[Fact]
-	public void CompanionEmitters_ShouldContainJsonRuntimeDataEmitter() {
-		DcPluginRegistry.CompanionEmitters
+	public void CompanionEmitters_ShouldContainJsonRuntimeDataEmitter() => DcPluginRegistry.CompanionEmitters
 			.Should().Contain(e => e is JsonRuntimeDataEmitter);
-	}
 
 	[Fact]
-	public void CompanionEmitters_ShouldContainModOverlayDataEmitter() {
-		DcPluginRegistry.CompanionEmitters
+	public void CompanionEmitters_ShouldContainModOverlayDataEmitter() => DcPluginRegistry.CompanionEmitters
 			.Should().Contain(e => e is ModOverlayDataEmitter);
-	}
 
 	[Fact]
-	public void CompanionEmitters_Count_ShouldBeThree() {
-		DcPluginRegistry.CompanionEmitters
+	public void CompanionEmitters_Count_ShouldBeThree() => DcPluginRegistry.CompanionEmitters
 			.Should().HaveCount(3);
-	}
 
 	// --- SqliteDataEmitter Applicable ---
 
@@ -312,24 +303,17 @@ public sealed class CompanionEmitterTests {
 	// --- Component Names ---
 
 	[Fact]
-	public void SqliteDataEmitter_Name_ShouldBeSqlite() {
-		new SqliteDataEmitter().Name.Should().Be("Sqlite");
-	}
+	public void SqliteDataEmitter_Name_ShouldBeSqlite() => new SqliteDataEmitter().Name.Should().Be("Sqlite");
 
 	[Fact]
-	public void JsonRuntimeDataEmitter_Name_ShouldBeJsonRuntime() {
-		new JsonRuntimeDataEmitter().Name.Should().Be("JsonRuntime");
-	}
+	public void JsonRuntimeDataEmitter_Name_ShouldBeJsonRuntime() => new JsonRuntimeDataEmitter().Name.Should().Be("JsonRuntime");
 
 	[Fact]
-	public void ModOverlayDataEmitter_Name_ShouldBeModOverlay() {
-		new ModOverlayDataEmitter().Name.Should().Be("ModOverlay");
-	}
+	public void ModOverlayDataEmitter_Name_ShouldBeModOverlay() => new ModOverlayDataEmitter().Name.Should().Be("ModOverlay");
 
 	// --- helper ---
 
-	private static DcGenerationContext MakeCtx(DataBackend backend = DataBackend.None, bool modSupport = false) {
-		return new DcGenerationContext(
+	private static DcGenerationContext MakeCtx(DataBackend backend = DataBackend.None, bool modSupport = false) => new(
 			targetFullyQualifiedName: "global::Test.MyData",
 			containingNamespace: "Test",
 			simpleName: "MyData",
@@ -343,5 +327,4 @@ public sealed class CompanionEmitterTests {
 			location: Location.None,
 			template: null,
 			spc: default);
-	}
 }

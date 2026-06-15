@@ -25,13 +25,11 @@ public abstract class IntegrationTestBase {
 			options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 	}
 
-	protected static GeneratorDriver CreateDriver(params AdditionalText[] additionalTexts) {
-		return CSharpGeneratorDriver.Create(
+	protected static GeneratorDriver CreateDriver(params AdditionalText[] additionalTexts) => CSharpGeneratorDriver.Create(
 			generators: [new UniversalDataGenerator().AsSourceGenerator()],
 			additionalTexts: additionalTexts,
 			parseOptions: CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.CSharp12),
 			optionsProvider: null);
-	}
 
 	protected static (Compilation Output, ImmutableArray<Diagnostic> Diagnostics, string[] GeneratedSources) RunGenerator(
 		string source, params AdditionalText[] additionalTexts) {
@@ -53,7 +51,9 @@ public abstract class IntegrationTestBase {
 
 	protected static string? FindSource(string[] sources, string contains) {
 		foreach (var s in sources) {
-			if (s.Contains(contains)) return s;
+			if (s.Contains(contains)) {
+				return s;
+			}
 		}
 		return null;
 	}

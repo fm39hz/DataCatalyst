@@ -11,11 +11,11 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 ///     Universal Data-Driven Source Generator (DataCatalyst). Reads JSON files declared as <c>AdditionalFiles</c>
 ///     and emits a strongly-typed, reflection-free static registry into any partial type tagged with
 ///     <c>[CatalystData(...)]</c>. Materializes definitions at compile time
-///     so game assemblies stay Native AOT / trimming friendly — consumers never parse JSON or reflect over rows at runtime.
+///     so game assemblies stay Native AOT / trimming friendly - consumers never parse JSON or reflect over rows at runtime.
 ///     <para>
 ///         All generation logic lives in plugins under <c>FM39hz.DataCatalyst.Plugins.*</c> and is wired
 ///         through the static <see cref="DcPluginRegistry" /> via <c>[ModuleInitializer]</c> when the analyzer loads.
-///         That initializer runs in the compiler/Roslyn process only — not in shipped game binaries.
+///         That initializer runs in the compiler/Roslyn process only - not in shipped game binaries.
 ///         This generator is just the Roslyn pipeline shim: it harvests target types and hands them to
 ///         <see cref="PipelineDriver.Run" />.
 ///     </para>
@@ -298,13 +298,13 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 		var modPlugins = context.SyntaxProvider
 			.ForAttributeWithMetadataName(
 				DcConstants.MOD_PLUGIN_ATTRIBUTE_METADATA,
-				static (node, _) => node is Microsoft.CodeAnalysis.CSharp.Syntax.ClassDeclarationSyntax,
+				static (node, _) => node is ClassDeclarationSyntax,
 				static (ctx, _) => {
-					if (ctx.TargetSymbol is not Microsoft.CodeAnalysis.INamedTypeSymbol type) {
+					if (ctx.TargetSymbol is not INamedTypeSymbol type) {
 						return null;
 					}
 
-					Microsoft.CodeAnalysis.AttributeData? attr = null;
+					AttributeData? attr = null;
 					foreach (var a in ctx.Attributes) {
 						attr = a;
 						break;
@@ -322,14 +322,14 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 					}
 
 					if (attr.ConstructorArguments.Length >= 2 && attr.ConstructorArguments[1].Values is var deps) {
-					var list = new System.Collections.Generic.List<string>();
-								foreach (var d in deps) {
-									var s = d.Value?.ToString();
-									if (!string.IsNullOrEmpty(s)) {
-										list.Add(s!);
-									}
-								}
-						dependencies = list.ToArray();
+						var list = new System.Collections.Generic.List<string>();
+						foreach (var d in deps) {
+							var s = d.Value?.ToString();
+							if (!string.IsNullOrEmpty(s)) {
+								list.Add(s!);
+							}
+						}
+						dependencies = [.. list];
 					}
 
 					foreach (var na in attr.NamedArguments) {
@@ -345,7 +345,9 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 										list.Add(s!);
 									}
 								}
-								dependencies = list.ToArray();
+								dependencies = [.. list];
+								break;
+							default:
 								break;
 						}
 					}
@@ -354,7 +356,7 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 						name = type.Name;
 					}
 
-					var fullType = type.ToDisplayString(Microsoft.CodeAnalysis.SymbolDisplayFormat.FullyQualifiedFormat);
+					var fullType = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
 					return ((string Name, string FullType, string[] Dependencies)?)(Name: name, FullType: fullType, Dependencies: dependencies);
 				})
 			.Where(static p => p.HasValue)
@@ -373,14 +375,17 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 
 			var seen = new System.Collections.Generic.HashSet<string>();
 			foreach (var (name, fullType, deps) in plugins) {
-				if (!seen.Add(name)) continue;
+				if (!seen.Add(name)) {
+					continue;
+				}
+
 				sb.Append("\t[System.Runtime.CompilerServices.ModuleInitializer]\n");
 				sb.Append("\tinternal static void Register_").Append(System.Text.RegularExpressions.Regex.Replace(name, "[^a-zA-Z0-9]", "_")).Append("() =>\n");
 				sb.Append("\t\tglobal::FM39hz.DataCatalyst.Runtime.PluginRegistry.Register(new ").Append(fullType).AppendLine("());\n");
 			}
 
 			sb.Append(codegenFooter);
-			spc.AddSource("ModPluginRegistrations.g.cs", global::Microsoft.CodeAnalysis.Text.SourceText.From(sb.ToString(), System.Text.Encoding.UTF8));
+			spc.AddSource("ModPluginRegistrations.g.cs", Microsoft.CodeAnalysis.Text.SourceText.From(sb.ToString(), System.Text.Encoding.UTF8));
 		});
 	}
 }

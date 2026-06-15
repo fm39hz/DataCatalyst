@@ -77,7 +77,7 @@ internal sealed class InferenceSchemaProvider : ISchemaProvider {
 
 			case JsonValueKind.Array: {
 					if (v.ArrayItems!.Count == 0) {
-						ctx.ReportDiagnostic(Diagnostic.Create(DcDiagnostics.InferenceUnsupported, ctx.Location, ctx.TargetFullyQualifiedName, path, "empty array — element type cannot be inferred"));
+						ctx.ReportDiagnostic(Diagnostic.Create(DcDiagnostics.InferenceUnsupported, ctx.Location, ctx.TargetFullyQualifiedName, path, "empty array - element type cannot be inferred"));
 						return null;
 					}
 
@@ -113,7 +113,7 @@ internal sealed class InferenceSchemaProvider : ISchemaProvider {
 				}
 
 			case JsonValueKind.Null:
-				ctx.ReportDiagnostic(Diagnostic.Create(DcDiagnostics.InferenceUnsupported, ctx.Location, ctx.TargetFullyQualifiedName, path, "null leading value — type cannot be inferred"));
+				ctx.ReportDiagnostic(Diagnostic.Create(DcDiagnostics.InferenceUnsupported, ctx.Location, ctx.TargetFullyQualifiedName, path, "null leading value - type cannot be inferred"));
 				return null;
 			case JsonValueKind.Undefined:
 			default:
@@ -125,7 +125,7 @@ internal sealed class InferenceSchemaProvider : ISchemaProvider {
 	private static SchemaType? InferPrimitive(JsonValueModel v, DcGenerationContext ctx, string path) {
 		// Walk primitive rules in deterministic dependency-topological order; the first whose TryInfer
 		// accepts wins. For numbers this picks int (rank 1) before long (rank 2) before float (rank 3)
-		// when the literal fits a narrower type, so widening — not inference — is what triggers float
+		// when the literal fits a narrower type, so widening - not inference - is what triggers float
 		// adoption later on.
 		foreach (var rule in DcPluginRegistry.Primitives) {
 			if (rule.TryInfer(v)) {

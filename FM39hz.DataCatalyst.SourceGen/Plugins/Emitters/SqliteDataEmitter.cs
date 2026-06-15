@@ -1,6 +1,5 @@
 namespace FM39hz.DataCatalyst.Plugins.Emitters;
 
-using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.CompilerServices;

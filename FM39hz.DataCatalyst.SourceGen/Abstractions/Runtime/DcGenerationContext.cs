@@ -10,7 +10,7 @@ using Microsoft.CodeAnalysis;
 ///         <item>Report Roslyn diagnostics through <see cref="ReportDiagnostic(Diagnostic)" />.</item>
 ///     </list>
 ///     <para>
-///         The context intentionally does not expose a mutable bag — plugins must remain pure with respect to
+///         The context intentionally does not expose a mutable bag - plugins must remain pure with respect to
 ///         each other. State that must flow between phases (e.g. inferred schema) is passed explicitly through
 ///         method arguments by the <c>PipelineDriver</c>.
 ///     </para>

@@ -8,8 +8,8 @@ using System;
 /// </summary>
 [Flags]
 public enum DataBackend {
-	None   = 0,
-	Json   = 1 << 0,
+	None = 0,
+	Json = 1 << 0,
 	Sqlite = 1 << 1,
-	All    = Json | Sqlite,
+	All = Json | Sqlite,
 }

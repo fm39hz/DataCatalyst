@@ -5,7 +5,7 @@ using FM39hz.DataCatalyst.Runtime;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 
-// Game-defined interface — exposed through ServiceRegistry
+// Game-defined interface - exposed through ServiceRegistry
 public interface ISystemRegistry {
     void Register<T>(T system) where T : QuerySystem;
     void RegisterAfter<T, TAfter>(T system)
@@ -32,7 +32,7 @@ public sealed class ItemPack : IModPlugin {
     }
 }
 
-// Friflo ECS system — processes items added by the mod
+// Friflo ECS system - processes items added by the mod
 public sealed class ItemAuraSystem : QuerySystem {
     [Query]
     public void Run(ref ItemKindRef kind, ref ItemWeight weight) {
