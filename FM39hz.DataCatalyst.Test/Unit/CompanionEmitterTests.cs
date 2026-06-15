@@ -348,7 +348,7 @@ public sealed class CompanionEmitterTests {
 
 	// --- helper ---
 
-	private static DcGenerationContext MakeCtx(DataBackend backend = DataBackend.None, bool modSupport = false, int loadMode = 0) => new(
+	private static DcGenerationContext MakeCtx(DataBackend backend = DataBackend.None, bool modSupport = false, int loadMode = 0, string schemaVersion = "") => new(
 		targetFullyQualifiedName: "global::Test.MyData",
 		containingNamespace: "Test",
 		simpleName: "MyData",
@@ -360,6 +360,7 @@ public sealed class CompanionEmitterTests {
 		backend: backend,
 		modSupport: modSupport,
 		loadMode: loadMode,
+		schemaVersion: schemaVersion,
 		location: Location.None,
 		template: null,
 		spc: default);

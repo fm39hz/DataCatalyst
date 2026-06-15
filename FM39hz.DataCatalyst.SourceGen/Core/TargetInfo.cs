@@ -20,6 +20,7 @@ internal sealed class TargetInfo {
 	public bool ModSupport { get; }
 	public ImmutableArray<string> RefToTargets { get; }
 	public int LoadMode { get; }
+	public string SchemaVersion { get; }
 	public Location Location { get; }
 
 	private TargetInfo(
@@ -37,6 +38,7 @@ internal sealed class TargetInfo {
 		bool modSupport,
 		ImmutableArray<string> refToTargets,
 		int loadMode,
+		string schemaVersion,
 		Location location) {
 		FullyQualifiedName = fullyQualifiedName;
 		ContainingNamespace = containingNamespace;
@@ -51,6 +53,8 @@ internal sealed class TargetInfo {
 		Backend = backend;
 		ModSupport = modSupport;
 		RefToTargets = refToTargets;
+		LoadMode = loadMode;
+		SchemaVersion = schemaVersion;
 		Location = location;
 	}
 
@@ -72,6 +76,7 @@ internal sealed class TargetInfo {
 		var modSupport = false;
 		var refToBuilder = ImmutableArray.CreateBuilder<string>();
 		var loadMode = 0;
+		var schemaVersion = string.Empty;
 		ITypeSymbol? template = null;
 
 		if (attr.ConstructorArguments.Length >= 1 && attr.ConstructorArguments[0].Value is string jp) {
@@ -108,6 +113,9 @@ internal sealed class TargetInfo {
 					break;
 				case "LoadMode" when na.Value.Value is int lm:
 					loadMode = lm;
+					break;
+				case "SchemaVersion" when na.Value.Value is string sv:
+					schemaVersion = sv;
 					break;
 				case "RefTo" when na.Value.Values is { Length: > 0 } refTypes:
 					foreach (var r in refTypes) {
@@ -158,6 +166,7 @@ internal sealed class TargetInfo {
 			modSupport: modSupport,
 			refToTargets: refToBuilder.ToImmutable(),
 			loadMode: loadMode,
+			schemaVersion: schemaVersion,
 			location: loc);
 	}
 

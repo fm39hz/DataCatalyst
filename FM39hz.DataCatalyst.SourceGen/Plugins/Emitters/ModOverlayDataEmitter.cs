@@ -32,6 +32,7 @@ public sealed class ModOverlayDataEmitter : ITypeEmitter {
 
 		sb.Append("public static partial class ").Append(typeName).AppendLine("Mod {");
 		sb.AppendLine("\tprivate static global::System.Collections.Generic.Dictionary<string, " + typeName + ">? _modEntries;");
+		sb.Append("\tpublic const string SchemaVersion = \"").Append(EscapeString(ctx.SchemaVersion)).AppendLine("\";");
 		sb.AppendLine();
 
 		EmitAddEntry(sb, typeName);

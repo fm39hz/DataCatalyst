@@ -15,6 +15,7 @@ public sealed class DcGenerationContext(
 	DataBackend backend,
 	bool modSupport,
 	int loadMode,
+	string schemaVersion,
 	Location location,
 	ITemplateMetadata? template,
 	SourceProductionContext spc) {
@@ -29,6 +30,7 @@ public sealed class DcGenerationContext(
 	public DataBackend Backend { get; } = backend;
 	public bool ModSupport { get; } = modSupport;
 	public int LoadMode { get; } = loadMode;
+	public string SchemaVersion { get; } = schemaVersion;
 	public Location Location { get; } = location;
 	public ITemplateMetadata? Template { get; } = template;
 	public IReadOnlyDictionary<string, IReadOnlyList<RowData>>? RefToRows { get; set; }

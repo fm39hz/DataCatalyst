@@ -62,6 +62,7 @@ internal static class PipelineDriver {
 				backend: target.Backend,
 				modSupport: target.ModSupport,
 				loadMode: target.LoadMode,
+				schemaVersion: target.SchemaVersion,
 				location: target.Location,
 				template: target.Template,
 				spc: spc);

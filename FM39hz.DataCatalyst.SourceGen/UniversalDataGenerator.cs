@@ -23,6 +23,7 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 					public bool ModSupport { get; init; } = false;
 				public System.Type[]? RefTo { get; init; }
 				public int LoadMode { get; init; } = 0;
+				public string SchemaVersion { get; init; } = "";
 
 				public CatalystDataAttribute(string jsonPath, string entryPoint = "", System.Type templateType = null) {
 						JsonPath = jsonPath;
@@ -39,6 +40,30 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 					public ModPluginAttribute(string name, string[] dependencies = null) {
 						Name = name;
 						Dependencies = dependencies ?? [];
+					}
+				}
+
+				public static class DepParser {
+					public static (string Name, int Major, int Minor, int Patch) Parse(string dep) {
+						var at = dep.LastIndexOf('@');
+						if (at < 0) return (dep, 0, 0, 0);
+						var name = dep.Substring(0, at);
+						var ver = dep.Substring(at + 1);
+						var parts = ver.Split('.');
+						var major = parts.Length > 0 && int.TryParse(parts[0], out var m) ? m : 0;
+						var minor = parts.Length > 1 && int.TryParse(parts[1], out var n) ? n : 0;
+						var patch = parts.Length > 2 && int.TryParse(parts[2], out var p) ? p : 0;
+						return (name, major, minor, patch);
+					}
+
+					public static bool Satisfies(string required, string available) {
+						var (_, rMajor, rMinor, rPatch) = Parse(required);
+						var (_, aMajor, aMinor, aPatch) = Parse(available);
+						if (rMajor == 0) return true;
+						if (aMajor != rMajor) return false;
+						if (aMinor > rMinor) return true;
+						if (aMinor < rMinor) return false;
+						return aPatch >= rPatch;
 					}
 				}
 				""");
@@ -96,6 +121,25 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 				public static class LoadModeConst {
 					public const int Lazy = 0;
 					public const int Eager = 1;
+				}
+
+				public static class SchemaVersionConst {
+					public const string None = "";
+				}
+
+				public static class SchemaMigrationRegistry {
+					private static readonly Dictionary<(System.Type type, int major), object> _migrations = new();
+					private static readonly object _lock = new();
+
+					public static void Register<T>(int fromMajorVersion, System.Func<string, Dictionary<string, object>, Dictionary<string, object>> migrator) {
+						lock (_lock) { _migrations[(typeof(T), fromMajorVersion)] = migrator; }
+					}
+
+					internal static System.Func<string, Dictionary<string, object>, Dictionary<string, object>>? Get<T>(int fromMajor) {
+						lock (_lock) {
+							return _migrations.TryGetValue((typeof(T), fromMajor), out var m) ? (System.Func<string, Dictionary<string, object>, Dictionary<string, object>>)m : null;
+						}
+					}
 				}
 
 				public static class DataBackendSelector {

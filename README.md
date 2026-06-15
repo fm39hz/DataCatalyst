@@ -136,7 +136,8 @@ Mods/
 ```
 
 ```csharp
-[ModPlugin("SkillPack")]
+// Depends on CoreLib at minimum version 1.2.x (same major)
+[ModPlugin("SkillPack", ["CoreLib@1.2.1"])]
 public class SkillPack : IModPlugin {
     public void OnLoad(IModGameContext ctx) {
         ItemMod.AddEntry("SuperPotion", new() { Health = 500 });
@@ -144,6 +145,11 @@ public class SkillPack : IModPlugin {
     }
 }
 ```
+
+**Version resolution** — `DepParser.Satisfies(required, available)` checks:
+- Major must match (`1.2.1` → requires `1.x.x`)
+- Minor + patch must be ≥ declared
+- `CoreLib@2.0.1` ❌ (major mismatch), `CoreLib@1.3.0` ✅, `CoreLib@1.2.5` ✅
 
 Build: `dotnet publish -p:EnableModMerge=true`
 
@@ -180,8 +186,10 @@ All catalogs auto-register into `CatalogRegistry`.
 ## Load mode
 
 ```csharp
-[CatalystData("Items.json")]                          // Lazy (default): Repository on first Get
-[CatalystData("Items.json", LoadMode = LoadModeConst.Eager)]  // Eager: FrozenDictionary at module init
+[CatalystData("Items.json")]                                              // Lazy (default)
+[CatalystData("Items.json", LoadMode = LoadModeConst.Eager)]              // Eager
+[CatalystData("Items.json", SchemaVersion = "2.0.0")]                     // Versioned schema
+[CatalystData("Items.json", SchemaVersion = "2.0.0", ModSupport = true)]  // + mod loading
 ```
 
 | Mode        | Static fields | FrozenDictionary | Startup cost | When to use                   |
@@ -193,10 +201,29 @@ All catalogs auto-register into `CatalogRegistry`.
 
 | Backend  | ModSupport | Files                                           |
 | -------- | ---------- | ----------------------------------------------- |
-| `None`   | `false`    | Core struct + enum + FrozenDictionary           |
-| `Json`   | `false`    | Core + `ItemJson` + `ItemJsonRepository`        |
-| `Sqlite` | `false`    | Core + `ItemSql` + `ItemSqlRepository`          |
-| any      | `true`     | Core + JSON + `ItemMod` + adapter notifications |
+| `None` | `false` | Core struct + enum + Repository (Lazy) |
+| `Json` | `false` | Core + `ItemJson` + `ItemJsonRepository` |
+| `Sqlite` | `false` | Core + `ItemSql` + `ItemSqlRepository` |
+| any | `true` | Core + JSON + `ItemMod` + adapter notifications |
+
+## Schema versioning + migration
+
+```csharp
+[CatalystData("Items.json", SchemaVersion = "2.0.0", ModSupport = true)]
+public partial struct Item { }
+
+// ItemMod.SchemaVersion → "2.0.0"
+```
+
+**Migration** — game registers transforms for older schema versions:
+
+```csharp
+SchemaMigrationRegistry.Register<Item>(1, (key, oldFields) => {
+    oldFields.TryGetValue("damage", out var d);
+    oldFields["attackPower"] = d;
+    return oldFields;
+});
+```
 
 ## Examples
 
