@@ -19,6 +19,7 @@ internal sealed class TargetInfo {
 	public DataBackend Backend { get; }
 	public bool ModSupport { get; }
 	public ImmutableArray<string> RefToTargets { get; }
+	public int LoadMode { get; }
 	public Location Location { get; }
 
 	private TargetInfo(
@@ -35,6 +36,7 @@ internal sealed class TargetInfo {
 		DataBackend backend,
 		bool modSupport,
 		ImmutableArray<string> refToTargets,
+		int loadMode,
 		Location location) {
 		FullyQualifiedName = fullyQualifiedName;
 		ContainingNamespace = containingNamespace;
@@ -69,6 +71,7 @@ internal sealed class TargetInfo {
 		var backend = DataBackend.None;
 		var modSupport = false;
 		var refToBuilder = ImmutableArray.CreateBuilder<string>();
+		var loadMode = 0;
 		ITypeSymbol? template = null;
 
 		if (attr.ConstructorArguments.Length >= 1 && attr.ConstructorArguments[0].Value is string jp) {
@@ -102,6 +105,9 @@ internal sealed class TargetInfo {
 					break;
 				case "ModSupport" when na.Value.Value is bool ms:
 					modSupport = ms;
+					break;
+				case "LoadMode" when na.Value.Value is int lm:
+					loadMode = lm;
 					break;
 				case "RefTo" when na.Value.Values is { Length: > 0 } refTypes:
 					foreach (var r in refTypes) {
@@ -151,6 +157,7 @@ internal sealed class TargetInfo {
 			backend: backend,
 			modSupport: modSupport,
 			refToTargets: refToBuilder.ToImmutable(),
+			loadMode: loadMode,
 			location: loc);
 	}
 

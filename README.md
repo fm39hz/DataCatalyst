@@ -2,10 +2,6 @@
 
 Roslyn source generator: **JSON → strongly-typed C# struct + enum + FrozenDictionary** at compile time. Zero reflection. NativeAOT-safe. Engine-agnostic.
 
-```
-dotnet add package FM39hz.DataCatalyst --version 0.2.4
-```
-
 ---
 
 ## Requirements
@@ -14,6 +10,14 @@ dotnet add package FM39hz.DataCatalyst --version 0.2.4
 - C# 12+
 
 ## Quick start
+
+### Installation
+
+```
+dotnet add package FM39hz.DataCatalyst --version 0.2.4
+```
+
+### Project setup
 
 ```xml
 <ItemGroup>
@@ -39,6 +43,7 @@ public partial struct Item { }
 ```
 
 **SQLite** — `IDbConnection`/`DbDataReader`, no hard dep:
+
 ```csharp
 ItemSql.CreateSelectAllCommand(conn);
 ItemSql.ReadRow((DbDataReader)reader);
@@ -46,6 +51,7 @@ var repo = new ItemSqlRepository(() => new SqliteConnection("..."));
 ```
 
 **JSON** — `Utf8JsonReader`, no reflection:
+
 ```csharp
 ItemJson.Read(ref reader);
 ItemJson.LoadAll("items.json");
@@ -66,6 +72,7 @@ var item = Item.Get(ItemKind.Potion);      // mod override → core
 ```
 
 **Engine adapter** — notified on every change:
+
 ```csharp
 public class EcsItemAdapter : IDataViewAdapter<Item> {
     public void OnEntryAdded(string key, Item entry) { /* create entity */ }
@@ -75,6 +82,7 @@ public class EcsItemAdapter : IDataViewAdapter<Item> {
 ```
 
 **DSL reader** — custom text format:
+
 ```csharp
 public sealed class YamlItemReader : IDslReader<Item> {
     public string FileExtension => ".yaml";
@@ -157,44 +165,44 @@ DataCatalyst topo-sorts by `RefTo` — referenced catalogs are processed first.
 
 ## Generated API
 
-| Member | Description |
-|---|---|
-| `Item.Potion` | Static field per JSON entry |
-| `Item.Get(ItemKind)` | O(1) FrozenDictionary lookup |
-| `Item.Query(predicate)` | Filter entries |
-| `Item.Repository { get; set; }` | Swappable IDataRepository |
-| `ItemMod.AddEntry(key, value)` | Mod data injection |
-| `DataRef<Buff, BuffKind>` | Typed reference to another catalog |
-| `CatalogRegistry.GetAll()` | Lists all discovered catalogs |
+| Member                          | Description                        |
+| ------------------------------- | ---------------------------------- |
+| `Item.Potion`                   | Static field per JSON entry        |
+| `Item.Get(ItemKind)`            | O(1) FrozenDictionary lookup       |
+| `Item.Query(predicate)`         | Filter entries                     |
+| `Item.Repository { get; set; }` | Swappable IDataRepository          |
+| `ItemMod.AddEntry(key, value)`  | Mod data injection                 |
+| `DataRef<Buff, BuffKind>`       | Typed reference to another catalog |
+| `CatalogRegistry.GetAll()`      | Lists all discovered catalogs      |
 
 All catalogs auto-register into `CatalogRegistry`.
 
 ## Generated components
 
-| Backend | ModSupport | Files |
-|---|---|---|
-| `None` | `false` | Core struct + enum + FrozenDictionary |
-| `Json` | `false` | Core + `ItemJson` + `ItemJsonRepository` |
-| `Sqlite` | `false` | Core + `ItemSql` + `ItemSqlRepository` |
-| any | `true` | Core + JSON + `ItemMod` + adapter notifications |
+| Backend  | ModSupport | Files                                           |
+| -------- | ---------- | ----------------------------------------------- |
+| `None`   | `false`    | Core struct + enum + FrozenDictionary           |
+| `Json`   | `false`    | Core + `ItemJson` + `ItemJsonRepository`        |
+| `Sqlite` | `false`    | Core + `ItemSql` + `ItemSqlRepository`          |
+| any      | `true`     | Core + JSON + `ItemMod` + adapter notifications |
 
 ## Examples
 
-| Example | Shows |
-|---|---|
-| [`FrifloPlugin/`](examples/FrifloPlugin/) | Bridge data → Friflo Entity + components; register QuerySystem via IModPlugin |
-| [`GodotPlugin/`](examples/GodotPlugin/) | Bridge data → ItemNode (C# subclass); mod plugin spawning nodes |
-| [`ScriptingBridge/`](examples/ScriptingBridge/) | Lua VM exposing DataCatalyst + ECS API; generated typed methods |
+| Example                                         | Shows                                                                         |
+| ----------------------------------------------- | ----------------------------------------------------------------------------- |
+| [`FrifloPlugin/`](examples/FrifloPlugin/)       | Bridge data → Friflo Entity + components; register QuerySystem via IModPlugin |
+| [`GodotPlugin/`](examples/GodotPlugin/)         | Bridge data → ItemNode (C# subclass); mod plugin spawning nodes               |
+| [`ScriptingBridge/`](examples/ScriptingBridge/) | Lua VM exposing DataCatalyst + ECS API; generated typed methods               |
 
 ## Extension points
 
-| Extension | Interface | Registry |
-|---|---|---|
-| Engine adapter | `IDataViewAdapter<T>` | `DataViewAdapterRegistry` |
-| DSL reader | `IDslReader<T>` | `DslReaderRegistry` |
-| C# mod plugin | `IModPlugin` | `PluginRegistry` |
-| Custom backend | `IDataRepository<TKey, TValue>` | `Item.Repository = ...` |
-| Generator plugin | `IPrimitiveTypeRule`, `ITypeEmitter` | `DcPluginRegistry` |
+| Extension        | Interface                            | Registry                  |
+| ---------------- | ------------------------------------ | ------------------------- |
+| Engine adapter   | `IDataViewAdapter<T>`                | `DataViewAdapterRegistry` |
+| DSL reader       | `IDslReader<T>`                      | `DslReaderRegistry`       |
+| C# mod plugin    | `IModPlugin`                         | `PluginRegistry`          |
+| Custom backend   | `IDataRepository<TKey, TValue>`      | `Item.Repository = ...`   |
+| Generator plugin | `IPrimitiveTypeRule`, `ITypeEmitter` | `DcPluginRegistry`        |
 
 ## License
 

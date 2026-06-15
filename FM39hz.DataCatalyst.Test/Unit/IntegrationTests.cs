@@ -10,8 +10,8 @@ public sealed class IntegrationTests : IntegrationTestBase {
 	// === Core data gen ===
 
 	[Fact]
-	public void CoreGen_ProducesEnumAndFrozenDictionary() {
-		var json = /*lang=json,strict*/ """
+	public void CoreGen_Default_IsLazy() {
+		var json = """
 			{ "Potion": { "Health": 50 }, "Elixir": { "Health": 200 } }
 			""";
 		var (_, diags, sources) = RunGenerator("""
@@ -25,10 +25,10 @@ public sealed class IntegrationTests : IntegrationTestBase {
 		var code = FindSource(sources, "ItemKind");
 		code.Should().NotBeNull();
 		code!.Should().Contain("enum ItemKind")
-			.And.Contain("Potion")
-			.And.Contain("Elixir")
-			.And.Contain("FrozenDictionary<ItemKind, Item>")
-			.And.Contain("public static Item Get(ItemKind kind) => All[kind]");
+			.And.Contain("Repository")
+			.And.Contain("ItemRepository")
+			.And.Contain("Ensure()")
+			.And.NotContain("FrozenDictionary<ItemKind, Item>");
 	}
 
 	// === ModSupport gen ===

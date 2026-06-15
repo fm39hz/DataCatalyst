@@ -61,6 +61,7 @@ internal static class PipelineDriver {
 				jsonPath: target.JsonPath,
 				backend: target.Backend,
 				modSupport: target.ModSupport,
+				loadMode: target.LoadMode,
 				location: target.Location,
 				template: target.Template,
 				spc: spc);

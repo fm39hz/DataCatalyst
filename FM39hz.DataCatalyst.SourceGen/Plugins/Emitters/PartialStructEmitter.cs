@@ -65,29 +65,14 @@ internal sealed class PartialStructEmitter : ITypeEmitter {
 		sb.AppendLine();
 		sb.Append("\tpublic ").Append(enumName).AppendLine(" Kind { get; init; }");
 
-		sb.AppendLine();
-		foreach (var row in rows) {
-			sb.Append($"\tpublic static readonly {ctx.SimpleName} {row.Key} = new {ctx.SimpleName} {{");
-			sb.AppendLine();
-			sb.Append("\t\tKind = ").Append(enumName).Append('.').Append(row.Key).Append(',');
-			sb.AppendLine();
-			foreach (var col in schema.Columns) {
-				sb.Append("\t\t").Append(col.MemberName).Append(" = ");
-				sb.Append(EmitValue(col.Type, row.Values.TryGetValue(col.Name, out var v) ? v : null));
-				sb.AppendLine(",");
-			}
+		var isEager = ctx.LoadMode == 1;
 
-			sb.AppendLine("\t};");
+		if (isEager) {
+			EmitStaticFields(sb, ctx, rows, schema, enumName);
+		} else {
+			EmitLazyRepository(sb, ctx, rows, schema, enumName);
 		}
 
-		sb.AppendLine();
-		sb.AppendLine($"\tpublic static readonly global::System.Collections.Frozen.FrozenDictionary<{enumName}, {ctx.SimpleName}> All =");
-		sb.AppendLine($"\t\tglobal::System.Collections.Frozen.FrozenDictionary.ToFrozenDictionary(new global::System.Collections.Generic.Dictionary<{enumName}, {ctx.SimpleName}> {{");
-		foreach (var row in rows) {
-			sb.AppendLine($"\t\t\t{{ {enumName}.{row.Key}, {row.Key} }},");
-		}
-
-		sb.AppendLine("\t\t});");
 		sb.AppendLine();
 		sb.AppendLine($"\tpublic static readonly global::System.Collections.Frozen.FrozenDictionary<string, {enumName}> KindByName =");
 		sb.AppendLine($"\t\tglobal::System.Collections.Frozen.FrozenDictionary.ToFrozenDictionary(new global::System.Collections.Generic.Dictionary<string, {enumName}>(global::System.StringComparer.Ordinal) {{");
@@ -96,47 +81,117 @@ internal sealed class PartialStructEmitter : ITypeEmitter {
 		}
 		sb.AppendLine("\t\t});");
 
-		EmitAccessors(sb, ctx, rows, enumName);
+		EmitAccessors(sb, ctx, rows, enumName, isEager);
 
 		sb.AppendLine("}");
 		return sb.ToString();
 	}
 
-	private static void EmitAccessors(StringBuilder sb, DcGenerationContext ctx, IReadOnlyList<RowData> rows, string enumName) {
+	private static void EmitStaticFields(StringBuilder sb, DcGenerationContext ctx, IReadOnlyList<RowData> rows, SchemaInfo schema, string enumName) {
+		var t = ctx.SimpleName;
+		foreach (var row in rows) {
+			sb.Append($"\tpublic static readonly {t} {row.Key} = new {t} {{");
+			sb.AppendLine();
+			sb.Append("\t\tKind = ").Append(enumName).Append('.').Append(row.Key).Append(',');
+			sb.AppendLine();
+			foreach (var col in schema.Columns) {
+				sb.Append("\t\t").Append(col.MemberName).Append(" = ");
+				sb.Append(EmitValue(col.Type, row.Values.TryGetValue(col.Name, out var v) ? v : null));
+				sb.AppendLine(",");
+			}
+			sb.AppendLine("\t};");
+		}
+
+		sb.AppendLine();
+		sb.AppendLine($"\tpublic static readonly global::System.Collections.Frozen.FrozenDictionary<{enumName}, {t}> All =");
+		sb.AppendLine($"\t\tglobal::System.Collections.Frozen.FrozenDictionary.ToFrozenDictionary(new global::System.Collections.Generic.Dictionary<{enumName}, {t}> {{");
+		foreach (var row in rows) {
+			sb.AppendLine($"\t\t\t{{ {enumName}.{row.Key}, {row.Key} }},");
+		}
+		sb.AppendLine("\t\t});");
+	}
+
+	private static void EmitLazyRepository(StringBuilder sb, DcGenerationContext ctx, IReadOnlyList<RowData> rows, SchemaInfo schema, string enumName) {
+		var t = ctx.SimpleName;
+		sb.AppendLine($"\tpublic static global::FM39hz.DataCatalyst.Runtime.IDataRepository<{enumName}, {t}> Repository {{ get; set; }} = new {t}Repository();");
+		sb.AppendLine();
+		sb.AppendLine($"\tprivate sealed class {t}Repository : global::FM39hz.DataCatalyst.Runtime.IDataRepository<{enumName}, {t}> {{");
+		sb.AppendLine("\t\tprivate global::System.Collections.Generic.Dictionary<" + enumName + ", " + t + ">? _cache;");
+		sb.AppendLine("\t\tprivate readonly object _lock = new();");
+		sb.AppendLine();
+		sb.AppendLine("\t\tprivate void Ensure() {");
+		sb.AppendLine("\t\t\tif (_cache is not null) return;");
+		sb.AppendLine("\t\t\tlock (_lock) {");
+		sb.AppendLine("\t\t\t\tif (_cache is not null) return;");
+		sb.AppendLine("\t\t\t\t_cache = new global::System.Collections.Generic.Dictionary<" + enumName + ", " + t + "> {");
+		foreach (var row in rows) {
+			sb.Append("\t\t\t\t\t{ ").Append(enumName).Append(".").Append(row.Key).Append(", new ").Append(t).Append(" {");
+			sb.Append(" Kind = ").Append(enumName).Append(".").Append(row.Key);
+			foreach (var col in schema.Columns) {
+				sb.Append(", ").Append(col.MemberName).Append(" = ");
+				sb.Append(EmitValue(col.Type, row.Values.TryGetValue(col.Name, out var v) ? v : null));
+			}
+			sb.AppendLine(" } },");
+		}
+		sb.AppendLine("\t\t\t\t};");
+		sb.AppendLine("\t\t\t}");
+		sb.AppendLine("\t\t}");
+		sb.AppendLine();
+		sb.AppendLine("\t\tpublic " + t + " Get(" + enumName + " kind) { Ensure(); return _cache![kind]; }");
+		sb.AppendLine("\t\tpublic bool TryGet(" + enumName + " kind, out " + t + " value) { Ensure(); return _cache!.TryGetValue(kind, out value!); }");
+		sb.AppendLine("\t\tpublic global::System.Collections.Generic.IEnumerable<" + t + "> GetAll() { Ensure(); return _cache!.Values; }");
+		sb.AppendLine("\t\tpublic int Count { get { Ensure(); return _cache!.Count; } }");
+		sb.AppendLine("\t}");
+	}
+
+	private static void EmitAccessors(StringBuilder sb, DcGenerationContext ctx, IReadOnlyList<RowData> rows, string enumName, bool isEager) {
 		var t = ctx.SimpleName;
 		var hasBackend = ctx.Backend != DataBackend.None;
 		var hasMods = ctx.ModSupport;
+		var e = isEager ? "All" : "Repository";
+		var eg = isEager ? "All[kind]" : "Repository.Get(kind)";
+		var et = isEager ? "All.TryGetValue(kind, out value!)" : "Repository.TryGet(kind, out value)";
+		var ec = isEager ? "All.ContainsKey(kind)" : "Repository.TryGet(kind, out _)";
 
 		sb.AppendLine();
-		sb.AppendLine($"\tpublic static int Count => All.Count;");
-		sb.AppendLine($"\tpublic static global::System.Collections.Generic.IEnumerable<{enumName}> Kinds => All.Keys;");
-		sb.AppendLine($"\tpublic static global::System.Collections.Generic.IEnumerable<{t}> Values => All.Values;");
+		if (isEager) {
+			sb.AppendLine($"\tpublic static int Count => All.Count;");
+			sb.AppendLine($"\tpublic static global::System.Collections.Generic.IEnumerable<{enumName}> Kinds => All.Keys;");
+			sb.AppendLine($"\tpublic static global::System.Collections.Generic.IEnumerable<{t}> Values => All.Values;");
+		} else {
+			sb.Append($"\tprivate static readonly {enumName}[] _kinds = [");
+			for (var i = 0; i < rows.Count; i++) {
+				if (i > 0) sb.Append(", ");
+				sb.Append(enumName).Append(".").Append(rows[i].Key);
+			}
+			sb.AppendLine("];");
+			sb.AppendLine($"\tpublic static int Count => Repository.Count;");
+			sb.AppendLine($"\tpublic static global::System.Collections.Generic.IEnumerable<{enumName}> Kinds => _kinds;");
+			sb.AppendLine($"\tpublic static global::System.Collections.Generic.IEnumerable<{t}> Values => Repository.GetAll();");
+		}
 		sb.AppendLine();
 
-		// Get(Kind) - type-safe, backend-aware, mod-aware
 		if (hasBackend && hasMods) {
 			sb.AppendLine($"\tpublic static {t} Get({enumName} kind) {{");
 			sb.AppendLine($"\t\tif ({t}Mod.TryGet({t}Mod.KindToString(kind), out var m)) return m;");
 			sb.AppendLine($"\t\tvar b = global::FM39hz.DataCatalyst.Runtime.DataBackendSelector.Current;");
 			sb.AppendLine($"\t\tif (b != 0) return ResolveRepository().Get(kind);");
-			sb.AppendLine($"\t\treturn All[kind];");
+			sb.AppendLine($"\t\treturn {eg};");
 			sb.AppendLine("\t}");
-		}
-		else if (hasBackend) {
+		} else if (hasBackend) {
 			sb.AppendLine($"\tpublic static {t} Get({enumName} kind) {{");
 			sb.AppendLine($"\t\tvar b = global::FM39hz.DataCatalyst.Runtime.DataBackendSelector.Current;");
 			sb.AppendLine($"\t\tif (b != 0) return ResolveRepository().Get(kind);");
-			sb.AppendLine($"\t\treturn All[kind];");
+			sb.AppendLine($"\t\treturn {eg};");
 			sb.AppendLine("\t}");
-		}
-		else if (hasMods) {
+		} else if (hasMods) {
 			sb.AppendLine($"\tpublic static {t} Get({enumName} kind) {{");
 			sb.AppendLine($"\t\tif ({t}Mod.TryGet({t}Mod.KindToString(kind), out var m)) return m;");
-			sb.AppendLine($"\t\treturn All[kind];");
+			sb.AppendLine($"\t\treturn {eg};");
 			sb.AppendLine("\t}");
 		}
 		else {
-			sb.AppendLine($"\tpublic static {t} Get({enumName} kind) => All[kind];");
+			sb.AppendLine($"\tpublic static {t} Get({enumName} kind) => {eg};");
 		}
 
 		// TryGet(Kind, out) - type-safe, backend-aware, mod-aware
@@ -145,27 +200,24 @@ internal sealed class PartialStructEmitter : ITypeEmitter {
 			sb.AppendLine($"\t\tif ({t}Mod.TryGet({t}Mod.KindToString(kind), out var m)) {{ value = m; return true; }}");
 			sb.AppendLine($"\t\tvar b = global::FM39hz.DataCatalyst.Runtime.DataBackendSelector.Current;");
 			sb.AppendLine($"\t\tif (b != 0) return ResolveRepository().TryGet(kind, out value);");
-			sb.AppendLine($"\t\treturn All.TryGetValue(kind, out value!);");
+			sb.AppendLine($"\t\treturn {et};");
 			sb.AppendLine("\t}");
-		}
-		else if (hasBackend) {
+		} else if (hasBackend) {
 			sb.AppendLine($"\tpublic static bool TryGet({enumName} kind, out {t} value) {{");
 			sb.AppendLine($"\t\tvar b = global::FM39hz.DataCatalyst.Runtime.DataBackendSelector.Current;");
 			sb.AppendLine($"\t\tif (b != 0) return ResolveRepository().TryGet(kind, out value);");
-			sb.AppendLine($"\t\treturn All.TryGetValue(kind, out value!);");
+			sb.AppendLine($"\t\treturn {et};");
 			sb.AppendLine("\t}");
-		}
-		else if (hasMods) {
+		} else if (hasMods) {
 			sb.AppendLine($"\tpublic static bool TryGet({enumName} kind, out {t} value) {{");
 			sb.AppendLine($"\t\tif ({t}Mod.TryGet({t}Mod.KindToString(kind), out var m)) {{ value = m; return true; }}");
-			sb.AppendLine($"\t\treturn All.TryGetValue(kind, out value!);");
+			sb.AppendLine($"\t\treturn {et};");
 			sb.AppendLine("\t}");
-		}
-		else {
-			sb.AppendLine($"\tpublic static bool TryGet({enumName} kind, out {t} value) => All.TryGetValue(kind, out value!);");
+		} else {
+			sb.AppendLine($"\tpublic static bool TryGet({enumName} kind, out {t} value) => {et};");
 		}
 
-		sb.AppendLine($"\tpublic static bool Contains({enumName} kind) => All.ContainsKey(kind);");
+		sb.AppendLine($"\tpublic static bool Contains({enumName} kind) => {ec};");
 		sb.AppendLine();
 		sb.AppendLine($"\tpublic static global::System.Collections.Generic.IEnumerable<{t}> Query(global::System.Func<{t}, bool> predicate) =>");
 		sb.AppendLine($"\t\tglobal::System.Linq.Enumerable.Where(Values, predicate);");

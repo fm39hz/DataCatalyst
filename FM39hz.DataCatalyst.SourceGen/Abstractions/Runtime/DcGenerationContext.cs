@@ -14,6 +14,7 @@ public sealed class DcGenerationContext(
 	string jsonPath,
 	DataBackend backend,
 	bool modSupport,
+	int loadMode,
 	Location location,
 	ITemplateMetadata? template,
 	SourceProductionContext spc) {
@@ -27,6 +28,7 @@ public sealed class DcGenerationContext(
 	public string JsonPath { get; } = jsonPath;
 	public DataBackend Backend { get; } = backend;
 	public bool ModSupport { get; } = modSupport;
+	public int LoadMode { get; } = loadMode;
 	public Location Location { get; } = location;
 	public ITemplateMetadata? Template { get; } = template;
 	public IReadOnlyDictionary<string, IReadOnlyList<RowData>>? RefToRows { get; set; }

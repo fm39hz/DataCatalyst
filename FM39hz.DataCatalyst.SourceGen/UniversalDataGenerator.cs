@@ -21,9 +21,10 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 					public string KeyField { get; init; } = string.Empty;
 					public int Backend { get; init; } = 0;
 					public bool ModSupport { get; init; } = false;
-					public System.Type[]? RefTo { get; init; }
+				public System.Type[]? RefTo { get; init; }
+				public int LoadMode { get; init; } = 0;
 
-					public CatalystDataAttribute(string jsonPath, string entryPoint = "", System.Type templateType = null) {
+				public CatalystDataAttribute(string jsonPath, string entryPoint = "", System.Type templateType = null) {
 						JsonPath = jsonPath;
 						EntryPoint = entryPoint;
 						TemplateType = templateType;
@@ -90,6 +91,11 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 					public const int Json = 1;
 					public const int Sqlite = 2;
 					public const int All = 3;
+				}
+
+				public static class LoadModeConst {
+					public const int Lazy = 0;
+					public const int Eager = 1;
 				}
 
 				public static class DataBackendSelector {

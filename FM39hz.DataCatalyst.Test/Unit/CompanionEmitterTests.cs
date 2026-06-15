@@ -348,18 +348,19 @@ public sealed class CompanionEmitterTests {
 
 	// --- helper ---
 
-	private static DcGenerationContext MakeCtx(DataBackend backend = DataBackend.None, bool modSupport = false) => new(
-			targetFullyQualifiedName: "global::Test.MyData",
-			containingNamespace: "Test",
-			simpleName: "MyData",
-			typeKind: TypeKind.Struct,
-			isRecord: false,
-			entryPointName: "",
-			keyField: "",
-			jsonPath: "test.json",
-			backend: backend,
-			modSupport: modSupport,
-			location: Location.None,
-			template: null,
-			spc: default);
+	private static DcGenerationContext MakeCtx(DataBackend backend = DataBackend.None, bool modSupport = false, int loadMode = 0) => new(
+		targetFullyQualifiedName: "global::Test.MyData",
+		containingNamespace: "Test",
+		simpleName: "MyData",
+		typeKind: TypeKind.Struct,
+		isRecord: false,
+		entryPointName: "",
+		keyField: "",
+		jsonPath: "test.json",
+		backend: backend,
+		modSupport: modSupport,
+		loadMode: loadMode,
+		location: Location.None,
+		template: null,
+		spc: default);
 }
