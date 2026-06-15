@@ -16,7 +16,7 @@ internal static class PipelineDriver {
 
 	public static void Reset() => CatalogRows.Clear();
 
-	public static void Run(SourceProductionContext spc, ImmutableArray<AdditionalText> additionalTexts, TargetInfo target) {
+	public static void Run(SourceProductionContext spc, ImmutableArray<AdditionalText> additionalTexts, TargetInfo target, bool hasModdingPlugin = false) {
 		if (!target.IsPartial) {
 			spc.ReportDiagnostic(Diagnostic.Create(DcDiagnostics.TargetNotPartial, target.Location, target.FullyQualifiedName));
 			return;
@@ -60,7 +60,7 @@ internal static class PipelineDriver {
 				keyField: target.KeyField,
 				jsonPath: target.JsonPath,
 				backend: target.Backend,
-				modSupport: target.ModSupport,
+				hasModdingPlugin: hasModdingPlugin,
 				loadMode: target.LoadMode,
 				schemaVersion: target.SchemaVersion,
 				location: target.Location,

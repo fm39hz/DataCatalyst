@@ -22,8 +22,8 @@ public sealed class CompanionEmitterTests {
 			.Should().Contain(e => e is ModOverlayDataEmitter);
 
 	[Fact]
-	public void CompanionEmitters_ShouldContainLuaBridgeEmitter() => DcPluginRegistry.CompanionEmitters
-			.Should().Contain(e => e is LuaBridgeEmitter);
+	public void CompanionEmitters_ShouldContainEntryExposerEmitter() => DcPluginRegistry.CompanionEmitters
+			.Should().Contain(e => e is EntryExposerEmitter);
 
 	[Fact]
 	public void CompanionEmitters_Count_ShouldBeFour() => DcPluginRegistry.CompanionEmitters

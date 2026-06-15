@@ -7,14 +7,16 @@ using FM39hz.DataCatalyst.Abstractions;
 using FM39hz.DataCatalyst.Core;
 using Microsoft.CodeAnalysis;
 
+// Legacy MoonSharp-specific bridge. Replaced by EntryExposerEmitter.
+// Kept for reference. Does not auto-register.
 [DcPlugin(typeof(ITypeEmitter))]
 public sealed class LuaBridgeEmitter : ITypeEmitter {
-	[ModuleInitializer]
-	internal static void Register() => DcPluginRegistry.RegisterCompanion(new LuaBridgeEmitter());
+	// [ModuleInitializer]
+	// internal static void Register() => DcPluginRegistry.RegisterCompanion(new LuaBridgeEmitter());
 
 	public string Name => "LuaBridge";
 
-	public bool Applies(DcGenerationContext ctx) => ctx.ModSupport;
+	public bool Applies(DcGenerationContext ctx) => true;
 
 	public string Emit(IReadOnlyList<RowData> rows, SchemaInfo schema, DcGenerationContext ctx) {
 		var sb = new StringBuilder();

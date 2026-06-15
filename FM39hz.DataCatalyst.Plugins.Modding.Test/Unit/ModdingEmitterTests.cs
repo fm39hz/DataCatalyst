@@ -43,9 +43,9 @@ public sealed class ModdingEmitterTests {
 	}
 
 	[Fact]
-	public void ModOverlayEmitter_DoesNotApply_WhenModSupportIsFalse() {
+	public void ModOverlayEmitter_Applies_Always() {
 		var ctx = MakeCtx(modSupport: false);
-		new ModOverlayDataEmitter().Applies(ctx).Should().BeFalse();
+		new ModOverlayDataEmitter().Applies(ctx).Should().BeTrue();
 	}
 
 	[Fact]
@@ -138,9 +138,9 @@ public sealed class ModdingEmitterTests {
 	}
 
 	[Fact]
-	public void LuaBridgeEmitter_DoesNotApply_WhenModSupportIsFalse() {
+	public void LuaBridgeEmitter_Applies_Always() {
 		var ctx = MakeCtx(modSupport: false);
-		new LuaBridgeEmitter().Applies(ctx).Should().BeFalse();
+		new LuaBridgeEmitter().Applies(ctx).Should().BeTrue();
 	}
 
 	[Fact]
@@ -171,7 +171,7 @@ public sealed class ModdingEmitterTests {
 		keyField: "",
 		jsonPath: "test.json",
 		backend: backend,
-		modSupport: modSupport,
+		hasModdingPlugin: modSupport,
 		loadMode: loadMode,
 		schemaVersion: schemaVersion,
 		location: Location.None,

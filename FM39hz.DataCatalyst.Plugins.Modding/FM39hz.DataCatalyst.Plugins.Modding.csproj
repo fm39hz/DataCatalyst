@@ -5,6 +5,7 @@
     <AssemblyName>FM39hz.DataCatalyst.Plugins.Modding</AssemblyName>
     <Description>DataCatalyst companion emitters for mod overlay and scripting bridge.</Description>
     <PackageTags>data-catalyst;source-generator;modding;lua</PackageTags>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
   </PropertyGroup>
 
   <ItemGroup>

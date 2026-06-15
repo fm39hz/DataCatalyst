@@ -147,7 +147,7 @@ internal sealed class PartialStructEmitter : ITypeEmitter {
 	private static void EmitAccessors(StringBuilder sb, DcGenerationContext ctx, IReadOnlyList<RowData> rows, string enumName, bool isEager) {
 		var t = ctx.SimpleName;
 		var hasBackend = ctx.Backend != DataBackend.None;
-		var hasMods = ctx.ModSupport;
+		var hasMods = ctx.HasModdingPlugin;
 		var e = isEager ? "All" : "Repository";
 		var eg = isEager ? "All[kind]" : "Repository.Get(kind)";
 		var et = isEager ? "All.TryGetValue(kind, out value!)" : "Repository.TryGet(kind, out value)";

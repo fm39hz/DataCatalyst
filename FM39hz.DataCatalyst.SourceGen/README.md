@@ -17,11 +17,12 @@ UniversalDataGenerator (IIncrementalGenerator)
 │       ├── IEntryPointReader    → first match
 │       ├── ISchemaProvider      → first match
 │       ├── IPrimitiveTypeRule   → all (ranked)
-│       ├── ITypeEmitter (main)  → first match — PartialStruct
+│       ├── ITypeEmitter (main)  → first match - PartialStruct
 │       ├── ITypeEmitter (companion) → ALL matching
 │       │   ├── SqliteDataEmitter       ← Backend.HasFlag(Sqlite)
 │       │   ├── JsonRuntimeDataEmitter  ← Backend.HasFlag(Json)
-│       │   └── ModOverlayDataEmitter   ← ModSupport == true
+│       │   ├── ModOverlayDataEmitter   ← auto (if Modding plugin present)
+│       │   └── EntryExposerEmitter     ← auto (if Modding plugin present)
 │       ├── ITemplateLiteralRule
 │       └── IDcPostProcessor
 │
@@ -37,11 +38,12 @@ After the main emitter (first-match), **all** matching companion emitters run. E
 | ------------------------ | ------------------------- | ------------------- | ------------------------------------------------------------------------------------------- |
 | `SqliteDataEmitter`      | `Backend.HasFlag(Sqlite)` | `.Sqlite.g.cs`      | SQL constants, `IDbCommand` factory, `DbDataReader→T`, lazy `SqlRepository<T>`              |
 | `JsonRuntimeDataEmitter` | `Backend.HasFlag(Json)`   | `.JsonRuntime.g.cs` | `Utf8JsonReader→T` reader (no reflection), `LoadAll()`, `JsonRepository<T>`                 |
-| `ModOverlayDataEmitter`  | `ModSupport==true`        | `.ModOverlay.g.cs`  | `LoadMods()`, `AddEntry()`, `RemoveEntry()`, `Clear()`, `AddRange()`, adapter notifications |
+| `ModOverlayDataEmitter`  | auto (Modding plugin)   | `.ModOverlay.g.cs`  | `LoadMods()`, `AddEntry()`, `RemoveEntry()`, `Clear()`, `AddRange()`, adapter notifications |
+| `EntryExposerEmitter`    | auto (Modding plugin)   | `.EntryExposer.g.cs` | Engine-agnostic `IScriptContext` bridge: `Item_Add`, `Item_Get`, `Item_Remove`, `Item_AddRange` with typed `Dictionary↔struct` mapping |
 
 ---
 
-## Generated API — Full Reference
+## Generated API - Full Reference
 
 ### Per `[CatalystData]` target
 
@@ -55,7 +57,7 @@ public partial struct {Type} {
     public {FieldType} {ColumnName} { get; init; }
     public {Type}Kind Kind { get; init; }
 
-    // Static fields — one per row
+    // Static fields - one per row
     public static readonly {Type} {Key} = new() { Kind = ..., ... };
 
     // FrozenDictionaries
@@ -102,7 +104,7 @@ public partial struct {Type} {
     public static IDataRepository<{Type}Kind, {Type}> ResolveRepository();
 ```
 
-**When ModSupport == true**, `Get`/`TryGet` auto-check `{Type}Mod` overrides.
+**When Modding plugin present**, `Get`/`TryGet` auto-check `{Type}Mod` overrides.
 
 ### Mod overlay
 
@@ -123,7 +125,7 @@ public static partial class {Type}Mod {
     public static {Type} Get({Type}Kind kind);
     public static IEnumerable<{Type}> GetAllModEntries();
 
-    // Adapter notification — on every operation:
+    // Adapter notification - on every operation:
     //   DataViewAdapterRegistry.GetAdapters<{Type}>()
 }
 
@@ -313,13 +315,13 @@ internal static void Register() =>
 
 ## Design Constraints
 
-- Every shape selected by explicit `CanRead`/`Applies` — no heuristics
-- Array-of-objects requires `KeyField` — no auto-keying
-- Column named `Kind` rejected at compile time — no auto-rename
-- Primitive widening via `Rank` — no central table
-- Plugin ordering via topo sort over `dependsOn` — no numeric priority
-- Companion emitters run in dependency order — same topo sort
-- SQLite backend uses `IDbConnection`/`DbDataReader` — no hard dep on `Microsoft.Data.Sqlite`
-- JSON reader uses `Utf8JsonReader` with generated switch — no `Enum.Parse`
-- All runtime plugin registration via `[ModuleInitializer]` — trimmer sees every type
-- Runtime builds contain **no** analyzer code and **no** reflection — AOT/trim safe
+- Every shape selected by explicit `CanRead`/`Applies` - no heuristics
+- Array-of-objects requires `KeyField` - no auto-keying
+- Column named `Kind` rejected at compile time - no auto-rename
+- Primitive widening via `Rank` - no central table
+- Plugin ordering via topo sort over `dependsOn` - no numeric priority
+- Companion emitters run in dependency order - same topo sort
+- SQLite backend uses `IDbConnection`/`DbDataReader` - no hard dep on `Microsoft.Data.Sqlite`
+- JSON reader uses `Utf8JsonReader` with generated switch - no `Enum.Parse`
+- All runtime plugin registration via `[ModuleInitializer]` - trimmer sees every type
+- Runtime builds contain **no** analyzer code and **no** reflection - AOT/trim safe

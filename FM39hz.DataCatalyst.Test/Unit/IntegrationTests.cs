@@ -40,7 +40,7 @@ public sealed class IntegrationTests : IntegrationTestBase {
 			""";
 		var (_, diags, sources) = RunGenerator("""
 			using FM39hz.DataCatalyst;
-			[CatalystData("test.json", ModSupport = true)]
+			[CatalystData("test.json")]
 			public partial struct Item { }
 			""",
 			new TestAdditionalText("test.json", json));
@@ -49,8 +49,6 @@ public sealed class IntegrationTests : IntegrationTestBase {
 
 		var mainSrc = FindSource(sources, "enum ItemKind");
 		mainSrc.Should().NotBeNull();
-		mainSrc!.Should().Contain("ItemMod.TryGet")
-			.And.Contain("DataBackendSelector");
 
 		var modSrc = FindSource(sources, "public static void AddEntry(string key");
 		modSrc.Should().NotBeNull();
@@ -117,7 +115,7 @@ public sealed class IntegrationTests : IntegrationTestBase {
 			""";
 		var (_, diags, sources) = RunGenerator("""
 			using FM39hz.DataCatalyst;
-			[CatalystData("test.json", Backend = 3, ModSupport = true)]
+			[CatalystData("test.json", Backend = 3)]
 			public partial struct Item { }
 			""",
 			new TestAdditionalText("test.json", json));
@@ -199,7 +197,7 @@ public sealed class IntegrationTests : IntegrationTestBase {
 			.And.Contain("ModPluginAttribute")
 			.And.Contain("KeyField")
 			.And.Contain("Backend")
-			.And.Contain("ModSupport");
+			.And.Contain("SchemaVersion");
 	}
 
 	[Fact]
@@ -225,7 +223,7 @@ public sealed class IntegrationTests : IntegrationTestBase {
 		var json = /*lang=json,strict*/ """{ "Potion": { "Health": 50 } }""";
 		var (_, diags, sources) = RunGenerator("""
 			using FM39hz.DataCatalyst;
-			[CatalystData("test.json", ModSupport = true)]
+			[CatalystData("test.json")]
 			public partial struct Item { }
 			""",
 			new TestAdditionalText("test.json", json));

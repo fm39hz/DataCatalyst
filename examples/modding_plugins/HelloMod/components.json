@@ -1,0 +1,4 @@
+{
+  "PoisonAura": { "DamagePerTick": 5, "Duration": 10.0, "Stackable": false },
+  "RegenBuff":  { "DamagePerTick": -2, "Duration": 30.0, "Stackable": true }
+}

@@ -163,7 +163,7 @@ public sealed class BackendEmitterTests {
 
 	// --- helper ---
 
-	private static DcGenerationContext MakeCtx(DataBackend backend = DataBackend.None, bool modSupport = false, int loadMode = 0, string schemaVersion = "") => new(
+	private static DcGenerationContext MakeCtx(DataBackend backend = DataBackend.None, bool hasModdingPlugin = false, int loadMode = 0, string schemaVersion = "") => new(
 		targetFullyQualifiedName: "global::Test.MyData",
 		containingNamespace: "Test",
 		simpleName: "MyData",
@@ -173,7 +173,7 @@ public sealed class BackendEmitterTests {
 		keyField: "",
 		jsonPath: "test.json",
 		backend: backend,
-		modSupport: modSupport,
+		hasModdingPlugin: hasModdingPlugin,
 		loadMode: loadMode,
 		schemaVersion: schemaVersion,
 		location: Location.None,

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>FM39hz.DataCatalyst.Plugins.Modding.Runtime</RootNamespace>
+    <AssemblyName>FM39hz.DataCatalyst.Plugins.Modding.Runtime</AssemblyName>
+    <Description>DataCatalyst modding runtime — mod discovery, lifecycle, and script hosting for drop-in mods.</Description>
+    <PackageTags>data-catalyst;modding;runtime;mod-loader</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Text.Json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FM39hz.DataCatalyst.Abstractions\FM39hz.DataCatalyst.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

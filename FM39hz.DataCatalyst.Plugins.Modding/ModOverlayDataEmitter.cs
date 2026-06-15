@@ -13,7 +13,7 @@ public sealed class ModOverlayDataEmitter : ITypeEmitter {
 
 	public string Name => "ModOverlay";
 
-	public bool Applies(DcGenerationContext ctx) => ctx.ModSupport;
+	public bool Applies(DcGenerationContext ctx) => true;
 
 	public string Emit(IReadOnlyList<RowData> rows, SchemaInfo schema, DcGenerationContext ctx) {
 		var sb = new StringBuilder();

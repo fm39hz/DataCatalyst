@@ -1,0 +1,9 @@
+{
+  "id": "WeaverHookExample",
+  "version": "1.0.0",
+  "gameVersion": ">=1.0.0",
+  "content": [
+    { "type": "script", "file": "init.lua" },
+    { "type": "data", "file": "items_override.json", "target": "Item" }
+  ]
+}

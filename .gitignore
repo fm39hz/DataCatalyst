@@ -13,6 +13,9 @@ node_modules
 **/obj/
 local-feed/
 
+# Weaver NuGet build output (copied for packaging)
+FM39hz.DataCatalyst.Plugins.Modding.Weaver/build/netstandard2.0/
+
 # Rider
 .idea/
 .aider*

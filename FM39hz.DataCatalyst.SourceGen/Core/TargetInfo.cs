@@ -17,7 +17,6 @@ internal sealed class TargetInfo {
 	public string EntryPoint { get; }
 	public string KeyField { get; }
 	public DataBackend Backend { get; }
-	public bool ModSupport { get; }
 	public ImmutableArray<string> RefToTargets { get; }
 	public int LoadMode { get; }
 	public string SchemaVersion { get; }
@@ -35,7 +34,6 @@ internal sealed class TargetInfo {
 		string entryPoint,
 		string keyField,
 		DataBackend backend,
-		bool modSupport,
 		ImmutableArray<string> refToTargets,
 		int loadMode,
 		string schemaVersion,
@@ -51,7 +49,6 @@ internal sealed class TargetInfo {
 		EntryPoint = entryPoint;
 		KeyField = keyField;
 		Backend = backend;
-		ModSupport = modSupport;
 		RefToTargets = refToTargets;
 		LoadMode = loadMode;
 		SchemaVersion = schemaVersion;
@@ -73,7 +70,6 @@ internal sealed class TargetInfo {
 		var entryPoint = string.Empty;
 		var keyField = string.Empty;
 		var backend = DataBackend.None;
-		var modSupport = false;
 		var refToBuilder = ImmutableArray.CreateBuilder<string>();
 		var loadMode = 0;
 		var schemaVersion = string.Empty;
@@ -108,9 +104,6 @@ internal sealed class TargetInfo {
 				case "Backend" when na.Value.Value is int b:
 					backend = (DataBackend)b;
 					break;
-				case "ModSupport" when na.Value.Value is bool ms:
-					modSupport = ms;
-					break;
 				case "LoadMode" when na.Value.Value is int lm:
 					loadMode = lm;
 					break;
@@ -127,10 +120,6 @@ internal sealed class TargetInfo {
 				default:
 					break;
 			}
-		}
-
-		if (modSupport && !backend.HasFlag(DataBackend.Json)) {
-			backend |= DataBackend.Json;
 		}
 
 		var loc = ctx.TargetNode.GetLocation();
@@ -163,7 +152,6 @@ internal sealed class TargetInfo {
 			entryPoint: entryPoint,
 			keyField: keyField,
 			backend: backend,
-			modSupport: modSupport,
 			refToTargets: refToBuilder.ToImmutable(),
 			loadMode: loadMode,
 			schemaVersion: schemaVersion,

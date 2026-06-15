@@ -2,22 +2,9 @@
 
 Roslyn source generator: **JSON → strongly-typed C# struct + enum + FrozenDictionary** at compile time. Zero reflection. NativeAOT-safe. Engine-agnostic.
 
----
-
-## Requirements
-
-- .NET 8+ / .NET Standard 2.0+
-- C# 12+
-
-## Quick start
-
-### Installation
-
 ```
-dotnet add package FM39hz.DataCatalyst --version 0.2.5
+dotnet add package FM39hz.DataCatalyst
 ```
-
-### Project setup
 
 ```xml
 <ItemGroup>
@@ -31,49 +18,32 @@ public partial struct Item { }
 
 var hp = Item.Potion.Health;
 var item = Item.Get(ItemKind.Elixir);
-var heavy = Item.Query(x => x.Weight > 1f);
-Item.TryGetKind("Potion", out var kind);
 ```
 
-## Backend switching
+---
+
+## Modding plugin - ladder of capabilities
+
+DataCatalyst.Modding provides a **spectrum** of modding power. Game dev picks the ring that fits their game:
+
+| Ring                  | Mechanism                                    | Drop-in    | NativeAOT | Game dev effort        | Modder power    |
+| --------------------- | -------------------------------------------- | ---------- | --------- | ---------------------- | --------------- |
+| **1 - Data**          | `ItemMod.LoadMods()` JSON override           | ✅         | ✅        | auto (detect plugin)   | Data only       |
+| **2 - Script opt-in** | `[ModHook]` attribute + script `Hook.Before` | ✅         | ✅        | `[ModHook]` on methods | Script at hooks |
+| **3 - Script auto**   | `EnableModHookWeaver = true`                 | ✅         | ✅        | MSBuild property       | Any method      |
+| **4 - C# merge**      | `EnableModMerge = true`                      | ❌ rebuild | ✅        | MSBuild property       | Full C#         |
+
+### Ring 1 - Data-only (CP-class)
 
 ```csharp
-[CatalystData("Items.json", Backend = DataBackendConst.All)]
-public partial struct Item { }
-```
-
-**SQLite** — `IDbConnection`/`DbDataReader`, no hard dep:
-
-```csharp
-ItemSql.CreateSelectAllCommand(conn);
-ItemSql.ReadRow((DbDataReader)reader);
-var repo = new ItemSqlRepository(() => new SqliteConnection("..."));
-```
-
-**JSON** — `Utf8JsonReader`, no reflection:
-
-```csharp
-ItemJson.Read(ref reader);
-ItemJson.LoadAll("items.json");
-```
-
-**Env**: `DATACATALYST_BACKEND`, `DATACATALYST_CONNECTION`, `DATACATALYST_DATAPATH`.
-
-## Mod content — runtime, drop-in files
-
-```csharp
-[CatalystData("Items.json", ModSupport = true)]
+[CatalystData("Items.json")]
 public partial struct Item { }
 
-ItemMod.LoadMods("mods/items/");           // JSON files at runtime
+// Mods folder: items_override.json
+ItemMod.LoadMods("Mods/Items/");
 ItemMod.AddEntry("SuperPotion", new() { Health = 999 });
-ItemMod.RemoveEntry("OldPotion");
-var item = Item.Get(ItemKind.Potion);      // mod override → core
-```
 
-**Engine adapter** — notified on every change:
-
-```csharp
+// Adapter - engine notified on every change
 public class EcsItemAdapter : IDataViewAdapter<Item> {
     public void OnEntryAdded(string key, Item entry) { /* create entity */ }
     public void OnEntryRemoved(string key) { /* destroy entity */ }
@@ -81,47 +51,47 @@ public class EcsItemAdapter : IDataViewAdapter<Item> {
 }
 ```
 
-**DSL reader** — custom text format:
+Source gen produces `ItemExposer` - engine-agnostic typed bridge for scripting.
+
+### Ring 2 - Script opt-in (`[ModHook]`)
+
+Game dev marks methods mods can intercept:
 
 ```csharp
-public sealed class YamlItemReader : IDslReader<Item> {
-    public string FileExtension => ".yaml";
-    public bool TryRead(string text, out Item value) { /* parse */ }
-}
+[ModHook]
+public bool AddItem(Item i) { ... }
+
+[ModHook("Player.TakeDamage")]
+public void TakeDamage(int dmg) { ... }
 ```
 
-## Steam Workshop / Nexus
+Mod Lua script:
 
-```csharp
-public override void _Ready() {
-    ItemMod.LoadMods("Mods/Items");
-    DataViewAdapterRegistry.Register<Item>(new MyAdapter(_store));
-    PluginRegistry.LoadAll(new ModGameContext());
-}
+```lua
+Hook.Before("Game.AddItem", function(call)
+    if call.Args[1].Health > 100 then
+        return true  -- skip, item too powerful
+    end
+end)
+
+Hook.After("Player.TakeDamage", function(call)
+    Log("took damage: " .. call.Args[1])
+end)
 ```
 
-## Code mod — scripting layer
+`[ModHook]` weaver chạy ở build time - inject dispatch vào IL. Không runtime IL patching.
 
-Add a Lua/C# scripting VM on top of DataCatalyst's data API:
+### Ring 3 - Script auto-weave (experimental)
 
-```csharp
-// Lua: Data.Add("Item", "FireSword", { Weight = 3, Health = 80 })
-// Lua: ECS.RegisterSystem("BurnAura", { run = function(dt, e) end })
-
-public sealed class ScriptBridge {
-    Script _lua = new();
-    public ScriptBridge() {
-        _lua.Globals["Data"] = new DataBridge();
-    }
-
-    public void LoadModScripts(string dir) {
-        foreach (var file in Directory.EnumerateFiles(dir, "*.lua"))
-            _lua.DoFile(file);
-    }
-}
+```xml
+<PropertyGroup>
+  <EnableModHookWeaver>true</EnableModHookWeaver>
+</PropertyGroup>
 ```
 
-## Code mod — build merge (MSBuild)
+Weaver auto-inject dispatch vào mọi method public. Mod hook bất kỳ method nào.
+
+### Ring 4 - C# merge (experimental)
 
 ```xml
 <PropertyGroup><EnableModMerge>true</EnableModMerge></PropertyGroup>
@@ -131,12 +101,11 @@ public sealed class ScriptBridge {
 Mods/
 ├── SkillPack/
 │   ├── mod.json
-│   ├── Skills.cs                          ← compiled
-│   └── skills_override.json               ← AdditionalFiles
+│   ├── Skills.cs                ← compiled
+│   └── skills_override.json     ← AdditionalFiles
 ```
 
 ```csharp
-// Depends on CoreLib at minimum version 1.2.x (same major)
 [ModPlugin("SkillPack", ["CoreLib@1.2.1"])]
 public class SkillPack : IModPlugin {
     public void OnLoad(IModGameContext ctx) {
@@ -146,14 +115,150 @@ public class SkillPack : IModPlugin {
 }
 ```
 
-**Version resolution** — `DepParser.Satisfies(required, available)` checks:
-- Major must match (`1.2.1` → requires `1.x.x`)
-- Minor + patch must be ≥ declared
-- `CoreLib@2.0.1` ❌ (major mismatch), `CoreLib@1.3.0` ✅, `CoreLib@1.2.5` ✅
+---
 
-Build: `dotnet publish -p:EnableModMerge=true`
+## Architecture
 
-> **Trade-offs:** compile-time baking = zero runtime cost, memory-resident. Scripting (Lua, C#) is the game's responsibility — DataCatalyst handles data.
+```
+DataCatalyst.Plugins.Modding/
+├── SourceGen/
+│   ├── EntryExposerEmitter.cs      ← sinh ItemExposer (Dictionary↔struct mapping, zero reflection)
+│   └── ModdingGenerator.cs          ← emit [ModHook] attribute
+│
+├── Runtime/                         ← FM39hz.DataCatalyst.Plugins.Modding.Runtime
+│   ├── ModLoader.cs                 ← Scan + manifest + lifecycle
+│   ├── ModManifest.cs               ← mod metadata model
+│   ├── EntryExposerRegistry.cs      ← bridge source gen → script context
+│   ├── ComponentSchemaRegistry.cs   ← runtime component type def
+│   ├── HookDispatcher.cs            ← IL entry point (Before/After)
+│   └── HookRegistry.cs              ← methodId → script context registration
+│
+└── Weaver/                          ← FM39hz.DataCatalyst.Plugins.Modding.Weaver
+    ├── WeaverTask.cs                 ← MSBuild AfterTargets=CoreCompile
+    ├── HookInjector.cs               ← Mono.Cecil IL transformation
+    └── build/*.props                 ← MSBuild integration
+```
+
+### Source gen: EntryExposer
+
+Sinh per-catalog, engine-agnostic:
+
+```csharp
+// Generated - ItemExposer.cs
+public static class ItemExposer {
+    [ModuleInitializer]
+    internal static void Register() =>
+        EntryExposerRegistry.Register(Expose);
+
+    private static void Expose(IScriptContext ctx) {
+        ctx.SetGlobal("Item_Get",
+            (Func<string, Dictionary<string, object>?>)(kind => MapToDict(Item.Get(kind))));
+        ctx.SetGlobal("Item_Add",
+            (Action<string, Dictionary<string, object>>)((key, fields) =>
+                ItemMod.AddEntry(key, MapFromDict(fields))));
+    }
+
+    // Compile-time mapping - zero reflection
+    private static Item MapFromDict(Dictionary<string, object> f) => new() {
+        Health = (int)(f.TryGetValue("Health", out var h) ? h : 0),
+        Weight = (float)(f.TryGetValue("Weight", out var w) ? w : 0f),
+    };
+    private static Dictionary<string, object> MapToDict(Item e) => new() {
+        ["Health"] = e.Health, ["Weight"] = e.Weight,
+    };
+}
+```
+
+### IL weaver: HookDispatcher
+
+```
+Game C# → MSBuild → CoreCompile → WeaverTask → CoreCompile output (IL with hooks) → NativeAOT
+```
+
+For each method matching filter (`[ModHook]` or auto-weave):
+
+```il
+// IL before:
+.method public bool AddItem(Item i) { ... ret ... }
+
+// IL after:
+.method public bool AddItem(Item i) {
+    // injected - before original
+    if (HookDispatcher.Before("Game.AddItem", this, args, out ret))
+        return unbox(ret);
+
+    // original body...
+
+    // injected - before return
+    HookDispatcher.After("Game.AddItem", this, stloc_return);
+    ret;
+}
+```
+
+### Mod manifest
+
+```json
+{
+	"id": "FishingOverhaul",
+	"version": "1.0.0",
+	"gameVersion": ">=1.0.0",
+	"dependencies": [{ "id": "CoreLib", "version": ">=1.2.0" }],
+	"content": [
+		{ "type": "component", "file": "components.json" },
+		{ "type": "script", "file": "init.lua" },
+		{ "type": "data", "file": "items_override.json", "target": "Item" }
+	]
+}
+```
+
+---
+
+## Generated API
+
+| Member                                           | Description                                              |
+| ------------------------------------------------ | -------------------------------------------------------- |
+| `Item.Potion`                                    | Static field per JSON entry (Eager mode)                 |
+| `Item.Get(ItemKind)`                             | O(1) FrozenDictionary lookup (Eager) / Repository (Lazy) |
+| `Item.Query(predicate)`                          | Filter entries                                           |
+| `Item.Repository`                                | Swappable IDataRepository                                |
+| `ItemMod.AddEntry(key, value)`                   | Mod data injection                                       |
+| `ItemExposer.Expose(ctx)`                        | Script bridge registration                               |
+| `DataRef<Buff, BuffKind>`                        | Typed cross-catalog reference                            |
+| `CatalogRegistry.GetAll()`                       | All discovered catalogs                                  |
+| `HookRegistry.RegisterBefore(methodId, ctx)`     | Script hook registration                                 |
+| `HookDispatcher.Before(id, inst, args, out ret)` | IL dispatch entry point                                  |
+
+## Generated components
+
+| Backend  | ModSupport | Files                                    |
+| -------- | ---------- | ---------------------------------------- |
+| `None`   | `false`    | Core struct + enum + Repository          |
+| `Json`   | `false`    | Core + `ItemJson` + `ItemJsonRepository` |
+| `Sqlite` | `false`    | Core + `ItemSql` + `ItemSqlRepository`   |
+| any      | `true`     | Core + JSON + `ItemMod` + `EntryExposer` |
+
+## Extension points
+
+| Extension          | Interface                            | Registry                  |
+| ------------------ | ------------------------------------ | ------------------------- |
+| Engine adapter     | `IDataViewAdapter<T>`                | `DataViewAdapterRegistry` |
+| DSL reader         | `IDslReader<T>`                      | `DslReaderRegistry`       |
+| C# mod plugin      | `IModPlugin`                         | `PluginRegistry`          |
+| Custom backend     | `IDataRepository<TKey,TValue>`       | `Item.Repository = ...`   |
+| Generator plugin   | `IPrimitiveTypeRule`, `ITypeEmitter` | `DcPluginRegistry`        |
+| Script engine      | `IScriptEngine`                      | game-provided             |
+| Script context     | `IScriptContext`                     | per-mod                   |
+| Component registry | `IComponentSchemaRegistry`           | runtime type def          |
+| Method hook        | `[ModHook]` attribute / auto-weave   | `HookRegistry`            |
+
+## Backend switching
+
+```csharp
+[CatalystData("Items.json", Backend = DataBackendConst.All)]
+public partial struct Item { }
+```
+
+**Env**: `DATACATALYST_BACKEND`, `DATACATALYST_CONNECTION`, `DATACATALYST_DATAPATH`.
 
 ## Cross-catalog references
 
@@ -161,87 +266,21 @@ Build: `dotnet publish -p:EnableModMerge=true`
 [CatalystData("buffs.json", typeof(BuffTemplate))]
 public partial struct Buff { }
 
-[CatalystData("items.json", typeof(ItemTemplate), RefTo = new[] { typeof(Buff) })]
+[CatalystData("items.json", typeof(ItemTemplate), RefTo = [typeof(Buff)])]
 public partial struct Item { }
 
 var buff = Buff.Get(item.BuffRef.Kind);
 ```
 
-DataCatalyst topo-sorts by `RefTo` — referenced catalogs are processed first.
-
-## Generated API
-
-| Member                          | Description                                              |
-| ------------------------------- | -------------------------------------------------------- |
-| `Item.Potion`                   | Static field per JSON entry (Eager mode)                 |
-| `Item.Get(ItemKind)`            | O(1) FrozenDictionary lookup (Eager) / Repository (Lazy) |
-| `Item.Query(predicate)`         | Filter entries                                           |
-| `Item.Repository { get; set; }` | Swappable IDataRepository                                |
-| `ItemMod.AddEntry(key, value)`  | Mod data injection                                       |
-| `DataRef<Buff, BuffKind>`       | Typed reference to another catalog                       |
-| `CatalogRegistry.GetAll()`      | Lists all discovered catalogs                            |
-
-All catalogs auto-register into `CatalogRegistry`.
-
-## Load mode
-
-```csharp
-[CatalystData("Items.json")]                                              // Lazy (default)
-[CatalystData("Items.json", LoadMode = LoadModeConst.Eager)]              // Eager
-[CatalystData("Items.json", SchemaVersion = "2.0.0")]                     // Versioned schema
-[CatalystData("Items.json", SchemaVersion = "2.0.0", ModSupport = true)]  // + mod loading
-```
-
-| Mode        | Static fields | FrozenDictionary | Startup cost | When to use                   |
-| ----------- | ------------- | ---------------- | ------------ | ----------------------------- |
-| `Lazy` (0)  | No            | No               | None         | Large datasets, optional data |
-| `Eager` (1) | Yes           | Yes              | Module init  | Small core data, hot path     |
-
-## Generated components
-
-| Backend  | ModSupport | Files                                           |
-| -------- | ---------- | ----------------------------------------------- |
-| `None` | `false` | Core struct + enum + Repository (Lazy) |
-| `Json` | `false` | Core + `ItemJson` + `ItemJsonRepository` |
-| `Sqlite` | `false` | Core + `ItemSql` + `ItemSqlRepository` |
-| any | `true` | Core + JSON + `ItemMod` + adapter notifications |
-
-## Schema versioning + migration
-
-```csharp
-[CatalystData("Items.json", SchemaVersion = "2.0.0", ModSupport = true)]
-public partial struct Item { }
-
-// ItemMod.SchemaVersion → "2.0.0"
-```
-
-**Migration** — game registers transforms for older schema versions:
-
-```csharp
-SchemaMigrationRegistry.Register<Item>(1, (key, oldFields) => {
-    oldFields.TryGetValue("damage", out var d);
-    oldFields["attackPower"] = d;
-    return oldFields;
-});
-```
-
 ## Examples
 
-| Example                                         | Shows                                                                         |
-| ----------------------------------------------- | ----------------------------------------------------------------------------- |
-| [`FrifloPlugin/`](examples/FrifloPlugin/)       | Bridge data → Friflo Entity + components; register QuerySystem via IModPlugin |
-| [`GodotPlugin/`](examples/GodotPlugin/)         | Bridge data → ItemNode (C# subclass); mod plugin spawning nodes               |
-| [`ScriptingBridge/`](examples/ScriptingBridge/) | Lua VM exposing DataCatalyst + ECS API; generated typed methods               |
-
-## Extension points
-
-| Extension        | Interface                            | Registry                  |
-| ---------------- | ------------------------------------ | ------------------------- |
-| Engine adapter   | `IDataViewAdapter<T>`                | `DataViewAdapterRegistry` |
-| DSL reader       | `IDslReader<T>`                      | `DslReaderRegistry`       |
-| C# mod plugin    | `IModPlugin`                         | `PluginRegistry`          |
-| Custom backend   | `IDataRepository<TKey, TValue>`      | `Item.Repository = ...`   |
-| Generator plugin | `IPrimitiveTypeRule`, `ITypeEmitter` | `DcPluginRegistry`        |
+| Example                                                               | Shows                           |
+| --------------------------------------------------------------------- | ------------------------------- |
+| [`modding_plugins/HelloMod/`](examples/modding_plugins/HelloMod/)     | Drop-in data override + script  |
+| [`modding_plugins/WeaverHook/`](examples/modding_plugins/WeaverHook/) | `[ModHook]` + Hook.Before/After |
+| [`FrifloPlugin/`](examples/FrifloPlugin/)                             | Bridge data → Friflo ECS        |
+| [`GodotPlugin/`](examples/GodotPlugin/)                               | Bridge data → Godot             |
+| [`ScriptingBridge/`](examples/ScriptingBridge/)                       | Lua scripting layer             |
 
 ## License
 
