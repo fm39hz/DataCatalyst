@@ -27,7 +27,7 @@ using Microsoft.CodeAnalysis.Text;
 ///     </para>
 /// </summary>
 internal static class PipelineDriver {
-	internal static readonly Dictionary<string, IReadOnlyList<RowData>> CatalogRows = new();
+	internal static readonly Dictionary<string, IReadOnlyList<RowData>> CatalogRows = [];
 
 	public static void Reset() => CatalogRows.Clear();
 

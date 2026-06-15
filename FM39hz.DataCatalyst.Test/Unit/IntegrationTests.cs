@@ -272,8 +272,8 @@ public sealed class IntegrationTests : IntegrationTestBase {
 			[CatalystData("items.json", RefTo = new[] { typeof(Buff) })]
 			public partial struct Item { }
 			""",
-			new TestAdditionalText("buffs.json", """{ "Regen": { "Power": 10 } }"""),
-			new TestAdditionalText("items.json", """{ "Potion": { "Damage": 5 } }"""));
+			new TestAdditionalText("buffs.json", /*lang=json,strict*/ """{ "Regen": { "Power": 10 } }"""),
+			new TestAdditionalText("items.json", /*lang=json,strict*/ """{ "Potion": { "Damage": 5 } }"""));
 
 		diags.Where(d => d.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
 		var core = FindSource(sources, "enum ItemKind");

@@ -327,7 +327,7 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 					}
 
 					if (attr.ConstructorArguments.Length >= 2 && attr.ConstructorArguments[1].Values is var deps) {
-						var list = new System.Collections.Generic.List<string>();
+						var list = new List<string>();
 						foreach (var d in deps) {
 							var s = d.Value?.ToString();
 							if (!string.IsNullOrEmpty(s)) {
@@ -343,7 +343,7 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 								name = ns;
 								break;
 							case "Dependencies" when na.Value.Values is { Length: > 0 } vs:
-								var list = new System.Collections.Generic.List<string>();
+								var list = new List<string>();
 								foreach (var v in vs) {
 									var s = v.Value?.ToString();
 									if (!string.IsNullOrEmpty(s)) {
@@ -378,7 +378,7 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 			var codegenFooter = "\n}";
 			sb.Append(codegenHeader);
 
-			var seen = new System.Collections.Generic.HashSet<string>();
+			var seen = new HashSet<string>();
 			foreach (var (name, fullType, deps) in plugins) {
 				if (!seen.Add(name)) {
 					continue;
@@ -402,15 +402,21 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 		foreach (var t in targets) {
 			map[t.SimpleName] = t;
 			indegree[t.SimpleName] = 0;
-			edges[t.SimpleName] = new List<string>();
+			edges[t.SimpleName] = [];
 		}
 
 		foreach (var t in targets) {
-			if (t.RefToTargets.Length == 0) continue;
+			if (t.RefToTargets.Length == 0) {
+				continue;
+			}
+
 			foreach (var rt in t.RefToTargets) {
 				var dot = rt.LastIndexOf('.');
 				var simple = dot >= 0 ? rt.Substring(dot + 1) : rt;
-				if (!map.ContainsKey(simple)) continue;
+				if (!map.ContainsKey(simple)) {
+					continue;
+				}
+
 				edges[simple].Add(t.SimpleName);
 				indegree[t.SimpleName]++;
 			}
@@ -418,7 +424,9 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 
 		var ready = new List<TargetInfo>();
 		foreach (var t in targets) {
-			if (indegree[t.SimpleName] == 0) ready.Add(t);
+			if (indegree[t.SimpleName] == 0) {
+				ready.Add(t);
+			}
 		}
 
 		ready.Sort(static (a, b) => string.CompareOrdinal(a.SimpleName, b.SimpleName));
@@ -439,11 +447,11 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 
 		if (ordered.Count < targets.Length) {
 			ordered.Clear();
-			foreach (var t in targets) ordered.Add(t);
+			foreach (var t in targets) {
+				ordered.Add(t);
+			}
 		}
 
-		var b = ImmutableArray.CreateBuilder<TargetInfo>(ordered.Count);
-		foreach (var t in ordered) b.Add(t);
-		return b.MoveToImmutable();
+		return [.. ordered];
 	}
 }
