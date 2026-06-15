@@ -1,124 +1,169 @@
 # DataCatalyst.SourceGen
 
-Universal Data-Driven Source Generator. Reads JSON files (from `<AdditionalFiles>`) and emits strongly-typed, **reflection-free** static catalogs into any `partial` type marked with `[CatalystData]`.
+Universal Data-Driven Source Generator for C# games. Reads JSON from `<AdditionalFiles>`, emits strongly-typed, **reflection-free** static catalogs. Native AOT / trim-safe.
 
-**Native AOT / trim-safe** — the generated C# uses `FrozenDictionary`, `ImmutableArray`, and plain struct initializers. No reflection, no runtime JSON parsing for core data.
+---
 
-The analyzer ships only during compilation; game binaries contain only the generated C#.
-
-**Reflection policy:** No .NET reflection APIs. Roslyn symbol APIs are compile-time only. `[ModuleInitializer]` here registers plugins in the **compiler** process, not in the player build.
-
-## Goals
-
-1. Compile-time materialization of authored JSON into static code (core catalog)
-2. AOT/trimming friendly runtime (no reflection, no runtime JSON parse for core data)
-3. Runtime backend switching (JSON ↔ SQLite) — source-generated typed readers
-4. Mod content loading — runtime data files merge with core catalog
-5. DSL plugin readers — custom text formats via `IDslReader<T>` interface
-6. All of the above without string-based public APIs — enum/type access only
-
-## Pipeline
+## Architecture
 
 ```
 UniversalDataGenerator (IIncrementalGenerator)
-└── PipelineDriver
-    ├── IEntryPointReader      → ObjectOfStrings | ObjectOfObjects | ArrayOfObjects
-    ├── ISchemaProvider        → Template | Inference
-    ├── IPrimitiveTypeRule     → bool | int | long | float | string | decimal …
-    ├── ITypeEmitter (main)    → PartialStruct (struct + enum + FrozenDictionary)  ← FIRST match
-    ├── ITypeEmitter (companion) → SqliteDataEmitter | JsonRuntimeDataEmitter | ModOverlayDataEmitter  ← ALL matching
-    ├── ITemplateLiteralRule   → template non-primitive literal emitter (enum-safe)
-    └── IDcPostProcessor       → (none built-in)
+├── RegisterPostInitializationOutput
+│   ├── CatalystDataAttribute.g.cs       ← [CatalystData], [ModPlugin]
+│   └── DataCatalystRuntime.g.cs          ← runtime contracts
+│
+├── ForAttributeWithMetadataName[CatalystData]
+│   └── PipelineDriver
+│       ├── IEntryPointReader    → first match
+│       ├── ISchemaProvider      → first match
+│       ├── IPrimitiveTypeRule   → all (ranked)
+│       ├── ITypeEmitter (main)  → first match — PartialStruct
+│       ├── ITypeEmitter (companion) → ALL matching
+│       │   ├── SqliteDataEmitter       ← Backend.HasFlag(Sqlite)
+│       │   ├── JsonRuntimeDataEmitter  ← Backend.HasFlag(Json)
+│       │   └── ModOverlayDataEmitter   ← ModSupport == true
+│       ├── ITemplateLiteralRule
+│       └── IDcPostProcessor
+│
+└── ForAttributeWithMetadataName[ModPlugin]
+    └── ModPluginRegistrations.g.cs    ← plugin registration
 ```
 
 ### Companion Emitters
 
-After the main emitter runs (first-match), ALL matching **companion emitters** run in dependency order. Each produces a separate source file:
+After the main emitter (first-match), **all** matching companion emitters run. Each produces a separate file:
 
-| Companion | Trigger | File | Content |
-|---|---|---|---|
-| `SqliteDataEmitter` | `Backend.HasFlag(Sqlite)` | `{Type}.DataCatalyst.Sqlite.g.cs` | SQL constants, `SqliteCommand` factory, `SqliteDataReader→T` materializer, `SqlRepository<T>` |
-| `JsonRuntimeDataEmitter` | `Backend.HasFlag(Json)` | `{Type}.DataCatalyst.Json.g.cs` | Hand-rolled `Utf8JsonReader→T` reader (no reflection), `LoadAll()`, `JsonRepository<T>` |
-| `ModOverlayDataEmitter` | `ModSupport==true` | `{Type}.DataCatalyst.Mod.g.cs` | `LoadMods()` directory scanner, core+mod merge, DSL reader integration |
+| Companion                | Trigger                   | File suffix         | Generates                                                                                   |
+| ------------------------ | ------------------------- | ------------------- | ------------------------------------------------------------------------------------------- |
+| `SqliteDataEmitter`      | `Backend.HasFlag(Sqlite)` | `.Sqlite.g.cs`      | SQL constants, `IDbCommand` factory, `DbDataReader→T`, lazy `SqlRepository<T>`              |
+| `JsonRuntimeDataEmitter` | `Backend.HasFlag(Json)`   | `.JsonRuntime.g.cs` | `Utf8JsonReader→T` reader (no reflection), `LoadAll()`, `JsonRepository<T>`                 |
+| `ModOverlayDataEmitter`  | `ModSupport==true`        | `.ModOverlay.g.cs`  | `LoadMods()`, `AddEntry()`, `RemoveEntry()`, `Clear()`, `AddRange()`, adapter notifications |
 
-## Generated API
+---
 
-For each target type `Foo`, DataCatalyst emits:
+## Generated API — Full Reference
 
-**Core (always):**
-- `FooKind` enum — stable, typed row identities
-- `Foo` static row fields (`Foo.Potion`, `Foo.Elixir`, …)
-- `All : FrozenDictionary<FooKind, Foo>` — O(1) lookup
-- `KindByName : FrozenDictionary<string, FooKind>`
-- `Count`, `Kinds`, `Values` properties
-- `Get(FooKind)`, `TryGet(FooKind, out Foo)`, `Contains(FooKind)`
-- `GetKind(string)`, `TryGetKind(string, out FooKind)` — deterministic string→Kind mapping
+### Per `[CatalystData]` target
 
-**No string-based `Get(name)` / `TryGet(name, out …)` public APIs.** Data access is exclusively through the `FooKind` enum.
-
-**When Backend != None:**
-- `Foo.Get(FooKind)` auto-resolves: mod override → runtime backend repo → core FrozenDictionary
-- `Foo.TryGet(FooKind, out Foo)` — same chain
-- `CoreFooRepository` (private wrapper around core FrozenDictionary)
-- `ResolveRepository()` — returns `IDataRepository<FooKind, Foo>` for the active backend
-
-**When ModSupport == true:**
-- `Foo.Get(FooKind)` checks `FooMod.TryGet()` first — mod-overridden entries return automatically
-- `FooMod.LoadMods(string modDir)` — scans `.json` + registered DSL extensions
-- `FooMod.Get(FooKind)` — explicit mod-or-core access
-
-## Attribute
+**File: `{Type}.DataCatalyst.g.cs`**
 
 ```csharp
-[CatalystData(string jsonPath, string entryPoint = "", Type templateType = null)]
+public enum {Type}Kind { Key1, Key2, ... }
+
+public partial struct {Type} {
+    // Column properties
+    public {FieldType} {ColumnName} { get; init; }
+    public {Type}Kind Kind { get; init; }
+
+    // Static fields — one per row
+    public static readonly {Type} {Key} = new() { Kind = ..., ... };
+
+    // FrozenDictionaries
+    public static FrozenDictionary<{Type}Kind, {Type}> All;
+    public static FrozenDictionary<string, {Type}Kind> KindByName;
+
+    // Properties
+    public static int Count => All.Count;
+    public static IEnumerable<{Type}Kind> Kinds => All.Keys;
+    public static IEnumerable<{Type}> Values => All.Values;
+
+    // Access
+    public static {Type} Get({Type}Kind kind);
+    public static bool TryGet({Type}Kind kind, out {Type} value);
+    public static bool Contains({Type}Kind kind);
+
+    // Enum mapping
+    public static {Type}Kind GetKind(string name);
+    public static bool TryGetKind(string name, out {Type}Kind kind);
+
+    // Query/Filter
+    public static IEnumerable<{Type}> Query(Func<{Type}, bool> predicate);
+    public static IEnumerable<{Type}> Find(Func<{Type}, bool> predicate);
+
+    // Repository (game can swap)
+    public static IDataRepository<{Type}Kind, {Type}> Repository { get; set; }
+
+    // Catalog discovery
+    [ModuleInitializer] internal static void RegisterCatalog();
+}
 ```
 
-Named parameters:
-
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `JsonPath` | `string` | (required) | Path to JSON file in `<AdditionalFiles>` |
-| `EntryPoint` | `string` | `""` (root) | Sub-property path in the JSON document |
-| `TemplateType` | `Type` | `null` | CLR type whose shape constrains the inferred schema |
-| `KeyField` | `string` | `""` | Required for `ArrayOfObjects` reader — names the JSON property used as row key |
-| **`Backend`** | `int` (cast from `DataBackend`) | `0` (None) | Which runtime backends to generate: `None=0`, `Json=1`, `Sqlite=2`, `All=3` |
-| **`ModSupport`** | `bool` | `false` | If `true`, generates mod overlay + JSON runtime reader (auto-includes `Backend.Json`) |
+**When Backend != None**, also:
 
 ```csharp
-// Core only
-[CatalystData("items.json")]
-public partial struct Item { }
-
-// Core + JSON runtime + SQLite + mod overlay
-[CatalystData("items.json", Backend = 3, ModSupport = true)]
-public partial struct Item { }
-
-// Shorthand: Backend = DataBackend.All (via generated enum)
-[CatalystData("items.json", Backend = DataBackend.All, ModSupport = true)]
-public partial struct Item { }
+    private sealed class Core{Type}Repository : IDataRepository<{Type}Kind, {Type}>;
+    public static IDataRepository<{Type}Kind, {Type}> ResolveRepository();
 ```
 
-## Architecture
+**When ModSupport == true**, `Get`/`TryGet` auto-check `{Type}Mod` overrides.
 
-### Plugin System
+### Mod overlay
 
-Plugins self-register through `[ModuleInitializer]` calling `DcPluginRegistry.Register(plugin, dependsOn: ...)`. The registry resolves a deterministic dependency-topological order per contract (Kahn's algorithm, cycle-safe). For the main pipeline, the driver picks the **first** plugin whose `CanRead`/`Applies` returns `true`. For companion emitters, **all** matching plugins run.
+**File: `{Type}.DataCatalyst.ModOverlay.g.cs`**
 
-| Contract | Registration method | Pipeline phase |
-|---|---|---|
-| `IEntryPointReader` | `Register(IEntryPointReader)` | First match |
-| `ISchemaProvider` | `Register(ISchemaProvider)` | First match |
-| `IPrimitiveTypeRule` | `Register(IPrimitiveTypeRule)` | All registered (ordered by Rank) |
-| `ITypeEmitter` (main) | `Register(ITypeEmitter)` | First match |
-| `ITypeEmitter` (companion) | `RegisterCompanion(ITypeEmitter)` | **All** matching |
-| `IDcPostProcessor` | `Register(IDcPostProcessor)` | All registered |
-| `ITemplateLiteralRule` | `Register(ITemplateLiteralRule)` | All registered |
+```csharp
+public static partial class {Type}Mod {
+    // Loading
+    public static void LoadMods(string modDir);  // scans *.json + DSL readers
 
-### Runtime Abstractions (emitted in `DataCatalystRuntime.g.cs`)
+    // C# injection
+    public static void AddEntry(string key, {Type} entry);
+    public static void RemoveEntry(string key);
+    public static void Clear();
+    public static void AddRange(params (string Key, {Type} Value)[] entries);
+
+    // Access
+    public static {Type} Get({Type}Kind kind);
+    public static IEnumerable<{Type}> GetAllModEntries();
+
+    // Adapter notification — on every operation:
+    //   DataViewAdapterRegistry.GetAdapters<{Type}>()
+}
+
+// Internal (used by struct's auto-mod-check):
+internal static bool TryGet(string name, out {Type} value);
+internal static string KindToString({Type}Kind kind);
+```
+
+### SQLite
+
+**File: `{Type}.DataCatalyst.Sqlite.g.cs`**
+
+```csharp
+public static partial class {Type}Sql {
+    public const string TableName = "{Type}";
+    public const string SelectAll = "SELECT Kind, Col1, Col2 FROM {Type}";
+
+    public static IDbCommand CreateSelectAllCommand(IDbConnection conn);
+    public static {Type} ReadRow(DbDataReader reader);  // ordinal access
+}
+public sealed class {Type}SqlRepository : IDataRepository<{Type}Kind, {Type}> {
+    public {Type}SqlRepository(Func<IDbConnection> connectionFactory);  // lazy, thread-safe
+}
+```
+
+### JSON runtime
+
+**File: `{Type}.DataCatalyst.JsonRuntime.g.cs`**
+
+```csharp
+public static partial class {Type}Json {
+    public static {Type} Read(ref Utf8JsonReader reader);    // switch on Kind string → enum
+    public static List<{Type}> LoadAll(string filePath);      // array JSON → List<T>
+}
+public sealed class {Type}JsonRepository : IDataRepository<{Type}Kind, {Type}> {
+    public {Type}JsonRepository(string filePath);
+}
+```
+
+---
+
+### `DataCatalystRuntime.g.cs` (once per compilation)
 
 ```csharp
 namespace FM39hz.DataCatalyst.Runtime;
 
+// === Data access ===
 public interface IDataRepository<TKey, TValue> {
     TValue Get(TKey key);
     bool TryGet(TKey key, out TValue value);
@@ -126,57 +171,59 @@ public interface IDataRepository<TKey, TValue> {
     int Count { get; }
 }
 
+public readonly struct DataRef<TTarget, TTargetKind> where TTargetKind : struct {
+    public TTargetKind Kind { get; }
+    public DataRef(TTargetKind kind) => Kind = kind;
+}
+
+// === DSL reader ===
 public interface IDslReader<TValue> {
     string FileExtension { get; }
     bool TryRead(string text, out TValue value);
 }
+public static class DslReaderRegistry { /* thread-safe */ }
 
-public static class DslReaderRegistry {
-    public static void Register<TValue>(IDslReader<TValue> reader);
-    public static IEnumerable<IDslReader<TValue>> GetReaders<TValue>();
+// === Engine adapter ===
+public interface IDataViewAdapter<T> {
+    void OnEntryAdded(string key, T entry);
+    void OnEntryRemoved(string key);
+    void OnEntryModified(string key, T oldEntry, T newEntry);
+    void OnAllCleared();
 }
+public static class DataViewAdapterRegistry { /* thread-safe */ }
 
-public static class DataBackendSelector {
-    public static void Initialize(string? backendOverride = null);
-    public static DataBackend Current { get; }
+// === Mod plugin ===
+public interface IModPlugin {
+    string Name { get; }
+    string[] Dependencies { get; }
+    void OnLoad(IModGameContext context);
+}
+public interface IModGameContext {
+    T? GetService<T>() where T : class;
+    void RegisterService<T>(T service) where T : class;
+}
+public sealed class ModGameContext : IModGameContext { /* delegates to ServiceRegistry */ }
+public static class ServiceRegistry { /* thread-safe */ }
+public static class PluginRegistry { /* Register + LoadAll with topo sort */ }
+
+// === Backend ===
+public static class DataBackendConst {
+    public const int None = 0, Json = 1, Sqlite = 2, All = 3;
+}
+public static class DataBackendSelector { /* Initialize() + Current, lazy+thread-safe */ }
+
+// === Catalog discovery ===
+public static class CatalogRegistry {
+    public static void Register<T>();        // [ModuleInitializer] per catalog
+    public static Type[] GetAll();
 }
 ```
 
-### Folder layout
+---
 
-```
-UniversalDataGenerator.cs   Roslyn-side shell
-DcConstants.cs              attribute metadata names
-DcDiagnostics.cs            DC0001–DC0016 descriptors
-Polyfills.cs                IsExternalInit + ModuleInitializerAttribute (netstandard2.0)
+## Plugin System
 
-Abstractions/
-  Contracts/        public plugin interfaces
-  Runtime/          DataBackend, DcGenerationContext
-  Schema/           SchemaInfo, SchemaColumn, SchemaType, RowData, JsonValueModel
-  Templates/        TemplateMember + ITemplateMetadata
-
-Core/
-  PipelineDriver.cs     orchestrates one generation run
-  DcPluginRegistry.cs   static registry + topological sort
-  TargetInfo.cs         Roslyn symbol → extracted data
-  IdentifierGuard.cs    C# identifier validation
-
-Plugins/
-  Readers/          ObjectOfStringsReader, ObjectOfObjectsReader, ArrayOfObjectsReader
-  Primitives/       BoolPrimitiveRule, IntPrimitiveRule, LongPrimitiveRule,
-                    FloatPrimitiveRule, StringPrimitiveRule
-  Schema/           InferenceSchemaProvider, TemplateSchemaProvider
-  Emitters/         PartialStructEmitter (main)
-                    SqliteDataEmitter (companion)
-                    JsonRuntimeDataEmitter (companion)
-                    ModOverlayDataEmitter (companion)
-  Literals/         EnumTemplateLiteralRule
-```
-
-## Authoring a Plugin
-
-### Generator-time plugin (reader, schema, primitive, main emitter, post-processor)
+### Generator-time plugin (new shape, primitive, schema source, emitter)
 
 ```csharp
 [DcPlugin(typeof(IPrimitiveTypeRule))]
@@ -187,9 +234,8 @@ public sealed class DecimalPrimitiveRule : IPrimitiveTypeRule {
 
     public string Name => "decimal";
     public int Rank => 4;
-    public JsonValueKind BoundKind => JsonValueKind.Number;
-    public bool TryInfer(JsonValueModel value) => /* … */;
-    public string EmitLiteral(JsonValueModel value) => /* … */;
+    public bool TryInfer(JsonValueModel value) => /* ... */;
+    public string EmitLiteral(JsonValueModel value) => /* ... */;
     public string EmitDefault() => "0m";
 }
 ```
@@ -198,72 +244,75 @@ public sealed class DecimalPrimitiveRule : IPrimitiveTypeRule {
 
 ```csharp
 [DcPlugin(typeof(ITypeEmitter))]
-public sealed class MyRuntimeEmitter : ITypeEmitter {
+public sealed class MyCompanionEmitter : ITypeEmitter {
     [ModuleInitializer]
     internal static void Register() =>
-        DcPluginRegistry.RegisterCompanion(new MyRuntimeEmitter());
+        DcPluginRegistry.RegisterCompanion(new MyCompanionEmitter());
 
-    public string Name => "MyRuntime";
-    public bool Applies(DcGenerationContext ctx) => ctx.Backend.HasFlag(DataBackend.Json);
+    public string Name => "MyCompanion";
+    public bool Applies(DcGenerationContext ctx) => ctx.ModSupport;
     public string Emit(IReadOnlyList<RowData> rows, SchemaInfo schema, DcGenerationContext ctx) {
-        // Return generated C# code; companion file will be named {Target}.DataCatalyst.{Name}.g.cs
+        // Return C# source; companion file = {Target}.DataCatalyst.{Name}.g.cs
     }
 }
 ```
 
-### Runtime DSL reader (loaded at runtime, registered at compile time)
+### DSL reader plugin (runtime data, compile-time registered)
 
 ```csharp
 public sealed class YamlItemReader : IDslReader<Item> {
     [ModuleInitializer]
-    internal static void Register() =>
-        DslReaderRegistry.Register(new YamlItemReader());
-
+    internal static void Register() => DslReaderRegistry.Register(new YamlItemReader());
     public string FileExtension => ".yaml";
-    public bool TryRead(string text, out Item value) { /* parse yaml, set Kind to existing enum */ }
+    public bool TryRead(string text, out Item value) { /* parse yaml */ }
 }
 ```
 
-`[ModuleInitializer]` registration means the reader type is statically known to the trimmer — AOT-safe.
+### C# mod plugin
 
-## Supported Entry-Point Shapes (built-in)
+```csharp
+[ModPlugin("SkillPack", ["CoreLib"])]
+public class SkillPack : IModPlugin {
+    public void OnLoad(IModGameContext ctx) {
+        ItemMod.AddEntry("SuperPotion", new Item { Health = 500 });
+        var systems = ctx.GetService<ISystemRegistry>();
+        systems?.Register(new CombatLevelSystem());
+    }
+}
+```
 
-| Shape | Reader | Notes |
-|---|---|---|
-| object-of-strings | `ObjectOfStringsReader` | Single synthetic `value` column. |
-| object-of-objects | `ObjectOfObjectsReader` | Default for object roots. Property names → enum members. |
-| array-of-objects | `ArrayOfObjectsReader` | Requires `KeyField` in `[CatalystData]`. |
+### Engine adapter
 
-## Diagnostics
+```csharp
+public class FrifloItemAdapter : IDataViewAdapter<Item> {
+    private readonly EntityStore _store;
 
-| ID | Severity | Trigger |
-|---|---|---|
-| DC0001 | Error | JSON file not found in `<AdditionalFiles>` |
-| DC0002 | Error | JSON failed to parse |
-| DC0003 | Error | Named `EntryPoint` missing in document |
-| DC0004 | Error | Entry-point shape unsupported by matched reader |
-| DC0005 | Error | Target type missing `partial` modifier |
-| DC0006 | Warning | JSON column has no member on supplied template type |
-| DC0007 | Error | Inference fell over (mixed shapes, empty array, leading null …) |
-| DC0008 | Error | Row key is not a valid C# identifier |
-| DC0009 | Error | Array entry-point contains non-object item |
-| DC0010 | Error | Array entry-point used without `KeyField` |
-| DC0011 | Error | Column member name resolves to `Kind` (collides with synthetic enum property) |
-| DC0012 | Error | No `IEntryPointReader` accepted the entry-point |
-| DC0013 | Error | No `ISchemaProvider` matched the target |
-| DC0014 | Error | No `ITypeEmitter` matched the target |
-| **DC0015** | **Error** | `Backend=Sqlite` with nested columns (object/array) — flat schema required |
-| **DC0016** | **Error** | `Backend=Json` with nested columns — flat schema required |
+    public void OnEntryAdded(string key, Item entry) {
+        var e = _store.CreateEntity();
+        e.Add(new ItemWeight { Value = entry.Weight });
+        e.Add(new ItemHealth { Value = entry.Health });
+    }
+    public void OnEntryRemoved(string key) { /* destroy entity */ }
+    public void OnEntryModified(string key, Item old, Item @new) { /* update component */ }
+    public void OnAllCleared() { /* destroy all mapped entities */ }
+}
 
-## Strict-contract Checklist
+[ModuleInitializer]
+internal static void Register() =>
+    DataViewAdapterRegistry.Register<Item>(new FrifloItemAdapter(store));
+```
 
-- Every shape selected by explicit `CanRead`/`Applies` check; **no heuristics**.
-- Array-of-objects rows MUST declare a key column via `KeyField`; **no auto-keying**.
-- A JSON column literally named `Kind` is rejected at compile time; **no auto-rename**.
-- Primitive widening: each rule owns its own `Rank` — no central table.
-- Plugin ordering: deterministic topo sort over declared `dependsOn` — no numeric priority hacks.
-- Companion emitters run in dependency order — same topo sort as main pipeline.
-- Generated repositories use ordinal-indexed `SqliteDataReader.GetXxx(n)` — no reflection.
-- Generated JSON readers use `Utf8JsonReader` with compile-time-known property switches — no `Enum.Parse`.
-- DSL readers registered at compile time via `[ModuleInitializer]` — trimmer sees every type.
-- Runtime builds contain **no** analyzer code and **no** reflection — AOT / trim safe.
+---
+
+## Design Constraints
+
+- Every shape selected by explicit `CanRead`/`Applies` — no heuristics
+- Array-of-objects requires `KeyField` — no auto-keying
+- Column named `Kind` rejected at compile time — no auto-rename
+- Primitive widening via `Rank` — no central table
+- Plugin ordering via topo sort over `dependsOn` — no numeric priority
+- Companion emitters run in dependency order — same topo sort
+- SQLite backend uses `IDbConnection`/`DbDataReader` — no hard dep on `Microsoft.Data.Sqlite`
+- JSON reader uses `Utf8JsonReader` with generated switch — no `Enum.Parse`
+- All runtime plugin registration via `[ModuleInitializer]` — trimmer sees every type
+- Runtime builds contain **no** analyzer code and **no** reflection — AOT/trim safe
