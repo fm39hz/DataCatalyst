@@ -263,6 +263,52 @@ public sealed class CompanionEmitterTests {
 			.And.Contain("Array.Empty");
 	}
 
+	// --- ModOverlay: AddEntry / RemoveEntry / Clear ---
+
+	[Fact]
+	public void ModOverlayEmitter_Emit_ProducesAddEntryMethod() {
+		var ctx = MakeCtx(modSupport: true);
+		var code = new ModOverlayDataEmitter().Emit(Rows, FlatSchema, ctx);
+		code.Should().Contain("public static void AddEntry(string key")
+			.And.Contain("_modEntries[key] = entry")
+			.And.Contain("OnEntryAdded");
+	}
+
+	[Fact]
+	public void ModOverlayEmitter_Emit_ProducesRemoveEntryMethod() {
+		var ctx = MakeCtx(modSupport: true);
+		var code = new ModOverlayDataEmitter().Emit(Rows, FlatSchema, ctx);
+		code.Should().Contain("public static void RemoveEntry(string key)")
+			.And.Contain("_modEntries?.Remove")
+			.And.Contain("OnEntryRemoved");
+	}
+
+	[Fact]
+	public void ModOverlayEmitter_Emit_ProducesClearMethod() {
+		var ctx = MakeCtx(modSupport: true);
+		var code = new ModOverlayDataEmitter().Emit(Rows, FlatSchema, ctx);
+		code.Should().Contain("public static void Clear()")
+			.And.Contain("_modEntries?.Clear()")
+			.And.Contain("OnAllCleared");
+	}
+
+	[Fact]
+	public void ModOverlayEmitter_Emit_AdapterNotificationPresent() {
+		var ctx = MakeCtx(modSupport: true);
+		var code = new ModOverlayDataEmitter().Emit(Rows, FlatSchema, ctx);
+		code.Should().Contain("DataViewAdapterRegistry.GetAdapters<MyData>")
+			.And.Contain("a.OnEntryAdded")
+			.And.Contain("a.OnEntryRemoved")
+			.And.Contain("a.OnAllCleared");
+	}
+
+	[Fact]
+	public void ModOverlayEmitter_Emit_LoadModsUsesAddEntry() {
+		var ctx = MakeCtx(modSupport: true);
+		var code = new ModOverlayDataEmitter().Emit(Rows, FlatSchema, ctx);
+		code.Should().Contain("AddEntry(KindToString(item.Kind), item)");
+	}
+
 	// --- Component Names ---
 
 	[Fact]
