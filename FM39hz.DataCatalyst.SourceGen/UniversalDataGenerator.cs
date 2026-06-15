@@ -42,6 +42,17 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 						TemplateType = templateType;
 					}
 				}
+
+				[System.AttributeUsage(System.AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
+				public sealed class ModPluginAttribute : System.Attribute {
+					public string Name { get; }
+					public string[] Dependencies { get; }
+
+					public ModPluginAttribute(string name, string[] dependencies = null) {
+						Name = name;
+						Dependencies = dependencies ?? [];
+					}
+				}
 				""");
 
 			ctx.AddSource("DataCatalystRuntime.g.cs", """
@@ -127,6 +138,116 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 						}
 					}
 				}
+
+				public interface IDataViewAdapter<T> {
+					void OnEntryAdded(string key, T entry);
+					void OnEntryRemoved(string key);
+					void OnEntryModified(string key, T oldEntry, T newEntry);
+					void OnAllCleared();
+				}
+
+				public static class DataViewAdapterRegistry {
+					private static readonly Dictionary<System.Type, object> _adapters = new();
+					private static readonly object _lock = new();
+
+					public static void Register<T>(IDataViewAdapter<T> adapter) {
+						lock (_lock) {
+							var t = typeof(T);
+							if (_adapters.TryGetValue(t, out var existing)) {
+								var list = (List<IDataViewAdapter<T>>)existing;
+								list.Add(adapter);
+							} else {
+								_adapters[t] = new List<IDataViewAdapter<T>> { adapter };
+							}
+						}
+					}
+
+					public static IEnumerable<IDataViewAdapter<T>> GetAdapters<T>() {
+						lock (_lock) {
+							if (_adapters.TryGetValue(typeof(T), out var existing)) {
+								var list = (List<IDataViewAdapter<T>>)existing;
+								return list.ToArray();
+							}
+						}
+						return [];
+					}
+				}
+
+				public interface IModPlugin {
+					string Name { get; }
+					string[] Dependencies { get; }
+					void OnLoad(IModGameContext context);
+				}
+
+				public interface IModGameContext {
+					T? GetService<T>() where T : class;
+					void RegisterService<T>(T service) where T : class;
+				}
+
+				public static class ServiceRegistry {
+					private static readonly Dictionary<System.Type, object> _services = new();
+					private static readonly object _lock = new();
+
+					public static void Register<T>(T service) where T : class {
+						lock (_lock) { _services[typeof(T)] = service; }
+					}
+
+					public static T? Get<T>() where T : class {
+						lock (_lock) {
+							return _services.TryGetValue(typeof(T), out var s) ? (T)s : null;
+						}
+					}
+				}
+
+				public sealed class ModGameContext : IModGameContext {
+					public T? GetService<T>() where T : class => ServiceRegistry.Get<T>();
+					public void RegisterService<T>(T service) where T : class => ServiceRegistry.Register(service);
+				}
+
+				public static class PluginRegistry {
+					private static readonly List<IModPlugin> _plugins = [];
+
+					public static void Register(IModPlugin plugin) {
+						_plugins.Add(plugin);
+					}
+
+					public static void LoadAll(IModGameContext context) {
+						var sorted = TopoSort();
+						foreach (var plugin in sorted) {
+							plugin.OnLoad(context);
+						}
+					}
+
+					private static List<IModPlugin> TopoSort() {
+						var ordered = new List<IModPlugin>(_plugins.Count);
+						var visited = new HashSet<string>();
+						var visiting = new HashSet<string>();
+						var map = new Dictionary<string, IModPlugin>();
+						foreach (var p in _plugins) {
+							map[p.Name] = p;
+						}
+						foreach (var p in _plugins) {
+							Visit(p, map, visited, visiting, ordered);
+						}
+						return ordered;
+					}
+
+					private static void Visit(IModPlugin p, Dictionary<string, IModPlugin> map,
+						HashSet<string> visited, HashSet<string> visiting, List<IModPlugin> ordered) {
+						if (!visited.Add(p.Name)) return;
+						visiting.Add(p.Name);
+						foreach (var dep in p.Dependencies) {
+							if (map.TryGetValue(dep, out var depPlugin)) {
+								if (visiting.Contains(dep)) {
+									continue;
+								}
+								Visit(depPlugin, map, visited, visiting, ordered);
+							}
+						}
+						visiting.Remove(p.Name);
+						ordered.Add(p);
+					}
+				}
 				""");
 		});
 
@@ -154,5 +275,93 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 					PipelineDriver.Run(spc, additionalTexts, t);
 				}
 			});
+
+		var modPlugins = context.SyntaxProvider
+			.ForAttributeWithMetadataName(
+				DcConstants.MOD_PLUGIN_ATTRIBUTE_METADATA,
+				static (node, _) => node is Microsoft.CodeAnalysis.CSharp.Syntax.ClassDeclarationSyntax,
+				static (ctx, _) => {
+					if (ctx.TargetSymbol is not Microsoft.CodeAnalysis.INamedTypeSymbol type) {
+						return null;
+					}
+
+					Microsoft.CodeAnalysis.AttributeData? attr = null;
+					foreach (var a in ctx.Attributes) {
+						attr = a;
+						break;
+					}
+
+					if (attr is null) {
+						return null;
+					}
+
+					var name = string.Empty;
+					var dependencies = System.Array.Empty<string>();
+
+					if (attr.ConstructorArguments.Length >= 1 && attr.ConstructorArguments[0].Value is string n) {
+						name = n;
+					}
+
+					if (attr.ConstructorArguments.Length >= 2 && attr.ConstructorArguments[1].Values is var deps) {
+					var list = new System.Collections.Generic.List<string>();
+								foreach (var d in deps) {
+									var s = d.Value?.ToString();
+									if (!string.IsNullOrEmpty(s)) {
+										list.Add(s!);
+									}
+								}
+						dependencies = list.ToArray();
+					}
+
+					foreach (var na in attr.NamedArguments) {
+						switch (na.Key) {
+							case "Name" when na.Value.Value is string ns:
+								name = ns;
+								break;
+							case "Dependencies" when na.Value.Values is { Length: > 0 } vs:
+								var list = new System.Collections.Generic.List<string>();
+								foreach (var v in vs) {
+									var s = v.Value?.ToString();
+									if (!string.IsNullOrEmpty(s)) {
+										list.Add(s!);
+									}
+								}
+								dependencies = list.ToArray();
+								break;
+						}
+					}
+
+					if (string.IsNullOrEmpty(name)) {
+						name = type.Name;
+					}
+
+					var fullType = type.ToDisplayString(Microsoft.CodeAnalysis.SymbolDisplayFormat.FullyQualifiedFormat);
+					return ((string Name, string FullType, string[] Dependencies)?)(Name: name, FullType: fullType, Dependencies: dependencies);
+				})
+			.Where(static p => p.HasValue)
+			.Select(static (p, _) => p!.Value)
+			.Collect();
+
+		context.RegisterSourceOutput(modPlugins, static (spc, plugins) => {
+			if (plugins.IsDefaultOrEmpty) {
+				return;
+			}
+
+			var sb = new System.Text.StringBuilder();
+			var codegenHeader = "// <auto-generated/>\n#nullable enable\n\nnamespace FM39hz.DataCatalyst.Runtime;\n\npublic static partial class ModPluginRegistrations {\n";
+			var codegenFooter = "\n}";
+			sb.Append(codegenHeader);
+
+			var seen = new System.Collections.Generic.HashSet<string>();
+			foreach (var (name, fullType, deps) in plugins) {
+				if (!seen.Add(name)) continue;
+				sb.Append("\t[System.Runtime.CompilerServices.ModuleInitializer]\n");
+				sb.Append("\tinternal static void Register_").Append(System.Text.RegularExpressions.Regex.Replace(name, "[^a-zA-Z0-9]", "_")).Append("() =>\n");
+				sb.Append("\t\tglobal::FM39hz.DataCatalyst.Runtime.PluginRegistry.Register(new ").Append(fullType).AppendLine("());\n");
+			}
+
+			sb.Append(codegenFooter);
+			spc.AddSource("ModPluginRegistrations.g.cs", global::Microsoft.CodeAnalysis.Text.SourceText.From(sb.ToString(), System.Text.Encoding.UTF8));
+		});
 	}
 }

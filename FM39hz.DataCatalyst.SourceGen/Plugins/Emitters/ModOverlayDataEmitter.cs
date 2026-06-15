@@ -37,6 +37,12 @@ public sealed class ModOverlayDataEmitter : ITypeEmitter {
 		sb.AppendLine("\tprivate static global::System.Collections.Generic.Dictionary<string, " + typeName + ">? _modEntries;");
 		sb.AppendLine();
 
+		EmitAddEntry(sb, typeName);
+		sb.AppendLine();
+		EmitRemoveEntry(sb, typeName);
+		sb.AppendLine();
+		EmitClear(sb, typeName);
+		sb.AppendLine();
 		EmitLoadMods(sb, typeName);
 		sb.AppendLine();
 		EmitGetByKind(sb, typeName, enumName);
@@ -51,20 +57,47 @@ public sealed class ModOverlayDataEmitter : ITypeEmitter {
 		return sb.ToString();
 	}
 
+	private static void EmitAdapterNotify(StringBuilder sb, string typeName, string method, string arg) {
+		sb.AppendLine("\t\tforeach (var a in global::FM39hz.DataCatalyst.Runtime.DataViewAdapterRegistry.GetAdapters<" + typeName + ">())");
+		sb.AppendLine("\t\t\ta." + method + "(" + arg + ");");
+	}
+
+	private static void EmitAddEntry(StringBuilder sb, string typeName) {
+		sb.AppendLine("\tpublic static void AddEntry(string key, " + typeName + " entry) {");
+		sb.AppendLine("\t\t_modEntries ??= new global::System.Collections.Generic.Dictionary<string, " + typeName + ">();");
+		sb.AppendLine("\t\t_modEntries[key] = entry;");
+		EmitAdapterNotify(sb, typeName, "OnEntryAdded", "key, entry");
+		sb.AppendLine("\t}");
+	}
+
+	private static void EmitRemoveEntry(StringBuilder sb, string typeName) {
+		sb.AppendLine("\tpublic static void RemoveEntry(string key) {");
+		sb.AppendLine("\t\tif (_modEntries?.Remove(key, out var old) == true) {");
+		EmitAdapterNotify(sb, typeName, "OnEntryRemoved", "key");
+		sb.AppendLine("\t\t}");
+		sb.AppendLine("\t}");
+	}
+
+	private static void EmitClear(StringBuilder sb, string typeName) {
+		sb.AppendLine("\tpublic static void Clear() {");
+		sb.AppendLine("\t\t_modEntries?.Clear();");
+		EmitAdapterNotify(sb, typeName, "OnAllCleared", "");
+		sb.AppendLine("\t}");
+	}
+
 	private static void EmitLoadMods(StringBuilder sb, string typeName) {
 		sb.AppendLine("\tpublic static void LoadMods(string modDir) {");
-		sb.AppendLine("\t\t_modEntries = new global::System.Collections.Generic.Dictionary<string, " + typeName + ">();");
 		sb.AppendLine("\t\tforeach (var file in global::System.IO.Directory.EnumerateFiles(modDir, \"*.json\")) {");
 		sb.AppendLine("\t\t\tvar items = " + typeName + "Json.LoadAll(file);");
 		sb.AppendLine("\t\t\tforeach (var item in items) {");
-		sb.AppendLine("\t\t\t\t_modEntries[KindToString(item.Kind)] = item;");
+		sb.AppendLine("\t\t\t\tAddEntry(KindToString(item.Kind), item);");
 		sb.AppendLine("\t\t\t}");
 		sb.AppendLine("\t\t}");
 		sb.AppendLine("\t\tforeach (var dslReader in global::FM39hz.DataCatalyst.Runtime.DslReaderRegistry.GetReaders<" + typeName + ">()) {");
 		sb.AppendLine("\t\t\tforeach (var file in global::System.IO.Directory.EnumerateFiles(modDir, \"*\" + dslReader.FileExtension)) {");
 		sb.AppendLine("\t\t\t\tvar text = global::System.IO.File.ReadAllText(file);");
 		sb.AppendLine("\t\t\t\tif (dslReader.TryRead(text, out var item)) {");
-		sb.AppendLine("\t\t\t\t\t_modEntries[KindToString(item.Kind)] = item;");
+		sb.AppendLine("\t\t\t\t\tAddEntry(KindToString(item.Kind), item);");
 		sb.AppendLine("\t\t\t\t}");
 		sb.AppendLine("\t\t\t}");
 		sb.AppendLine("\t\t}");
