@@ -10,24 +10,9 @@ using FM39hz.DataCatalyst.Abstractions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
 
-/// <summary>
-///     Orchestrates one DataCatalyst generation per <see cref="TargetInfo" />. The driver is intentionally lean:
-///     <list type="number">
-///         <item>Resolve the JSON file from <c>AdditionalFiles</c>.</item>
-///         <item>Parse + locate the entry-point.</item>
-///         <item>Pick the first matching <see cref="IEntryPointReader" />.</item>
-///         <item>Pick the first matching <see cref="ISchemaProvider" />.</item>
-///         <item>Pick the first matching <see cref="ITypeEmitter" />.</item>
-///         <item>Run every <see cref="IDcPostProcessor" /> against the emitted source.</item>
-///         <item>Hand the source back to Roslyn via <see cref="SourceProductionContext.AddSource(string, SourceText)" />.</item>
-///     </list>
-///     <para>
-///         Adding a new shape, primitive, schema source, or emission strategy requires zero edits here —
-///         it is exclusively a matter of registering a new plugin. This is the OCP contract.
-///     </para>
-/// </summary>
+/// <summary>Orchestrates one generation run: resolves JSON, picks plugins (first-match + all companions), emits source.</summary>
 internal static class PipelineDriver {
-	internal static readonly Dictionary<string, IReadOnlyList<RowData>> CatalogRows = [];
+	internal static readonly Dictionary<string, IReadOnlyList<RowData>> CatalogRows = new();
 
 	public static void Reset() => CatalogRows.Clear();
 
@@ -52,8 +37,7 @@ internal static class PipelineDriver {
 		JsonDocument doc;
 		try {
 			doc = JsonDocument.Parse(rawText!);
-		}
-		catch (JsonException ex) {
+		} catch (JsonException ex) {
 			spc.ReportDiagnostic(Diagnostic.Create(DcDiagnostics.JsonInvalid, target.Location, target.FullyQualifiedName, matched.Path, ex.Message));
 			return;
 		}
@@ -94,9 +78,7 @@ internal static class PipelineDriver {
 			}
 
 			var rows = reader.Read(entry.Value, ctx);
-			if (rows is null) {
-				return;
-			}
+			if (rows is null) return;
 
 			CatalogRows[target.SimpleName] = rows;
 			if (target.RefToTargets.Length > 0) {
@@ -125,9 +107,7 @@ internal static class PipelineDriver {
 			}
 
 			var schema = schemaProvider.Build(rows, ctx);
-			if (schema is null) {
-				return;
-			}
+			if (schema is null) return;
 
 			ITypeEmitter? emitter = null;
 			foreach (var candidate in DcPluginRegistry.Emitters) {
@@ -143,10 +123,7 @@ internal static class PipelineDriver {
 			}
 
 			var src = emitter.Emit(rows, schema, ctx);
-			if (string.IsNullOrEmpty(src)) {
-				// Emitter aborted (already reported a diagnostic).
-				return;
-			}
+			if (string.IsNullOrEmpty(src)) return;
 
 			foreach (var post in DcPluginRegistry.PostProcessors) {
 				post.After(src, ctx);
@@ -156,15 +133,9 @@ internal static class PipelineDriver {
 			spc.AddSource(hint, SourceText.From(src, Encoding.UTF8));
 
 			foreach (var companion in DcPluginRegistry.CompanionEmitters) {
-				if (!companion.Applies(ctx)) {
-					continue;
-				}
-
+				if (!companion.Applies(ctx)) continue;
 				var companionSrc = companion.Emit(rows, schema, ctx);
-				if (string.IsNullOrEmpty(companionSrc)) {
-					continue;
-				}
-
+				if (string.IsNullOrEmpty(companionSrc)) continue;
 				var companionHint = hint + "." + companion.Name;
 				spc.AddSource(companionHint, SourceText.From(companionSrc, Encoding.UTF8));
 			}
@@ -173,36 +144,22 @@ internal static class PipelineDriver {
 
 	private static AdditionalText? FindAdditionalText(ImmutableArray<AdditionalText> texts, string jsonPath) {
 		var normalized = jsonPath.Replace('\\', '/').Trim();
-		if (normalized.Length == 0) {
-			return null;
-		}
+		if (normalized.Length == 0) return null;
 
-		AdditionalText? best = null;
 		foreach (var t in texts) {
-			if (!t.Path.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) {
-				continue;
-			}
-
+			if (!t.Path.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) continue;
 			var p = t.Path.Replace('\\', '/');
 			if (p.EndsWith(normalized, StringComparison.OrdinalIgnoreCase)
 				|| string.Equals(Path.GetFileName(p), normalized, StringComparison.OrdinalIgnoreCase)) {
-				best = t;
-				break;
+				return t;
 			}
 		}
-
-		return best;
+		return null;
 	}
 
 	private static JsonElement? ResolveEntryPoint(JsonElement root, string entryPoint) {
-		if (string.IsNullOrEmpty(entryPoint)) {
-			return root;
-		}
-
-		if (root.ValueKind != JsonValueKind.Object) {
-			return null;
-		}
-
+		if (string.IsNullOrEmpty(entryPoint)) return root;
+		if (root.ValueKind != JsonValueKind.Object) return null;
 		return root.TryGetProperty(entryPoint, out var ep) ? ep : null;
 	}
 

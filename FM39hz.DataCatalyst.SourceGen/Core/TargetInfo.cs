@@ -1,17 +1,10 @@
 namespace FM39hz.DataCatalyst.Core;
 
 using System.Collections.Immutable;
-using System.Linq;
 using FM39hz.DataCatalyst.Abstractions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-/// <summary>
-///     Captures everything the pipeline driver needs to know about a single target type tagged with
-///     <c>[CatalystData]</c>. This is the symbol-extraction step's output and the only place that
-///     touches Roslyn semantic-model types: every downstream plugin works against the equivalent fields
-///     wrapped in <see cref="DcGenerationContext" />.
-/// </summary>
 internal sealed class TargetInfo {
 	public string FullyQualifiedName { get; }
 	public string? ContainingNamespace { get; }
@@ -60,14 +53,11 @@ internal sealed class TargetInfo {
 	}
 
 	public static TargetInfo? Extract(GeneratorAttributeSyntaxContext ctx) {
-		if (ctx.TargetSymbol is not INamedTypeSymbol type) {
-			return null;
-		}
+		if (ctx.TargetSymbol is not INamedTypeSymbol type) return null;
 
-		var attr = ctx.Attributes.FirstOrDefault();
-		if (attr is null) {
-			return null;
-		}
+		AttributeData? attr = null;
+		foreach (var a in ctx.Attributes) { attr = a; break; }
+		if (attr is null) return null;
 
 		var jsonPath = string.Empty;
 		var entryPoint = string.Empty;
@@ -77,38 +67,18 @@ internal sealed class TargetInfo {
 		var refToBuilder = ImmutableArray.CreateBuilder<string>();
 		ITypeSymbol? template = null;
 
-		if (attr.ConstructorArguments.Length >= 1 && attr.ConstructorArguments[0].Value is string jp) {
-			jsonPath = jp;
-		}
-
-		if (attr.ConstructorArguments.Length >= 2 && attr.ConstructorArguments[1].Value is string ep) {
-			entryPoint = ep;
-		}
-
-		if (attr.ConstructorArguments.Length >= 3 && attr.ConstructorArguments[2].Value is INamedTypeSymbol tt) {
-			template = tt;
-		}
+		if (attr.ConstructorArguments.Length >= 1 && attr.ConstructorArguments[0].Value is string jp) jsonPath = jp;
+		if (attr.ConstructorArguments.Length >= 2 && attr.ConstructorArguments[1].Value is string ep) entryPoint = ep;
+		if (attr.ConstructorArguments.Length >= 3 && attr.ConstructorArguments[2].Value is INamedTypeSymbol tt) template = tt;
 
 		foreach (var na in attr.NamedArguments) {
 			switch (na.Key) {
-				case "JsonPath" when na.Value.Value is string s:
-					jsonPath = s;
-					break;
-				case "EntryPoint" when na.Value.Value is string s2:
-					entryPoint = s2;
-					break;
-				case "TemplateType" when na.Value.Value is INamedTypeSymbol nt:
-					template = nt;
-					break;
-				case "KeyField" when na.Value.Value is string kf:
-					keyField = kf;
-					break;
-				case "Backend" when na.Value.Value is int b:
-					backend = (DataBackend)b;
-					break;
-				case "ModSupport" when na.Value.Value is bool ms:
-					modSupport = ms;
-					break;
+				case "JsonPath" when na.Value.Value is string s: jsonPath = s; break;
+				case "EntryPoint" when na.Value.Value is string s2: entryPoint = s2; break;
+				case "TemplateType" when na.Value.Value is INamedTypeSymbol nt: template = nt; break;
+				case "KeyField" when na.Value.Value is string kf: keyField = kf; break;
+				case "Backend" when na.Value.Value is int b: backend = (DataBackend)b; break;
+				case "ModSupport" when na.Value.Value is bool ms: modSupport = ms; break;
 				case "RefTo" when na.Value.Values is { Length: > 0 } refTypes:
 					foreach (var r in refTypes) {
 						if (r.Value is INamedTypeSymbol rt) {
@@ -116,20 +86,18 @@ internal sealed class TargetInfo {
 						}
 					}
 					break;
-				default:
-					break;
 			}
 		}
 
-		if (modSupport && !backend.HasFlag(DataBackend.Json)) {
-			backend |= DataBackend.Json;
-		}
+		if (modSupport && !backend.HasFlag(DataBackend.Json)) backend |= DataBackend.Json;
 
 		var loc = ctx.TargetNode.GetLocation();
 		var isPartial = false;
 		foreach (var syntaxRef in type.DeclaringSyntaxReferences) {
-			if (syntaxRef.GetSyntax() is TypeDeclarationSyntax tds && tds.Modifiers.Any(m => m.ValueText == "partial")) {
-				isPartial = true;
+			if (syntaxRef.GetSyntax() is TypeDeclarationSyntax tds) {
+				foreach (var m in tds.Modifiers) {
+					if (m.ValueText == "partial") { isPartial = true; break; }
+				}
 				break;
 			}
 		}
@@ -168,11 +136,8 @@ internal sealed class TargetInfo {
 				case IFieldSymbol { IsStatic: false, IsConst: false } f when f.DeclaredAccessibility == Accessibility.Public:
 					b.Add(new TemplateMember(f.Name, f.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat), TemplateMemberKind.Field));
 					break;
-				default:
-					break;
 			}
 		}
-
 		return b.ToImmutable();
 	}
 

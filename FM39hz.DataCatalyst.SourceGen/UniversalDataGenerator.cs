@@ -6,22 +6,6 @@ using FM39hz.DataCatalyst.Core;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-// Note: `Where`/`Select` on IncrementalValuesProvider are extension methods in Microsoft.CodeAnalysis,
-// not LINQ. No System.Linq using is needed.
-
-/// <summary>
-///     Universal Data-Driven Source Generator (DataCatalyst). Reads JSON files declared as <c>AdditionalFiles</c>
-///     and emits a strongly-typed, reflection-free static registry into any partial type tagged with
-///     <c>[CatalystData(...)]</c>. Materializes definitions at compile time
-///     so game assemblies stay Native AOT / trimming friendly - consumers never parse JSON or reflect over rows at runtime.
-///     <para>
-///         All generation logic lives in plugins under <c>FM39hz.DataCatalyst.Plugins.*</c> and is wired
-///         through the static <see cref="DcPluginRegistry" /> via <c>[ModuleInitializer]</c> when the analyzer loads.
-///         That initializer runs in the compiler/Roslyn process only - not in shipped game binaries.
-///         This generator is just the Roslyn pipeline shim: it harvests target types and hands them to
-///         <see cref="PipelineDriver.Run" />.
-///     </para>
-/// </summary>
 [Generator]
 public sealed class UniversalDataGenerator : IIncrementalGenerator {
 	public void Initialize(IncrementalGeneratorInitializationContext context) {
@@ -34,12 +18,12 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 					public string JsonPath { get; }
 					public string EntryPoint { get; }
 					public System.Type TemplateType { get; }
-				public string KeyField { get; init; } = string.Empty;
-				public int Backend { get; init; } = 0;
-				public bool ModSupport { get; init; } = false;
-				public System.Type[]? RefTo { get; init; }
+					public string KeyField { get; init; } = string.Empty;
+					public int Backend { get; init; } = 0;
+					public bool ModSupport { get; init; } = false;
+					public System.Type[]? RefTo { get; init; }
 
-				public CatalystDataAttribute(string jsonPath, string entryPoint = "", System.Type templateType = null) {
+					public CatalystDataAttribute(string jsonPath, string entryPoint = "", System.Type templateType = null) {
 						JsonPath = jsonPath;
 						EntryPoint = entryPoint;
 						TemplateType = templateType;
@@ -97,7 +81,6 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 								}
 							}
 						}
-
 						return snap;
 					}
 				}
@@ -289,9 +272,7 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 			combined,
 			static (spc, payload) => {
 				var ((additionalTexts, ts), _) = payload;
-				if (ts.IsDefaultOrEmpty) {
-					return;
-				}
+				if (ts.IsDefaultOrEmpty) return;
 
 				PipelineDriver.Reset();
 				var sorted = TopoSortCatalogs(ts);
@@ -305,19 +286,11 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 				DcConstants.MOD_PLUGIN_ATTRIBUTE_METADATA,
 				static (node, _) => node is ClassDeclarationSyntax,
 				static (ctx, _) => {
-					if (ctx.TargetSymbol is not INamedTypeSymbol type) {
-						return null;
-					}
+					if (ctx.TargetSymbol is not INamedTypeSymbol type) return null;
 
 					AttributeData? attr = null;
-					foreach (var a in ctx.Attributes) {
-						attr = a;
-						break;
-					}
-
-					if (attr is null) {
-						return null;
-					}
+					foreach (var a in ctx.Attributes) { attr = a; break; }
+					if (attr is null) return null;
 
 					var name = string.Empty;
 					var dependencies = System.Array.Empty<string>();
@@ -325,42 +298,30 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 					if (attr.ConstructorArguments.Length >= 1 && attr.ConstructorArguments[0].Value is string n) {
 						name = n;
 					}
-
 					if (attr.ConstructorArguments.Length >= 2 && attr.ConstructorArguments[1].Values is var deps) {
 						var list = new List<string>();
 						foreach (var d in deps) {
 							var s = d.Value?.ToString();
-							if (!string.IsNullOrEmpty(s)) {
-								list.Add(s!);
-							}
+							if (!string.IsNullOrEmpty(s)) list.Add(s!);
 						}
-						dependencies = [.. list];
+						dependencies = list.ToArray();
 					}
 
 					foreach (var na in attr.NamedArguments) {
 						switch (na.Key) {
-							case "Name" when na.Value.Value is string ns:
-								name = ns;
-								break;
+							case "Name" when na.Value.Value is string ns: name = ns; break;
 							case "Dependencies" when na.Value.Values is { Length: > 0 } vs:
 								var list = new List<string>();
 								foreach (var v in vs) {
 									var s = v.Value?.ToString();
-									if (!string.IsNullOrEmpty(s)) {
-										list.Add(s!);
-									}
+									if (!string.IsNullOrEmpty(s)) list.Add(s!);
 								}
-								dependencies = [.. list];
-								break;
-							default:
+								dependencies = list.ToArray();
 								break;
 						}
 					}
 
-					if (string.IsNullOrEmpty(name)) {
-						name = type.Name;
-					}
-
+					if (string.IsNullOrEmpty(name)) name = type.Name;
 					var fullType = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
 					return ((string Name, string FullType, string[] Dependencies)?)(Name: name, FullType: fullType, Dependencies: dependencies);
 				})
@@ -369,27 +330,18 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 			.Collect();
 
 		context.RegisterSourceOutput(modPlugins, static (spc, plugins) => {
-			if (plugins.IsDefaultOrEmpty) {
-				return;
-			}
+			if (plugins.IsDefaultOrEmpty) return;
 
 			var sb = new System.Text.StringBuilder();
-			var codegenHeader = "// <auto-generated/>\n#nullable enable\n\nnamespace FM39hz.DataCatalyst.Runtime;\n\npublic static partial class ModPluginRegistrations {\n";
-			var codegenFooter = "\n}";
-			sb.Append(codegenHeader);
-
+			sb.Append("// <auto-generated/>\n#nullable enable\n\nnamespace FM39hz.DataCatalyst.Runtime;\n\npublic static partial class ModPluginRegistrations {\n");
 			var seen = new HashSet<string>();
-			foreach (var (name, fullType, deps) in plugins) {
-				if (!seen.Add(name)) {
-					continue;
-				}
-
+			foreach (var (name, fullType, _) in plugins) {
+				if (!seen.Add(name)) continue;
 				sb.Append("\t[System.Runtime.CompilerServices.ModuleInitializer]\n");
 				sb.Append("\tinternal static void Register_").Append(System.Text.RegularExpressions.Regex.Replace(name, "[^a-zA-Z0-9]", "_")).Append("() =>\n");
 				sb.Append("\t\tglobal::FM39hz.DataCatalyst.Runtime.PluginRegistry.Register(new ").Append(fullType).AppendLine("());\n");
 			}
-
-			sb.Append(codegenFooter);
+			sb.Append("}");
 			spc.AddSource("ModPluginRegistrations.g.cs", Microsoft.CodeAnalysis.Text.SourceText.From(sb.ToString(), System.Text.Encoding.UTF8));
 		});
 	}
@@ -402,21 +354,14 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 		foreach (var t in targets) {
 			map[t.SimpleName] = t;
 			indegree[t.SimpleName] = 0;
-			edges[t.SimpleName] = [];
+			edges[t.SimpleName] = new List<string>();
 		}
 
 		foreach (var t in targets) {
-			if (t.RefToTargets.Length == 0) {
-				continue;
-			}
-
 			foreach (var rt in t.RefToTargets) {
 				var dot = rt.LastIndexOf('.');
 				var simple = dot >= 0 ? rt.Substring(dot + 1) : rt;
-				if (!map.ContainsKey(simple)) {
-					continue;
-				}
-
+				if (!map.ContainsKey(simple)) continue;
 				edges[simple].Add(t.SimpleName);
 				indegree[t.SimpleName]++;
 			}
@@ -424,14 +369,11 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 
 		var ready = new List<TargetInfo>();
 		foreach (var t in targets) {
-			if (indegree[t.SimpleName] == 0) {
-				ready.Add(t);
-			}
+			if (indegree[t.SimpleName] == 0) ready.Add(t);
 		}
-
 		ready.Sort(static (a, b) => string.CompareOrdinal(a.SimpleName, b.SimpleName));
-		var ordered = new List<TargetInfo>(targets.Length);
 
+		var ordered = new List<TargetInfo>(targets.Length);
 		while (ready.Count > 0) {
 			var cur = ready[0];
 			ready.RemoveAt(0);
@@ -447,11 +389,11 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 
 		if (ordered.Count < targets.Length) {
 			ordered.Clear();
-			foreach (var t in targets) {
-				ordered.Add(t);
-			}
+			foreach (var t in targets) ordered.Add(t);
 		}
 
-		return [.. ordered];
+		var b = ImmutableArray.CreateBuilder<TargetInfo>(ordered.Count);
+		foreach (var t in ordered) b.Add(t);
+		return b.MoveToImmutable();
 	}
 }
