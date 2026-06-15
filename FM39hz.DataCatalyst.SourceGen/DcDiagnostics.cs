@@ -132,4 +132,22 @@ internal static class DcDiagnostics {
 		defaultSeverity: DiagnosticSeverity.Error,
 		isEnabledByDefault: true
 	);
+
+	public static readonly DiagnosticDescriptor SqliteFlatSchemaRequired = new(
+		id: "DC0015",
+		title: "DataCatalyst: SQLite backend requires flat schema",
+		messageFormat: "[CatalystData] on '{0}' uses Backend=Sqlite but has nested column '{1}'; SQLite emitter requires a flat schema (no object/array columns)",
+		category: "FM39hz.DataCatalyst",
+		defaultSeverity: DiagnosticSeverity.Error,
+		isEnabledByDefault: true
+	);
+
+	public static readonly DiagnosticDescriptor JsonRuntimeFlatSchemaRequired = new(
+		id: "DC0016",
+		title: "DataCatalyst: JSON runtime backend requires flat schema",
+		messageFormat: "[CatalystData] on '{0}' uses Backend=Json but has nested column '{1}'; JSON runtime reader requires a flat schema (no object/array columns)",
+		category: "FM39hz.DataCatalyst",
+		defaultSeverity: DiagnosticSeverity.Error,
+		isEnabledByDefault: true
+	);
 }

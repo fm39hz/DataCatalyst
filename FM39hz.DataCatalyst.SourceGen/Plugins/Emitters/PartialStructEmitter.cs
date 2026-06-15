@@ -110,31 +110,94 @@ internal sealed class PartialStructEmitter : ITypeEmitter {
 		}
 		sb.AppendLine("\t\t});");
 
-		sb.AppendLine();
-		sb.AppendLine($"\tpublic static int Count => All.Count;");
-		sb.AppendLine($"\tpublic static global::System.Collections.Generic.IEnumerable<{enumName}> Kinds => All.Keys;");
-		sb.AppendLine($"\tpublic static global::System.Collections.Generic.IEnumerable<{ctx.SimpleName}> Values => All.Values;");
-		sb.AppendLine();
-		sb.AppendLine($"\tpublic static {ctx.SimpleName} Get({enumName} kind) => All[kind];");
-		sb.AppendLine($"\tpublic static bool TryGet({enumName} kind, out {ctx.SimpleName} value) => All.TryGetValue(kind, out value!);");
-		sb.AppendLine($"\tpublic static bool Contains({enumName} kind) => All.ContainsKey(kind);");
-		sb.AppendLine();
-		sb.AppendLine($"\tpublic static {enumName} GetKind(string name) => KindByName[name];");
-		sb.AppendLine($"\tpublic static bool TryGetKind(string name, out {enumName} kind) => KindByName.TryGetValue(name, out kind);");
-		sb.AppendLine($"\tpublic static bool Contains(string name) => KindByName.ContainsKey(name);");
-		sb.AppendLine();
-		sb.AppendLine($"\tpublic static {ctx.SimpleName} Get(string name) => Get(GetKind(name));");
-		sb.AppendLine($"\tpublic static bool TryGet(string name, out {ctx.SimpleName} value) {{");
-		sb.AppendLine($"\t\tif (KindByName.TryGetValue(name, out var kind)) {{");
-		sb.AppendLine($"\t\t\tvalue = All[kind];");
-		sb.AppendLine("\t\t\treturn true;");
-		sb.AppendLine("\t\t}");
-		sb.AppendLine("\t\tvalue = default!;");
-		sb.AppendLine("\t\treturn false;");
-		sb.AppendLine("\t}");
+		EmitAccessors(sb, ctx, rows, enumName);
 
 		sb.AppendLine("}");
 		return sb.ToString();
+	}
+
+	private static void EmitAccessors(StringBuilder sb, DcGenerationContext ctx, IReadOnlyList<RowData> rows, string enumName) {
+		var t = ctx.SimpleName;
+		var hasBackend = ctx.Backend != DataBackend.None;
+		var hasMods = ctx.ModSupport;
+
+		sb.AppendLine();
+		sb.AppendLine($"\tpublic static int Count => All.Count;");
+		sb.AppendLine($"\tpublic static global::System.Collections.Generic.IEnumerable<{enumName}> Kinds => All.Keys;");
+		sb.AppendLine($"\tpublic static global::System.Collections.Generic.IEnumerable<{t}> Values => All.Values;");
+		sb.AppendLine();
+
+		// Get(Kind) — type-safe, backend-aware, mod-aware
+		if (hasBackend && hasMods) {
+			sb.AppendLine($"\tpublic static {t} Get({enumName} kind) {{");
+			sb.AppendLine($"\t\tif ({t}Mod.TryGet({t}Mod.KindToString(kind), out var m)) return m;");
+			sb.AppendLine($"\t\tvar b = global::FM39hz.DataCatalyst.Runtime.DataBackendSelector.Current;");
+			sb.AppendLine($"\t\tif (b != 0) return ResolveRepository().Get(kind);");
+			sb.AppendLine($"\t\treturn All[kind];");
+			sb.AppendLine("\t}");
+		} else if (hasBackend) {
+			sb.AppendLine($"\tpublic static {t} Get({enumName} kind) {{");
+			sb.AppendLine($"\t\tvar b = global::FM39hz.DataCatalyst.Runtime.DataBackendSelector.Current;");
+			sb.AppendLine($"\t\tif (b != 0) return ResolveRepository().Get(kind);");
+			sb.AppendLine($"\t\treturn All[kind];");
+			sb.AppendLine("\t}");
+		} else if (hasMods) {
+			sb.AppendLine($"\tpublic static {t} Get({enumName} kind) {{");
+			sb.AppendLine($"\t\tif ({t}Mod.TryGet({t}Mod.KindToString(kind), out var m)) return m;");
+			sb.AppendLine($"\t\treturn All[kind];");
+			sb.AppendLine("\t}");
+		} else {
+			sb.AppendLine($"\tpublic static {t} Get({enumName} kind) => All[kind];");
+		}
+
+		// TryGet(Kind, out) — type-safe, backend-aware, mod-aware
+		if (hasBackend && hasMods) {
+			sb.AppendLine($"\tpublic static bool TryGet({enumName} kind, out {t} value) {{");
+			sb.AppendLine($"\t\tif ({t}Mod.TryGet({t}Mod.KindToString(kind), out var m)) {{ value = m; return true; }}");
+			sb.AppendLine($"\t\tvar b = global::FM39hz.DataCatalyst.Runtime.DataBackendSelector.Current;");
+			sb.AppendLine($"\t\tif (b != 0) return ResolveRepository().TryGet(kind, out value);");
+			sb.AppendLine($"\t\treturn All.TryGetValue(kind, out value!);");
+			sb.AppendLine("\t}");
+		} else if (hasBackend) {
+			sb.AppendLine($"\tpublic static bool TryGet({enumName} kind, out {t} value) {{");
+			sb.AppendLine($"\t\tvar b = global::FM39hz.DataCatalyst.Runtime.DataBackendSelector.Current;");
+			sb.AppendLine($"\t\tif (b != 0) return ResolveRepository().TryGet(kind, out value);");
+			sb.AppendLine($"\t\treturn All.TryGetValue(kind, out value!);");
+			sb.AppendLine("\t}");
+		} else if (hasMods) {
+			sb.AppendLine($"\tpublic static bool TryGet({enumName} kind, out {t} value) {{");
+			sb.AppendLine($"\t\tif ({t}Mod.TryGet({t}Mod.KindToString(kind), out var m)) {{ value = m; return true; }}");
+			sb.AppendLine($"\t\treturn All.TryGetValue(kind, out value!);");
+			sb.AppendLine("\t}");
+		} else {
+			sb.AppendLine($"\tpublic static bool TryGet({enumName} kind, out {t} value) => All.TryGetValue(kind, out value!);");
+		}
+
+		sb.AppendLine($"\tpublic static bool Contains({enumName} kind) => All.ContainsKey(kind);");
+		sb.AppendLine();
+
+		if (hasBackend) {
+			sb.AppendLine();
+			sb.AppendLine($"\tprivate sealed class Core{t}Repository : global::FM39hz.DataCatalyst.Runtime.IDataRepository<{enumName}, {t}> {{");
+			sb.AppendLine($"\t\tpublic {t} Get({enumName} kind) => All[kind];");
+			sb.AppendLine($"\t\tpublic bool TryGet({enumName} kind, out {t} value) => All.TryGetValue(kind, out value!);");
+			sb.AppendLine($"\t\tpublic global::System.Collections.Generic.IEnumerable<{t}> GetAll() => Values;");
+			sb.AppendLine($"\t\tpublic int Count => All.Count;");
+			sb.AppendLine("\t}");
+			sb.AppendLine();
+			sb.AppendLine($"\tpublic static global::FM39hz.DataCatalyst.Runtime.IDataRepository<{enumName}, {t}> ResolveRepository() {{");
+			sb.AppendLine($"\t\tvar backend = global::FM39hz.DataCatalyst.Runtime.DataBackendSelector.Current;");
+			sb.AppendLine($"\t\tvar connStr = global::System.Environment.GetEnvironmentVariable(\"DATACATALYST_CONNECTION\");");
+			sb.AppendLine($"\t\tvar dataPath = global::System.Environment.GetEnvironmentVariable(\"DATACATALYST_DATAPATH\");");
+			sb.AppendLine($"\t\tif (backend.HasFlag(global::FM39hz.DataCatalyst.Abstractions.DataBackend.Sqlite)) {{");
+			sb.AppendLine($"\t\t\treturn new {t}SqlRepository(() => new global::Microsoft.Data.Sqlite.SqliteConnection(connStr ?? \"{t}.db\"));");
+			sb.AppendLine($"\t\t}}");
+			sb.AppendLine($"\t\tif (backend.HasFlag(global::FM39hz.DataCatalyst.Abstractions.DataBackend.Json)) {{");
+			sb.AppendLine($"\t\t\treturn new {t}JsonRepository(dataPath ?? \"{ctx.JsonPath}\");");
+			sb.AppendLine($"\t\t}}");
+			sb.AppendLine($"\t\treturn new Core{t}Repository();");
+			sb.AppendLine("\t}");
+		}
 	}
 
 	private static string TypeDeclarationKeyword(DcGenerationContext ctx) =>

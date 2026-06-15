@@ -24,6 +24,8 @@ public sealed class DcGenerationContext(
 	string entryPointName,
 	string keyField,
 	string jsonPath,
+	DataBackend backend,
+	bool modSupport,
 	Location location,
 	ITemplateMetadata? template,
 	SourceProductionContext spc) {
@@ -35,6 +37,8 @@ public sealed class DcGenerationContext(
 	public string EntryPointName { get; } = entryPointName;
 	public string KeyField { get; } = keyField;
 	public string JsonPath { get; } = jsonPath;
+	public DataBackend Backend { get; } = backend;
+	public bool ModSupport { get; } = modSupport;
 	public Location Location { get; } = location;
 	public ITemplateMetadata? Template { get; } = template;
 

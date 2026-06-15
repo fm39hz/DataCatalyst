@@ -69,6 +69,8 @@ internal static class PipelineDriver {
 				entryPointName: target.EntryPoint,
 				keyField: target.KeyField,
 				jsonPath: target.JsonPath,
+				backend: target.Backend,
+				modSupport: target.ModSupport,
 				location: target.Location,
 				template: target.Template,
 				spc: spc);
@@ -134,6 +136,20 @@ internal static class PipelineDriver {
 
 			var hint = BuildHintName(target);
 			spc.AddSource(hint, SourceText.From(src, Encoding.UTF8));
+
+			foreach (var companion in DcPluginRegistry.CompanionEmitters) {
+				if (!companion.Applies(ctx)) {
+					continue;
+				}
+
+				var companionSrc = companion.Emit(rows, schema, ctx);
+				if (string.IsNullOrEmpty(companionSrc)) {
+					continue;
+				}
+
+				var companionHint = hint + "." + companion.Name;
+				spc.AddSource(companionHint, SourceText.From(companionSrc, Encoding.UTF8));
+			}
 		}
 	}
 

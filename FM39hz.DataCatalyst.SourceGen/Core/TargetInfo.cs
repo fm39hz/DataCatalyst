@@ -23,6 +23,8 @@ internal sealed class TargetInfo {
 	public string JsonPath { get; }
 	public string EntryPoint { get; }
 	public string KeyField { get; }
+	public DataBackend Backend { get; }
+	public bool ModSupport { get; }
 	public Location Location { get; }
 
 	private TargetInfo(
@@ -36,6 +38,8 @@ internal sealed class TargetInfo {
 		string jsonPath,
 		string entryPoint,
 		string keyField,
+		DataBackend backend,
+		bool modSupport,
 		Location location) {
 		FullyQualifiedName = fullyQualifiedName;
 		ContainingNamespace = containingNamespace;
@@ -47,6 +51,8 @@ internal sealed class TargetInfo {
 		JsonPath = jsonPath;
 		EntryPoint = entryPoint;
 		KeyField = keyField;
+		Backend = backend;
+		ModSupport = modSupport;
 		Location = location;
 	}
 
@@ -63,6 +69,8 @@ internal sealed class TargetInfo {
 		var jsonPath = string.Empty;
 		var entryPoint = string.Empty;
 		var keyField = string.Empty;
+		var backend = DataBackend.None;
+		var modSupport = false;
 		ITypeSymbol? template = null;
 
 		if (attr.ConstructorArguments.Length >= 1 && attr.ConstructorArguments[0].Value is string jp) {
@@ -91,9 +99,19 @@ internal sealed class TargetInfo {
 				case "KeyField" when na.Value.Value is string kf:
 					keyField = kf;
 					break;
+				case "Backend" when na.Value.Value is int b:
+					backend = (DataBackend)b;
+					break;
+				case "ModSupport" when na.Value.Value is bool ms:
+					modSupport = ms;
+					break;
 				default:
 					break;
 			}
+		}
+
+		if (modSupport && !backend.HasFlag(DataBackend.Json)) {
+			backend |= DataBackend.Json;
 		}
 
 		var loc = ctx.TargetNode.GetLocation();
@@ -123,6 +141,8 @@ internal sealed class TargetInfo {
 			jsonPath: jsonPath,
 			entryPoint: entryPoint,
 			keyField: keyField,
+			backend: backend,
+			modSupport: modSupport,
 			location: loc);
 	}
 

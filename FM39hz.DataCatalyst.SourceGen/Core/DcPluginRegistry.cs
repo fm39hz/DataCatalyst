@@ -26,6 +26,7 @@ public static class DcPluginRegistry {
 	private static readonly List<PluginEntry<ITypeEmitter>> _emitters = [];
 	private static readonly List<PluginEntry<IDcPostProcessor>> _postProcessors = [];
 	private static readonly List<PluginEntry<ITemplateLiteralRule>> _templateLiterals = [];
+	private static readonly List<PluginEntry<ITypeEmitter>> _companionEmitters = [];
 	private static int _sequence;
 
 	public static void Register(IEntryPointReader plugin, params Type[] dependsOn) => _readers.Add(CreateEntry(plugin, dependsOn));
@@ -34,6 +35,7 @@ public static class DcPluginRegistry {
 	public static void Register(ITypeEmitter plugin, params Type[] dependsOn) => _emitters.Add(CreateEntry(plugin, dependsOn));
 	public static void Register(IDcPostProcessor plugin, params Type[] dependsOn) => _postProcessors.Add(CreateEntry(plugin, dependsOn));
 	public static void Register(ITemplateLiteralRule plugin, params Type[] dependsOn) => _templateLiterals.Add(CreateEntry(plugin, dependsOn));
+	public static void RegisterCompanion(ITypeEmitter plugin, params Type[] dependsOn) => _companionEmitters.Add(CreateEntry(plugin, dependsOn));
 
 	public static IReadOnlyList<IEntryPointReader> Readers => Order(_readers);
 	public static IReadOnlyList<IPrimitiveTypeRule> Primitives => Order(_primitives);
@@ -41,6 +43,7 @@ public static class DcPluginRegistry {
 	public static IReadOnlyList<ITypeEmitter> Emitters => Order(_emitters);
 	public static IReadOnlyList<IDcPostProcessor> PostProcessors => Order(_postProcessors);
 	public static IReadOnlyList<ITemplateLiteralRule> TemplateLiteralRules => Order(_templateLiterals);
+	public static IReadOnlyList<ITypeEmitter> CompanionEmitters => Order(_companionEmitters);
 
 	private static int NextSequence() => _sequence++;
 
