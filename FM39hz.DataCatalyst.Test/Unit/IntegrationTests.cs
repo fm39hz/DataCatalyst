@@ -131,32 +131,23 @@ public sealed class IntegrationTests : IntegrationTestBase {
 		(hasCore && hasSql && hasJson && hasMod).Should().BeTrue();
 	}
 
-	// === Runtime source file ===
+	// === Runtime infrastructure is now pre-compiled (Abstractions + Runtime) ===
 
 	[Fact]
-	public void RuntimeSource_ContainsAllContracts() {
+	public void Compilation_WithPrecompiledRuntime_Succeeds() {
 		var json = /*lang=json,strict*/ """{ "Potion": { "Health": 50 } }""";
 		var (_, diags, sources) = RunGenerator("""
 			using FM39hz.DataCatalyst;
-			[CatalystData("test.json")]
+			using FM39hz.DataCatalyst.Abstractions;
+			using FM39hz.DataCatalyst.Runtime;
+			[CatalystData("test.json", Backend = 1)]
 			public partial struct Item { }
 			""",
 			new TestAdditionalText("test.json", json));
 
 		diags.Where(d => d.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
-
-		var runtime = FindSource(sources, "IDataRepository<");
-		runtime.Should().NotBeNull();
-		runtime!.Should().Contain("IDataViewAdapter<")
-			.And.Contain("DataViewAdapterRegistry")
-			.And.Contain("IModPlugin")
-			.And.Contain("IModGameContext")
-			.And.Contain("ServiceRegistry")
-			.And.Contain("ModGameContext")
-			.And.Contain("PluginRegistry")
-			.And.Contain("DataBackendSelector")
-			.And.Contain("DataBackendConst")
-			.And.Contain("DslReaderRegistry");
+		var core = FindSource(sources, "enum ItemKind");
+		core.Should().NotBeNull();
 	}
 
 	// === Diagnostics: non-partial ===
@@ -247,19 +238,21 @@ public sealed class IntegrationTests : IntegrationTestBase {
 	}
 
 	[Fact]
-	public void RuntimeSource_ContainsDataRefAndCatalogRegistry() {
+	public void Compilation_WithCrossRef_Succeeds() {
 		var (_, diags, sources) = RunGenerator("""
 			using FM39hz.DataCatalyst;
+			using FM39hz.DataCatalyst.Abstractions;
+			using FM39hz.DataCatalyst.Runtime;
 			[CatalystData("test.json")]
 			public partial struct Item { }
 			""",
 			new TestAdditionalText("test.json", /*lang=json,strict*/ """{ "Potion": { "Health": 50 } }"""));
 
 		diags.Where(d => d.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
-		var runtime = FindSource(sources, "IDataRepository<");
-		runtime.Should().NotBeNull();
-		runtime!.Should().Contain("DataRef<")
-			.And.Contain("CatalogRegistry");
+		var core = FindSource(sources, "enum ItemKind");
+		core.Should().NotBeNull();
+		core!.Should().Contain("RegisterCatalog")
+			.And.Contain("CatalogRegistry.Register<Item>");
 	}
 
 	[Fact]

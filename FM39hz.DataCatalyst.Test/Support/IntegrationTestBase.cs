@@ -3,6 +3,7 @@ namespace FM39hz.DataCatalyst.Test.Support;
 using System.Collections.Immutable;
 using System.Reflection;
 using FM39hz.DataCatalyst.Abstractions;
+using FM39hz.DataCatalyst.Runtime;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
@@ -11,6 +12,7 @@ public abstract class IntegrationTestBase {
 		MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
 		MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
 		MetadataReference.CreateFromFile(typeof(DataBackend).Assembly.Location),
+		MetadataReference.CreateFromFile(typeof(CatalogRegistry).Assembly.Location),
 		MetadataReference.CreateFromFile(Assembly.Load("System.Runtime").Location),
 		MetadataReference.CreateFromFile(typeof(ImmutableArray).Assembly.Location),
 	];

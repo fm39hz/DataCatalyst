@@ -18,6 +18,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\FM39hz.DataCatalyst.Abstractions\FM39hz.DataCatalyst.Abstractions.csproj" />
+    <ProjectReference Include="..\FM39hz.DataCatalyst.Runtime\FM39hz.DataCatalyst.Runtime.csproj" />
     <ProjectReference Include="..\FM39hz.DataCatalyst.SourceGen\FM39hz.DataCatalyst.SourceGen.csproj" />
   </ItemGroup>
 </Project>
