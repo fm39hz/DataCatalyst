@@ -3,17 +3,7 @@ namespace FM39hz.DataCatalyst.Abstractions;
 using System;
 using System.Collections.Immutable;
 
-/// <summary>
-///     Describes the C# type for a single column. Three flavours exist:
-///     <list type="bullet">
-///         <item><see cref="IsPrimitive" />: a built-in primitive name (e.g. <c>"int"</c>, <c>"string"</c>).</item>
-///         <item><see cref="IsArray" />: a homogeneous array; <see cref="ArrayElement" /> describes the item type.</item>
-///         <item>
-///             <see cref="IsObject" />: a nested record; <see cref="ObjectColumns" /> lists its sub-columns.
-///             The generated nested struct is named <c>{ColumnPascalCase}Row</c>.
-///         </item>
-///     </list>
-/// </summary>
+/// <summary>Describes a single column's C# type: primitive, array, or nested object.</summary>
 public sealed class SchemaType : IEquatable<SchemaType> {
 	public bool IsPrimitive { get; private set; }
 	public bool IsArray { get; private set; }

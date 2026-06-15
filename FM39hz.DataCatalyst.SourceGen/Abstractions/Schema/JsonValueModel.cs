@@ -3,17 +3,7 @@ namespace FM39hz.DataCatalyst.Abstractions;
 using System.Collections.Generic;
 using System.Text.Json;
 
-/// <summary>
-///     A reader-agnostic snapshot of a JSON value. DataCatalyst plugins receive <see cref="JsonValueModel" />
-///     instances instead of <see cref="JsonElement" /> so the in-memory representation is decoupled from
-///     the upstream reader (today: <see cref="JsonDocument" />; tomorrow: <see cref="Utf8JsonReader" />
-///     streaming, or a binary-format reader).
-/// </summary>
-/// <remarks>
-///     Number values are eagerly resolved into both <see cref="NumberAsLong" /> and <see cref="NumberAsDouble" />
-///     so plugins do not need to re-parse raw text. <see cref="NumberIsIntegral" /> tells primitive rules whether
-///     they may pick the integer-typed plugin (<c>int</c>/<c>long</c>) over <c>float</c>/<c>double</c>.
-/// </remarks>
+/// <summary>Reader-agnostic JSON value snapshot. Decouples plugins from <c>JsonElement</c>.</summary>
 public sealed class JsonValueModel {
 	public JsonValueKind Kind { get; private set; }
 	public string? StringValue { get; private set; }

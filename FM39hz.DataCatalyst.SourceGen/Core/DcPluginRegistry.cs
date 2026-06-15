@@ -5,20 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using FM39hz.DataCatalyst.Abstractions;
 
-/// <summary>
-///     Static registry of every DataCatalyst plugin loaded into the current AppDomain. Plugins self-register
-///     from <c>[ModuleInitializer]</c>-tagged methods, so the registry is fully populated before any
-///     <c>UniversalDataGenerator</c> driver call.
-///     <para>
-///         Concurrency: Roslyn analyzer hosts initialise types serially per compilation, and source
-///         generators do not race with their own module init. Locks are unnecessary.
-///     </para>
-///     <para>
-///         Discovery model: there is no central plugin manifest. Adding a plugin = adding a class with a
-///         <c>[ModuleInitializer]</c>-tagged static method that calls <see cref="Register" />. Removing
-///         a plugin = deleting the class. Open/Closed in its strictest form.
-///     </para>
-/// </summary>
+/// <summary>Static registry of every DataCatalyst plugin. Plugins self-register via [ModuleInitializer].</summary>
 public static class DcPluginRegistry {
 	private static readonly List<PluginEntry<IEntryPointReader>> _readers = [];
 	private static readonly List<PluginEntry<IPrimitiveTypeRule>> _primitives = [];
@@ -54,17 +41,13 @@ public static class DcPluginRegistry {
 				dependencies.Add(dependency.FullName!);
 			}
 		}
-
 		return new PluginEntry<TPlugin>(plugin, dependencies, NextSequence());
 	}
 
 	private static IReadOnlyList<TPlugin> Order<TPlugin>(List<PluginEntry<TPlugin>> entries) {
 		var map = new Dictionary<string, PluginEntry<TPlugin>>(StringComparer.Ordinal);
 		foreach (var entry in entries) {
-			if (string.IsNullOrWhiteSpace(entry.TypeName)) {
-				continue;
-			}
-
+			if (string.IsNullOrWhiteSpace(entry.TypeName)) continue;
 			map[entry.TypeName] = entry;
 		}
 
@@ -79,10 +62,7 @@ public static class DcPluginRegistry {
 			var name = pair.Key;
 			var entry = pair.Value;
 			foreach (var dependency in entry.Dependencies) {
-				if (!map.ContainsKey(dependency)) {
-					continue;
-				}
-
+				if (!map.ContainsKey(dependency)) continue;
 				indegree[name]++;
 				outgoing[dependency].Add(name);
 			}

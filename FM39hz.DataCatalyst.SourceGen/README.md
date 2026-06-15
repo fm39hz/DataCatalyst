@@ -83,6 +83,13 @@ public partial struct {Type} {
     // Repository (game can swap)
     public static IDataRepository<{Type}Kind, {Type}> Repository { get; set; }
 
+    // Query/Filter
+    public static IEnumerable<{Type}> Query(Func<{Type}, bool> predicate);
+    public static IEnumerable<{Type}> Find(Func<{Type}, bool> predicate);
+
+    // Cross-catalog reference (via RefTo attribute)
+    public DataRef<TTarget, TTargetKind>? RefColumn { get; init; }
+
     // Catalog discovery
     [ModuleInitializer] internal static void RegisterCatalog();
 }
