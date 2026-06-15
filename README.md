@@ -165,17 +165,29 @@ DataCatalyst topo-sorts by `RefTo` — referenced catalogs are processed first.
 
 ## Generated API
 
-| Member                          | Description                        |
-| ------------------------------- | ---------------------------------- |
-| `Item.Potion`                   | Static field per JSON entry        |
-| `Item.Get(ItemKind)`            | O(1) FrozenDictionary lookup       |
-| `Item.Query(predicate)`         | Filter entries                     |
-| `Item.Repository { get; set; }` | Swappable IDataRepository          |
-| `ItemMod.AddEntry(key, value)`  | Mod data injection                 |
-| `DataRef<Buff, BuffKind>`       | Typed reference to another catalog |
-| `CatalogRegistry.GetAll()`      | Lists all discovered catalogs      |
+| Member                          | Description                                              |
+| ------------------------------- | -------------------------------------------------------- |
+| `Item.Potion`                   | Static field per JSON entry (Eager mode)                 |
+| `Item.Get(ItemKind)`            | O(1) FrozenDictionary lookup (Eager) / Repository (Lazy) |
+| `Item.Query(predicate)`         | Filter entries                                           |
+| `Item.Repository { get; set; }` | Swappable IDataRepository                                |
+| `ItemMod.AddEntry(key, value)`  | Mod data injection                                       |
+| `DataRef<Buff, BuffKind>`       | Typed reference to another catalog                       |
+| `CatalogRegistry.GetAll()`      | Lists all discovered catalogs                            |
 
 All catalogs auto-register into `CatalogRegistry`.
+
+## Load mode
+
+```csharp
+[CatalystData("Items.json")]                          // Lazy (default): Repository on first Get
+[CatalystData("Items.json", LoadMode = LoadModeConst.Eager)]  // Eager: FrozenDictionary at module init
+```
+
+| Mode        | Static fields | FrozenDictionary | Startup cost | When to use                   |
+| ----------- | ------------- | ---------------- | ------------ | ----------------------------- |
+| `Lazy` (0)  | No            | No               | None         | Large datasets, optional data |
+| `Eager` (1) | Yes           | Yes              | Module init  | Small core data, hot path     |
 
 ## Generated components
 
