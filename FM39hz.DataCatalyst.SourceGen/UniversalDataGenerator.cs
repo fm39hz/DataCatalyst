@@ -1,5 +1,7 @@
 namespace FM39hz.DataCatalyst;
 
+using System.Collections.Generic;
+using System.Collections.Immutable;
 using FM39hz.DataCatalyst.Core;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -32,11 +34,12 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 					public string JsonPath { get; }
 					public string EntryPoint { get; }
 					public System.Type TemplateType { get; }
-					public string KeyField { get; init; } = string.Empty;
-					public int Backend { get; init; } = 0;
-					public bool ModSupport { get; init; } = false;
+				public string KeyField { get; init; } = string.Empty;
+				public int Backend { get; init; } = 0;
+				public bool ModSupport { get; init; } = false;
+				public System.Type[]? RefTo { get; init; }
 
-					public CatalystDataAttribute(string jsonPath, string entryPoint = "", System.Type templateType = null) {
+				public CatalystDataAttribute(string jsonPath, string entryPoint = "", System.Type templateType = null) {
 						JsonPath = jsonPath;
 						EntryPoint = entryPoint;
 						TemplateType = templateType;
@@ -290,7 +293,9 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 					return;
 				}
 
-				foreach (var t in ts) {
+				PipelineDriver.Reset();
+				var sorted = TopoSortCatalogs(ts);
+				foreach (var t in sorted) {
 					PipelineDriver.Run(spc, additionalTexts, t);
 				}
 			});
@@ -387,5 +392,58 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 			sb.Append(codegenFooter);
 			spc.AddSource("ModPluginRegistrations.g.cs", Microsoft.CodeAnalysis.Text.SourceText.From(sb.ToString(), System.Text.Encoding.UTF8));
 		});
+	}
+
+	private static ImmutableArray<TargetInfo> TopoSortCatalogs(ImmutableArray<TargetInfo> targets) {
+		var map = new Dictionary<string, TargetInfo>();
+		var indegree = new Dictionary<string, int>();
+		var edges = new Dictionary<string, List<string>>();
+
+		foreach (var t in targets) {
+			map[t.SimpleName] = t;
+			indegree[t.SimpleName] = 0;
+			edges[t.SimpleName] = new List<string>();
+		}
+
+		foreach (var t in targets) {
+			if (t.RefToTargets.Length == 0) continue;
+			foreach (var rt in t.RefToTargets) {
+				var dot = rt.LastIndexOf('.');
+				var simple = dot >= 0 ? rt.Substring(dot + 1) : rt;
+				if (!map.ContainsKey(simple)) continue;
+				edges[simple].Add(t.SimpleName);
+				indegree[t.SimpleName]++;
+			}
+		}
+
+		var ready = new List<TargetInfo>();
+		foreach (var t in targets) {
+			if (indegree[t.SimpleName] == 0) ready.Add(t);
+		}
+
+		ready.Sort(static (a, b) => string.CompareOrdinal(a.SimpleName, b.SimpleName));
+		var ordered = new List<TargetInfo>(targets.Length);
+
+		while (ready.Count > 0) {
+			var cur = ready[0];
+			ready.RemoveAt(0);
+			ordered.Add(cur);
+			foreach (var child in edges[cur.SimpleName]) {
+				indegree[child]--;
+				if (indegree[child] == 0) {
+					ready.Add(map[child]);
+				}
+			}
+			ready.Sort(static (a, b) => string.CompareOrdinal(a.SimpleName, b.SimpleName));
+		}
+
+		if (ordered.Count < targets.Length) {
+			ordered.Clear();
+			foreach (var t in targets) ordered.Add(t);
+		}
+
+		var b = ImmutableArray.CreateBuilder<TargetInfo>(ordered.Count);
+		foreach (var t in ordered) b.Add(t);
+		return b.MoveToImmutable();
 	}
 }

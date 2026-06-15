@@ -25,6 +25,7 @@ internal sealed class TargetInfo {
 	public string KeyField { get; }
 	public DataBackend Backend { get; }
 	public bool ModSupport { get; }
+	public ImmutableArray<string> RefToTargets { get; }
 	public Location Location { get; }
 
 	private TargetInfo(
@@ -40,6 +41,7 @@ internal sealed class TargetInfo {
 		string keyField,
 		DataBackend backend,
 		bool modSupport,
+		ImmutableArray<string> refToTargets,
 		Location location) {
 		FullyQualifiedName = fullyQualifiedName;
 		ContainingNamespace = containingNamespace;
@@ -53,6 +55,7 @@ internal sealed class TargetInfo {
 		KeyField = keyField;
 		Backend = backend;
 		ModSupport = modSupport;
+		RefToTargets = refToTargets;
 		Location = location;
 	}
 
@@ -71,6 +74,7 @@ internal sealed class TargetInfo {
 		var keyField = string.Empty;
 		var backend = DataBackend.None;
 		var modSupport = false;
+		var refToBuilder = ImmutableArray.CreateBuilder<string>();
 		ITypeSymbol? template = null;
 
 		if (attr.ConstructorArguments.Length >= 1 && attr.ConstructorArguments[0].Value is string jp) {
@@ -104,6 +108,13 @@ internal sealed class TargetInfo {
 					break;
 				case "ModSupport" when na.Value.Value is bool ms:
 					modSupport = ms;
+					break;
+				case "RefTo" when na.Value.Values is { Length: > 0 } refTypes:
+					foreach (var r in refTypes) {
+						if (r.Value is INamedTypeSymbol rt) {
+							refToBuilder.Add(rt.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+						}
+					}
 					break;
 				default:
 					break;
@@ -143,6 +154,7 @@ internal sealed class TargetInfo {
 			keyField: keyField,
 			backend: backend,
 			modSupport: modSupport,
+			refToTargets: refToBuilder.ToImmutable(),
 			location: loc);
 	}
 

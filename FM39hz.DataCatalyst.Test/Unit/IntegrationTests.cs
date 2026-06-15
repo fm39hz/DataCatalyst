@@ -263,6 +263,25 @@ public sealed class IntegrationTests : IntegrationTestBase {
 	}
 
 	[Fact]
+	public void CrossRef_RefToAttribute_ParsedWithoutError() {
+		var (_, diags, sources) = RunGenerator("""
+			using FM39hz.DataCatalyst;
+			[CatalystData("buffs.json")]
+			public partial struct Buff { }
+
+			[CatalystData("items.json", RefTo = new[] { typeof(Buff) })]
+			public partial struct Item { }
+			""",
+			new TestAdditionalText("buffs.json", """{ "Regen": { "Power": 10 } }"""),
+			new TestAdditionalText("items.json", """{ "Potion": { "Damage": 5 } }"""));
+
+		diags.Where(d => d.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
+		var core = FindSource(sources, "enum ItemKind");
+		core.Should().NotBeNull();
+		core!.Should().Contain("ItemKind");
+	}
+
+	[Fact]
 	public void CoreGen_RegistersCatalog() {
 		var json = /*lang=json,strict*/ """{ "Potion": { "Health": 50 } }""";
 		var (_, diags, sources) = RunGenerator("""

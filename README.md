@@ -192,14 +192,25 @@ dotnet publish -p:EnableModMerge=true
 
 ## Cross-catalog references
 
+Declare dependencies with `RefTo` — DataCatalyst topo-sorts catalogs so referenced data is available when needed.
+
 ```csharp
+public struct BuffTemplate {
+    public int Power { get; init; }
+}
+
 public struct ItemTemplate {
+    public int Damage { get; init; }
     public DataRef<Buff, BuffKind> BuffRef { get; init; }
 }
 
-[CatalystData("items.json", typeof(ItemTemplate))]
+[CatalystData("buffs.json", typeof(BuffTemplate))]
+public partial struct Buff { }
+
+[CatalystData("items.json", typeof(ItemTemplate), RefTo = new[] { typeof(Buff) })]
 public partial struct Item { }
 
+// Item.BuffRef stores BuffKind enum — resolved via Buff.Get()
 var buff = Buff.Get(item.BuffRef.Kind);
 ```
 

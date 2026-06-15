@@ -1,6 +1,7 @@
 namespace FM39hz.DataCatalyst.Core;
 
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Text;
@@ -26,6 +27,10 @@ using Microsoft.CodeAnalysis.Text;
 ///     </para>
 /// </summary>
 internal static class PipelineDriver {
+	internal static readonly Dictionary<string, IReadOnlyList<RowData>> CatalogRows = new();
+
+	public static void Reset() => CatalogRows.Clear();
+
 	public static void Run(SourceProductionContext spc, ImmutableArray<AdditionalText> additionalTexts, TargetInfo target) {
 		if (!target.IsPartial) {
 			spc.ReportDiagnostic(Diagnostic.Create(DcDiagnostics.TargetNotPartial, target.Location, target.FullyQualifiedName));
@@ -91,6 +96,19 @@ internal static class PipelineDriver {
 			var rows = reader.Read(entry.Value, ctx);
 			if (rows is null) {
 				return;
+			}
+
+			CatalogRows[target.SimpleName] = rows;
+			if (target.RefToTargets.Length > 0) {
+				var refLookup = new Dictionary<string, IReadOnlyList<RowData>>();
+				foreach (var rt in target.RefToTargets) {
+					var dot = rt.LastIndexOf('.');
+					var simple = dot >= 0 ? rt.Substring(dot + 1) : rt;
+					if (CatalogRows.TryGetValue(simple, out var refData)) {
+						refLookup[simple] = refData;
+					}
+				}
+				ctx.RefToRows = refLookup;
 			}
 
 			ISchemaProvider? schemaProvider = null;

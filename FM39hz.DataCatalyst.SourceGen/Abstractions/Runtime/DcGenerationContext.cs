@@ -1,5 +1,6 @@
 namespace FM39hz.DataCatalyst.Abstractions;
 
+using System.Collections.Generic;
 using Microsoft.CodeAnalysis;
 
 /// <summary>
@@ -41,6 +42,7 @@ public sealed class DcGenerationContext(
 	public bool ModSupport { get; } = modSupport;
 	public Location Location { get; } = location;
 	public ITemplateMetadata? Template { get; } = template;
+	public IReadOnlyDictionary<string, IReadOnlyList<RowData>>? RefToRows { get; set; }
 
 	private readonly SourceProductionContext _spc = spc;
 
