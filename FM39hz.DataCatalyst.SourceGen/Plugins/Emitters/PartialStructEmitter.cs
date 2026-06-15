@@ -175,6 +175,17 @@ internal sealed class PartialStructEmitter : ITypeEmitter {
 
 		sb.AppendLine($"\tpublic static bool Contains({enumName} kind) => All.ContainsKey(kind);");
 		sb.AppendLine();
+		sb.AppendLine($"\tpublic static global::System.Collections.Generic.IEnumerable<{t}> Query(global::System.Func<{t}, bool> predicate) =>");
+		sb.AppendLine($"\t\tglobal::System.Linq.Enumerable.Where(Values, predicate);");
+		sb.AppendLine($"\tpublic static global::System.Collections.Generic.IEnumerable<{t}> Find(global::System.Func<{t}, bool> predicate) =>");
+		sb.AppendLine($"\t\tglobal::System.Linq.Enumerable.Where(Values, predicate);");
+		sb.AppendLine();
+
+		// CatalogRegistry registration via [ModuleInitializer]
+		sb.AppendLine("\t[global::System.Runtime.CompilerServices.ModuleInitializer]");
+		sb.AppendLine("\tinternal static void RegisterCatalog() =>");
+		sb.AppendLine("\t\tglobal::FM39hz.DataCatalyst.Runtime.CatalogRegistry.Register<" + t + ">();");
+		sb.AppendLine();
 
 		if (hasBackend) {
 			sb.AppendLine();

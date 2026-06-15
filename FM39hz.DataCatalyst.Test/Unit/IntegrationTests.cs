@@ -210,4 +210,73 @@ public sealed class IntegrationTests : IntegrationTestBase {
 			.And.Contain("Backend")
 			.And.Contain("ModSupport");
 	}
+
+	[Fact]
+	public void CoreGen_ProducesQueryAndFind() {
+		var json = """{ "Potion": { "Health": 50 } }""";
+		var (_, diags, sources) = RunGenerator("""
+			using FM39hz.DataCatalyst;
+			[CatalystData("test.json")]
+			public partial struct Item { }
+			""",
+			new TestAdditionalText("test.json", json));
+
+		diags.Where(d => d.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
+		var core = FindSource(sources, "enum ItemKind");
+		core.Should().NotBeNull();
+		core!.Should().Contain("Query")
+			.And.Contain("Find")
+			.And.Contain("Func<Item, bool>");
+	}
+
+	[Fact]
+	public void ModOverlay_ProducesAddRange() {
+		var json = """{ "Potion": { "Health": 50 } }""";
+		var (_, diags, sources) = RunGenerator("""
+			using FM39hz.DataCatalyst;
+			[CatalystData("test.json", ModSupport = true)]
+			public partial struct Item { }
+			""",
+			new TestAdditionalText("test.json", json));
+
+		diags.Where(d => d.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
+		var modSrc = FindSource(sources, "public static void AddEntry(string key");
+		modSrc.Should().NotBeNull();
+		modSrc!.Should().Contain("AddRange")
+			.And.Contain("string Key, Item Value");
+	}
+
+	[Fact]
+	public void RuntimeSource_ContainsDataRefAndCatalogRegistry() {
+		var (_, diags, sources) = RunGenerator("""
+			using FM39hz.DataCatalyst;
+			[CatalystData("test.json")]
+			public partial struct Item { }
+			""",
+			new TestAdditionalText("test.json", """{ "Potion": { "Health": 50 } }"""));
+
+		diags.Where(d => d.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
+		var runtime = FindSource(sources, "IDataRepository<");
+		runtime.Should().NotBeNull();
+		runtime!.Should().Contain("DataRef<")
+			.And.Contain("CatalogRegistry");
+	}
+
+	[Fact]
+	public void CoreGen_RegistersCatalog() {
+		var json = """{ "Potion": { "Health": 50 } }""";
+		var (_, diags, sources) = RunGenerator("""
+			using FM39hz.DataCatalyst;
+			[CatalystData("test.json")]
+			public partial struct Item { }
+			""",
+			new TestAdditionalText("test.json", json));
+
+		diags.Where(d => d.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
+		var core = FindSource(sources, "enum ItemKind");
+		core.Should().NotBeNull();
+		core!.Should().Contain("ModuleInitializer")
+			.And.Contain("RegisterCatalog")
+			.And.Contain("CatalogRegistry.Register<Item>");
+	}
 }

@@ -248,6 +248,25 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
 						ordered.Add(p);
 					}
 				}
+
+				public readonly struct DataRef<TTarget, TTargetKind> where TTargetKind : struct {
+					public TTargetKind Kind { get; }
+					public DataRef(TTargetKind kind) => Kind = kind;
+				}
+
+				public static class CatalogRegistry {
+					private static readonly List<System.Type> _catalogs = new();
+
+					public static void Register<T>() {
+						lock (_catalogs) {
+							if (!_catalogs.Contains(typeof(T))) _catalogs.Add(typeof(T));
+						}
+					}
+
+					public static System.Type[] GetAll() {
+						lock (_catalogs) return _catalogs.ToArray();
+					}
+				}
 				""");
 		});
 

@@ -68,6 +68,13 @@ public sealed class ModOverlayDataEmitter : ITypeEmitter {
 		sb.AppendLine("\t\t_modEntries[key] = entry;");
 		EmitAdapterNotify(sb, typeName, "OnEntryAdded", "key, entry");
 		sb.AppendLine("\t}");
+		sb.AppendLine();
+		sb.AppendLine("\tpublic static void AddRange(params (string Key, " + typeName + " Value)[] entries) {");
+		sb.AppendLine("\t\tif (entries is null) return;");
+		sb.AppendLine("\t\tfor (var i = 0; i < entries.Length; i++) {");
+		sb.AppendLine("\t\t\tAddEntry(entries[i].Key, entries[i].Value);");
+		sb.AppendLine("\t\t}");
+		sb.AppendLine("\t}");
 	}
 
 	private static void EmitRemoveEntry(StringBuilder sb, string typeName) {
