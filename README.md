@@ -184,7 +184,7 @@ All catalogs auto-register into `CatalogRegistry`.
 |---|---|
 | [`FrifloPlugin/`](examples/FrifloPlugin/) | Bridge data → Friflo Entity + components; register QuerySystem via IModPlugin |
 | [`GodotPlugin/`](examples/GodotPlugin/) | Bridge data → ItemNode (C# subclass); mod plugin spawning nodes |
-| [`ScriptingBridge/`](examples/ScriptingBridge/) | Lua VM exposing DataCatalyst + ECS API; zero-GC entity iteration |
+| [`ScriptingBridge/`](examples/ScriptingBridge/) | Lua VM exposing DataCatalyst + ECS API; generated typed methods |
 
 ## Extension points
 

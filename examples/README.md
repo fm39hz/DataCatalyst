@@ -105,7 +105,7 @@ No memory duplication — adapters store only the key, actual data lives once in
 
 ## Scripting Bridge
 
-Runtime code mods through a Lua VM. No rebuild, zero GC per tick, no string catalog names.
+Runtime code mods through a Lua VM. No rebuild, no string catalog names.
 
 ```
 Game startup
@@ -129,4 +129,4 @@ Game startup
 **Key design choices:**
 - **Generated bridges** — `LuaBridgeEmitter` produces `ItemLua.Register(lua)` per catalog; no manual Action/Func wrapping
 - **No string catalog names** — `Item_Add("key", health, weight)` not `Data.Add("Item", "key", {...})`
-- **No `new Table()` per entity** — ECS bridge passes `(entityId, dt)` as int + float, zero allocation per frame
+
