@@ -12,7 +12,7 @@ using Microsoft.CodeAnalysis.Text;
 
 /// <summary>Orchestrates one generation run: resolves JSON, picks plugins (first-match + all companions), emits source.</summary>
 internal static class PipelineDriver {
-	internal static readonly Dictionary<string, IReadOnlyList<RowData>> CatalogRows = new();
+	internal static readonly Dictionary<string, IReadOnlyList<RowData>> CatalogRows = [];
 
 	public static void Reset() => CatalogRows.Clear();
 
@@ -37,7 +37,8 @@ internal static class PipelineDriver {
 		JsonDocument doc;
 		try {
 			doc = JsonDocument.Parse(rawText!);
-		} catch (JsonException ex) {
+		}
+		catch (JsonException ex) {
 			spc.ReportDiagnostic(Diagnostic.Create(DcDiagnostics.JsonInvalid, target.Location, target.FullyQualifiedName, matched.Path, ex.Message));
 			return;
 		}
@@ -78,7 +79,9 @@ internal static class PipelineDriver {
 			}
 
 			var rows = reader.Read(entry.Value, ctx);
-			if (rows is null) return;
+			if (rows is null) {
+				return;
+			}
 
 			CatalogRows[target.SimpleName] = rows;
 			if (target.RefToTargets.Length > 0) {
@@ -107,7 +110,9 @@ internal static class PipelineDriver {
 			}
 
 			var schema = schemaProvider.Build(rows, ctx);
-			if (schema is null) return;
+			if (schema is null) {
+				return;
+			}
 
 			ITypeEmitter? emitter = null;
 			foreach (var candidate in DcPluginRegistry.Emitters) {
@@ -123,7 +128,9 @@ internal static class PipelineDriver {
 			}
 
 			var src = emitter.Emit(rows, schema, ctx);
-			if (string.IsNullOrEmpty(src)) return;
+			if (string.IsNullOrEmpty(src)) {
+				return;
+			}
 
 			foreach (var post in DcPluginRegistry.PostProcessors) {
 				post.After(src, ctx);
@@ -133,9 +140,15 @@ internal static class PipelineDriver {
 			spc.AddSource(hint, SourceText.From(src, Encoding.UTF8));
 
 			foreach (var companion in DcPluginRegistry.CompanionEmitters) {
-				if (!companion.Applies(ctx)) continue;
+				if (!companion.Applies(ctx)) {
+					continue;
+				}
+
 				var companionSrc = companion.Emit(rows, schema, ctx);
-				if (string.IsNullOrEmpty(companionSrc)) continue;
+				if (string.IsNullOrEmpty(companionSrc)) {
+					continue;
+				}
+
 				var companionHint = hint + "." + companion.Name;
 				spc.AddSource(companionHint, SourceText.From(companionSrc, Encoding.UTF8));
 			}
@@ -144,10 +157,15 @@ internal static class PipelineDriver {
 
 	private static AdditionalText? FindAdditionalText(ImmutableArray<AdditionalText> texts, string jsonPath) {
 		var normalized = jsonPath.Replace('\\', '/').Trim();
-		if (normalized.Length == 0) return null;
+		if (normalized.Length == 0) {
+			return null;
+		}
 
 		foreach (var t in texts) {
-			if (!t.Path.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) continue;
+			if (!t.Path.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) {
+				continue;
+			}
+
 			var p = t.Path.Replace('\\', '/');
 			if (p.EndsWith(normalized, StringComparison.OrdinalIgnoreCase)
 				|| string.Equals(Path.GetFileName(p), normalized, StringComparison.OrdinalIgnoreCase)) {
@@ -158,8 +176,14 @@ internal static class PipelineDriver {
 	}
 
 	private static JsonElement? ResolveEntryPoint(JsonElement root, string entryPoint) {
-		if (string.IsNullOrEmpty(entryPoint)) return root;
-		if (root.ValueKind != JsonValueKind.Object) return null;
+		if (string.IsNullOrEmpty(entryPoint)) {
+			return root;
+		}
+
+		if (root.ValueKind != JsonValueKind.Object) {
+			return null;
+		}
+
 		return root.TryGetProperty(entryPoint, out var ep) ? ep : null;
 	}
 

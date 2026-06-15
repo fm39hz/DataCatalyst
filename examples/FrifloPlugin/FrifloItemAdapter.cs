@@ -5,12 +5,10 @@
 using FM39hz.DataCatalyst.Runtime;
 using Friflo.Engine.ECS;
 
-public sealed class FrifloItemAdapter : IDataViewAdapter<Item>
+public sealed class FrifloItemAdapter(EntityStore store) : IDataViewAdapter<Item>
 {
-	private readonly EntityStore _store;
+	private readonly EntityStore _store = store;
 	private readonly Dictionary<ItemKind, Entity> _map = new();
-
-	public FrifloItemAdapter(EntityStore store) => _store = store;
 
 	public void OnEntryAdded(string key, Item entry)
 	{

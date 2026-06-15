@@ -5,12 +5,10 @@
 using FM39hz.DataCatalyst.Runtime;
 using Godot;
 
-public sealed class GodotItemAdapter : IDataViewAdapter<Item>
+public sealed class GodotItemAdapter(Node parent) : IDataViewAdapter<Item>
 {
-	private readonly Node _parent;
+	private readonly Node _parent = parent;
 	private readonly Dictionary<ItemKind, Node> _map = new();
-
-	public GodotItemAdapter(Node parent) => _parent = parent;
 
 	public void OnEntryAdded(string key, Item entry)
 	{

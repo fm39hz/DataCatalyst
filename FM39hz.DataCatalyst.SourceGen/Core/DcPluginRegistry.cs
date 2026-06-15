@@ -47,7 +47,10 @@ public static class DcPluginRegistry {
 	private static IReadOnlyList<TPlugin> Order<TPlugin>(List<PluginEntry<TPlugin>> entries) {
 		var map = new Dictionary<string, PluginEntry<TPlugin>>(StringComparer.Ordinal);
 		foreach (var entry in entries) {
-			if (string.IsNullOrWhiteSpace(entry.TypeName)) continue;
+			if (string.IsNullOrWhiteSpace(entry.TypeName)) {
+				continue;
+			}
+
 			map[entry.TypeName] = entry;
 		}
 
@@ -62,7 +65,10 @@ public static class DcPluginRegistry {
 			var name = pair.Key;
 			var entry = pair.Value;
 			foreach (var dependency in entry.Dependencies) {
-				if (!map.ContainsKey(dependency)) continue;
+				if (!map.ContainsKey(dependency)) {
+					continue;
+				}
+
 				indegree[name]++;
 				outgoing[dependency].Add(name);
 			}
