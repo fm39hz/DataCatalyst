@@ -87,11 +87,69 @@ public sealed class YamlItemReader : IDslReader<Item> {
 }
 ```
 
+## Steam Workshop / Nexus — game startup
+
+```csharp
+public override void _Ready() {
+    // Workshop syncs files into these dirs automatically
+    ItemMod.LoadMods("Mods/Items");              // data mods
+    ItemMod.LoadMods("Mods/Buffs");
+
+    DataViewAdapterRegistry.Register<Item>(       // bridge to engine
+        new FrifloItemAdapter(_store));
+
+    PluginRegistry.LoadAll(new ModGameContext());  // code mods (build-merged)
+}
+```
+
+**User**: download mod → launcher syncs files → play. No rebuild, no tools.  
+**Developer**: 3 lines + 1 adapter per catalog.
+
+## Code mod — scripting layer (runtime code)
+
+For runtime code mods, add a scripting VM on top of DataCatalyst's data API:
+
+```csharp
+// Game exposes DataCatalyst + engine to script
+[ModPlugin("ScriptEngine")]
+public sealed class ScriptEngine : IModPlugin {
+    public void OnLoad(IModGameContext ctx) {
+        ItemMod.AddEntry("LuaSword", new Item { Weight = 2f, Health = 60 });
+    }
+}
+
+// Lua mod example (via MoonSharp):
+//   Data.Add("Item", "FireSword", { Weight = 3, Health = 80 })
+//   ECS.RegisterSystem("BurnAura", { run = function(dt, e) end })
+
+public sealed class ScriptBridge {
+    private readonly ScriptEngine _lua;
+
+    public ScriptBridge() {
+        _lua = new ScriptEngine();
+        _lua.Globals["Data"] = new DataBridge();
+        _lua.Globals["ECS"]  = new EcsBridge(store);
+    }
+
+    public void LoadModScripts(string dir) {
+        foreach (var file in Directory.EnumerateFiles(dir, "*.lua"))
+            _lua.DoFile(file);
+    }
+}
+
+public sealed class DataBridge {
+    public void Add(string catalog, string key, object entry) {
+        if (catalog == "Item")
+            ItemMod.AddEntry(key, (Item)entry);
+    }
+}
+```
+
+**DataCatalyst handles data; scripting VM handles logic.** The game wires them together.
+
 ## Code mod — development-time only
 
 NativeAOT cannot load assemblies at runtime. Code mods must be compiled into the binary. This is a **NativeAOT constraint**, not a DataCatalyst design choice.
-
-**DataCatalyst does not provide runtime code mod loading.** For runtime code mods, the game needs its own scripting layer (Lua, AngelScript, C# scripting, etc.) on top of DataCatalyst's data API.
 
 For development or first-party mods, an MSBuild target is available:
 
@@ -170,6 +228,15 @@ All catalogs auto-register into `CatalogRegistry` via `[ModuleInitializer]`.
 | `Sqlite` | `false` | Core + `ItemSql` + `ItemSqlRepository` |
 | `All` | `false` | Core + JSON + SQLite |
 | any | `true` | Core + JSON + `ItemMod` + adapter notifications |
+
+## Examples
+
+| Example | Shows |
+|---|---|
+| [`FrifloPlugin/FrifloItemAdapter.cs`](examples/FrifloPlugin/FrifloItemAdapter.cs) | Bridge data entries → Friflo Entity + components |
+| [`FrifloPlugin/FrifloModPlugin.cs`](examples/FrifloPlugin/FrifloModPlugin.cs) | Mod plugin registering Friflo systems via `IModPlugin` |
+| [`GodotPlugin/GodotItemAdapter.cs`](examples/GodotPlugin/GodotItemAdapter.cs) | Bridge data entries → Godot Node + metadata |
+| [`GodotPlugin/GodotModPlugin.cs`](examples/GodotPlugin/GodotModPlugin.cs) | Mod plugin spawning Godot nodes + processing |
 
 ## Extension points
 
