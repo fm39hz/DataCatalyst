@@ -54,7 +54,7 @@ public sealed class CompanionEmitterTests {
 
 	[Fact]
 	public void CompanionEmitters_Count_ShouldBeThree() => DcPluginRegistry.CompanionEmitters
-			.Should().HaveCount(3);
+			.		Should().HaveCount(4);
 
 	// --- SqliteDataEmitter Applicable ---
 
@@ -304,6 +304,41 @@ public sealed class CompanionEmitterTests {
 
 	[Fact]
 	public void SqliteDataEmitter_Name_ShouldBeSqlite() => new SqliteDataEmitter().Name.Should().Be("Sqlite");
+
+	[Fact]
+	public void LuaBridgeEmitter_Name_ShouldBeLuaBridge() {
+		new LuaBridgeEmitter().Name.Should().Be("LuaBridge");
+	}
+
+	[Fact]
+	public void LuaBridgeEmitter_Applies_WhenModSupportIsTrue() {
+		var ctx = MakeCtx(modSupport: true);
+		new LuaBridgeEmitter().Applies(ctx).Should().BeTrue();
+	}
+
+	[Fact]
+	public void LuaBridgeEmitter_DoesNotApply_WhenModSupportIsFalse() {
+		var ctx = MakeCtx(modSupport: false);
+		new LuaBridgeEmitter().Applies(ctx).Should().BeFalse();
+	}
+
+	[Fact]
+	public void LuaBridgeEmitter_Emit_ProducesRegisterMethod() {
+		var ctx = MakeCtx(modSupport: true);
+		var code = new LuaBridgeEmitter().Emit(Rows, FlatSchema, ctx);
+		code.Should().Contain("Register")
+			.And.Contain("MoonSharp.Interpreter.Script")
+			.And.Contain("_Add\"")
+			.And.Contain("_Get\"");
+	}
+
+	[Fact]
+	public void LuaBridgeEmitter_Emit_GeneratesTypedMethods() {
+		var ctx = MakeCtx(modSupport: true);
+		var code = new LuaBridgeEmitter().Emit(Rows, FlatSchema, ctx);
+		code.Should().Contain("private static void Add(string key, string Name, int Health, float Weight)")
+			.And.Contain("Mod.AddEntry");
+	}
 
 	[Fact]
 	public void JsonRuntimeDataEmitter_Name_ShouldBeJsonRuntime() => new JsonRuntimeDataEmitter().Name.Should().Be("JsonRuntime");

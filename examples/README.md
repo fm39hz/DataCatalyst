@@ -110,25 +110,23 @@ Runtime code mods through a Lua VM. No rebuild, zero GC per tick, no string cata
 ```
 Game startup
     → new ScriptBridge(store, root)
-        → registers typed C# methods as Lua globals:
-            Data_AddItem(key, health, weight)   → ItemMod.AddEntry
-            Data_AddBuff(key, power)             → BuffMod.AddEntry
-            ECS.CreateEntity()                   → store.CreateEntity()
-            ECS.RegisterSystem(name, def)        → adds ScriptSystem to pipeline
+        → ItemLua.Register(lua)   — generated, no manual wrapping
+        → BuffLua.Register(lua)   — generated, no manual wrapping
+        → ECS bridge              — typed helpers
     → bridge.LoadModScripts("Mods/Scripts/")
         → loads skills.lua, auras.lua
-            → Lua uses typed methods (no string catalogs)
-            → ScriptSystem.OnUpdate:
-                foreach entity → fn.Call(entityId, dt)
-                  → int + float, zero allocation
+            → Item_Add("FlameSword", 0, 3.5)     — typed, no strings
+            → Buff_Add("Burn", 15)               — typed, no strings
+            → ECS.RegisterSystem("..", {run = ..}) — ECS bridge
 ```
 
 | Layer | Responsibility | Example file |
 |---|---|---|
-| Bridge | Wires typed DataCatalyst + ECS to Lua VM | [`ScriptBridge.cs`](ScriptingBridge/ScriptBridge.cs) |
-| Mod script | Adds data + registers logic | [`skills.lua`](ScriptingBridge/mods/skills.lua) |
+| Bridge | Calls generated `ItemLua.Register(lua)` + ECS bridge | [`ScriptBridge.cs`](ScriptingBridge/ScriptBridge.cs) |
+| Generated | `ItemLua`, `BuffLua` — typed Add/Get, zero manual wrap | `LuaBridgeEmitter` |
+| Mod script | `Item_Add`, `Buff_Add`, `ECS.RegisterSystem` | [`skills.lua`](ScriptingBridge/mods/skills.lua) |
 
 **Key design choices:**
-- **No `new Table()` per entity** — `ScriptSystem.OnUpdate` passes `(entityId, dt)` as int + float, zero allocation per frame
-- **No string catalog lookup** — `Data_AddItem`, `Data_AddBuff` are typed C# delegates registered as Lua globals; script calls them directly
-- **Entity ID, not object** — Lua receives entity IDs, reads/writes components through typed C# helpers
+- **Generated bridges** — `LuaBridgeEmitter` produces `ItemLua.Register(lua)` per catalog; no manual Action/Func wrapping
+- **No string catalog names** — `Item_Add("key", health, weight)` not `Data.Add("Item", "key", {...})`
+- **No `new Table()` per entity** — ECS bridge passes `(entityId, dt)` as int + float, zero allocation per frame
