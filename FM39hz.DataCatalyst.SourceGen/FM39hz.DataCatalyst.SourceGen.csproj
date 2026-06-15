@@ -25,4 +25,9 @@
     <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
     <None Include="..\README.md" Pack="true" PackagePath="\" Visible="false" />
   </ItemGroup>
+
+  <ItemGroup Condition="Exists('build\FM39hz.DataCatalyst.targets')">
+    <None Include="build\FM39hz.DataCatalyst.targets" Pack="true" PackagePath="build\FM39hz.DataCatalyst.targets" Visible="false" />
+    <None Include="build\FM39hz.DataCatalyst.targets" Pack="true" PackagePath="buildTransitive\FM39hz.DataCatalyst.targets" Visible="false" />
+  </ItemGroup>
 </Project>
