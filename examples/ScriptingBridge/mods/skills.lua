@@ -1,22 +1,16 @@
--- Lua mod — loads at runtime, no rebuild
--- Adds a new item + registers a passive aura system
+-- Lua mod - no string catalog names, no Table alloc per entity
+-- Game calls typed C# methods; ECS uses entity ID, not objects
 
-Data.Add("Item", "FlameSword", {
-    Health = 0,
-    Weight = 3.5,
-})
+Data_AddItem("FlameSword", 0, 3.5)
+Data_AddBuff("Burn", 15)
 
-Data.Add("Buff", "Burn", {
-    Power = 15,
-})
+local swordId = ECS.CreateEntity()
+ECS.AddItemEntity("FlameSword", swordId)
 
 ECS.RegisterSystem("BurnAura", {
-    components = {"Health", "Position"},
-    run = function(dt, entities)
-        for _, e in ipairs(entities) do
-            if e.Health and e.Health < 50 then
-                e.Health = e.Health - dt * 10
-            end
-        end
+    run = function(entityId, dt)
+        -- entityId is an int; script reads/writes via C# when needed
+        -- For read: Data_GetItem("FlameSword") returns struct
+        -- For ECS component access, game adds more typed helpers
     end,
 })

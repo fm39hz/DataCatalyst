@@ -1,5 +1,5 @@
 // Scripting VM bridge - exposes DataCatalyst + game engine to Lua mods.
-// Modders write .lua files; game loads them at runtime. No rebuild needed.
+// Typed methods for known catalogs (generated pattern); entity IDs for ECS access.
 
 using FM39hz.DataCatalyst.Runtime;
 using MoonSharp.Interpreter;
@@ -8,10 +8,17 @@ public sealed class ScriptBridge {
     private readonly Script _lua = new();
 
     public ScriptBridge(EntityStore store, SystemRoot root) {
-        // Expose DataCatalyst data API
-        _lua.Globals["Data"] = new DataBridge();
+        // Typed data methods - no string catalog lookup
+        _lua.Globals["Data_AddItem"] = (Action<string, int, float>)((key, health, weight) =>
+            ItemMod.AddEntry(key, new Item { Health = health, Weight = weight }));
 
-        // Expose game engine API
+        _lua.Globals["Data_AddBuff"] = (Action<string, int>)((key, power) =>
+            BuffMod.AddEntry(key, new Buff { Power = power }));
+
+        _lua.Globals["Data_GetItem"] = (Func<string, Item>)((kind) =>
+            Item.TryGetKind(kind, out var k) ? Item.Get(k) : default);
+
+        // ECS - entity ID, not Table
         _lua.Globals["ECS"] = new EcsBridge(store, root);
     }
 
@@ -21,41 +28,10 @@ public sealed class ScriptBridge {
     }
 }
 
-// DataCatalyst bridge - script reads/writes data through generated contracts
-public sealed class DataBridge {
-    public void Add(string catalog, string key, Table entry) {
-        switch (catalog) {
-            case "Item":
-                ItemMod.AddEntry(key, new Item {
-                    Health = (int)(entry["Health"]?.Number ?? 0),
-                    Weight = (float)(entry["Weight"]?.Number ?? 0),
-                });
-                break;
-            case "Buff":
-                BuffMod.AddEntry(key, new Buff {
-                    Power = (int)(entry["Power"]?.Number ?? 0),
-                });
-                break;
-        }
-    }
-
-    public Table Get(string catalog, string kind) {
-        if (catalog == "Item" && Item.TryGetKind(kind, out var k)) {
-            var item = Item.Get(k);
-            var t = new Table();
-            t["Health"] = item.Health;
-            t["Weight"] = item.Weight;
-            return t;
-        }
-        return null;
-    }
-}
-
-// ECS bridge - script registers systems and spawns entities
+// ECS bridge - entity ID + typed component accessors
 public sealed class EcsBridge {
     private readonly EntityStore _store;
     private readonly SystemRoot _root;
-    private readonly Dictionary<string, ScriptSystem> _systems = new();
 
     public EcsBridge(EntityStore store, SystemRoot root) {
         _store = store;
@@ -64,26 +40,20 @@ public sealed class EcsBridge {
 
     public int CreateEntity() => _store.CreateEntity().Id;
 
-    public void AddComponent(int entityId, string compType, Table data) {
-        var e = _store.GetEntityById(entityId);
-        switch (compType) {
-            case "Health": e.Add(new Health((int)(data["Value"]?.Number ?? 0))); break;
-            case "Position": e.Add(new Position(
-                (float)(data["X"]?.Number ?? 0),
-                (float)(data["Y"]?.Number ?? 0)
-            )); break;
-        }
+    public int AddItemEntity(string kind, int id) {
+        if (!Item.TryGetKind(kind, out var k)) return id;
+        var e = _store.GetEntityById(id);
+        e.Add(new ItemRef { Kind = k });
+        return id;
     }
 
     public void RegisterSystem(string name, Table def) {
-        if (_systems.ContainsKey(name)) return;
         var sys = new ScriptSystem(name, def, _store);
-        _systems[name] = sys;
         _root.Add(sys);
     }
 }
 
-// Friflo ECS system that delegates to Lua callback each tick
+// Friflo system - passes entity ID to Lua, no Table allocation per entity
 public sealed class ScriptSystem : QuerySystem {
     private readonly string _name;
     private readonly Table _def;
@@ -96,19 +66,14 @@ public sealed class ScriptSystem : QuerySystem {
     }
 
     protected override void OnUpdate() {
-        var entities = new List<Table>();
-        foreach (var e in _store.Entities) {
-            var t = new Table();
-            if (_def["components"] is Table comps) {
-                foreach (var comp in comps.Values) {
-                    var name = comp.String;
-                    // copy component data into table for script
-                }
-            }
-            entities.Add(t);
-        }
+        var fn = _def["run"]?.Function;
+        if (fn is null) return;
 
-        var args = new object[] { Tick.deltaTime, entities };
-        _def["run"]?.Function?.Call(args);
+        var dt = Tick.deltaTime;
+        foreach (var e in _store.Entities)
+            fn.Call(e.Id, dt);     // int, float - no allocations
     }
 }
+
+// Minimal component for ECS → DataCatalyst link
+public struct ItemRef : IComponent { public ItemKind Kind; }

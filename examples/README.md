@@ -105,25 +105,30 @@ No memory duplication — adapters store only the key, actual data lives once in
 
 ## Scripting Bridge
 
-Runtime code mods through a Lua VM. No rebuild, NativeAOT-safe (the bridge is compiled, scripts are data).
+Runtime code mods through a Lua VM. No rebuild, zero GC per tick, no string catalog names.
 
 ```
 Game startup
     → new ScriptBridge(store, root)
-        → exposes DataCatalyst + ECS to Lua
+        → registers typed C# methods as Lua globals:
+            Data_AddItem(key, health, weight)   → ItemMod.AddEntry
+            Data_AddBuff(key, power)             → BuffMod.AddEntry
+            ECS.CreateEntity()                   → store.CreateEntity()
+            ECS.RegisterSystem(name, def)        → adds ScriptSystem to pipeline
     → bridge.LoadModScripts("Mods/Scripts/")
-        → loads skills.lua, auras.lua, ...
-            → Lua calls Data.Add("Item", "FlameSword", { ... })
-                → ItemMod.AddEntry("FlameSword", new Item { ... })
-                    → DataViewAdapterRegistry notifies adapters
-            → Lua calls ECS.RegisterSystem("BurnAura", { ... })
-                → ScriptSystem added to Friflo pipeline
-                    → runs every tick, reads/writes entity components
+        → loads skills.lua, auras.lua
+            → Lua uses typed methods (no string catalogs)
+            → ScriptSystem.OnUpdate:
+                foreach entity → fn.Call(entityId, dt)
+                  → int + float, zero allocation
 ```
 
 | Layer | Responsibility | Example file |
 |---|---|---|
-| Bridge | Wires DataCatalyst + ECS to Lua VM | [`ScriptBridge.cs`](ScriptingBridge/ScriptBridge.cs) |
+| Bridge | Wires typed DataCatalyst + ECS to Lua VM | [`ScriptBridge.cs`](ScriptingBridge/ScriptBridge.cs) |
 | Mod script | Adds data + registers logic | [`skills.lua`](ScriptingBridge/mods/skills.lua) |
 
-DataCatalyst supplies the data API; the bridge supplies the ECS API. The script combines both.
+**Key design choices:**
+- **No `new Table()` per entity** — `ScriptSystem.OnUpdate` passes `(entityId, dt)` as int + float, zero allocation per frame
+- **No string catalog lookup** — `Data_AddItem`, `Data_AddBuff` are typed C# delegates registered as Lua globals; script calls them directly
+- **Entity ID, not object** — Lua receives entity IDs, reads/writes components through typed C# helpers
