@@ -102,3 +102,28 @@ Mod Lua script
 | UnityItemAdapter | `ItemMono : MonoBehaviour` | `ItemKind` field | `Item.Get(Kind)` |
 
 No memory duplication — adapters store only the key, actual data lives once in `FrozenDictionary`.
+
+## Scripting Bridge
+
+Runtime code mods through a Lua VM. No rebuild, NativeAOT-safe (the bridge is compiled, scripts are data).
+
+```
+Game startup
+    → new ScriptBridge(store, root)
+        → exposes DataCatalyst + ECS to Lua
+    → bridge.LoadModScripts("Mods/Scripts/")
+        → loads skills.lua, auras.lua, ...
+            → Lua calls Data.Add("Item", "FlameSword", { ... })
+                → ItemMod.AddEntry("FlameSword", new Item { ... })
+                    → DataViewAdapterRegistry notifies adapters
+            → Lua calls ECS.RegisterSystem("BurnAura", { ... })
+                → ScriptSystem added to Friflo pipeline
+                    → runs every tick, reads/writes entity components
+```
+
+| Layer | Responsibility | Example file |
+|---|---|---|
+| Bridge | Wires DataCatalyst + ECS to Lua VM | [`ScriptBridge.cs`](ScriptingBridge/ScriptBridge.cs) |
+| Mod script | Adds data + registers logic | [`skills.lua`](ScriptingBridge/mods/skills.lua) |
+
+DataCatalyst supplies the data API; the bridge supplies the ECS API. The script combines both.
