@@ -10,21 +10,7 @@ using FM39hz.DataCatalyst.Abstractions;
 using FM39hz.DataCatalyst.Core;
 using Microsoft.CodeAnalysis;
 
-/// <summary>
-///     Default DataCatalyst type emitter. Produces a partial type that exposes:
-///     <list type="bullet">
-///         <item>An enum <c>{TypeName}Kind</c> whose members are the row keys.</item>
-///         <item>A <c>public static readonly</c> field per row.</item>
-///         <item>An <c>All</c> <see cref="System.Collections.Frozen.FrozenDictionary{TKey, TValue}" /> for O(1) lookup.</item>
-///         <item><c>Get</c> / <c>TryGet</c> helpers.</item>
-///     </list>
-///     <para>
-///         <b>Breaking change vs. Wave 2:</b> if any column produces the C# member name <c>Kind</c>,
-///         emission aborts with <see cref="DcDiagnostics.KindColumnCollision" />. The previous
-///         auto-rename to <c>EnumKind</c> hid the conflict; consumers must now choose a domain term
-///         (e.g. <c>Category</c>, <c>RuleKind</c>) for the JSON column.
-///     </para>
-/// </summary>
+
 [DcPlugin(typeof(ITypeEmitter))]
 internal sealed class PartialStructEmitter : ITypeEmitter {
 	[ModuleInitializer]
