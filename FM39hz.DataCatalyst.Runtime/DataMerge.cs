@@ -5,8 +5,21 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 
+public sealed class DataChangeRecord {
+    public string Target { get; }
+    public string Field { get; }
+    public object? OldValue { get; }
+    public object? NewValue { get; }
+    public string SourceName { get; }
+
+    public DataChangeRecord(string target, string field, object? old, object? @new, string source) {
+        Target = target; Field = field; OldValue = old; NewValue = @new; SourceName = source;
+    }
+}
+
 public static class DataMerge {
     public static event Action<string, string, object?, object?>? OnConflict;
+    public static event Action<DataChangeRecord>? OnDataChanged;
 
     public static void Load(DataSource[] sources) {
         var overrides = new List<DataOverride>();
@@ -15,7 +28,7 @@ public static class DataMerge {
         foreach (var source in sources) {
             if (!Directory.Exists(source.Directory)) continue;
             foreach (var file in Directory.GetFiles(source.Directory, "*.json", SearchOption.TopDirectoryOnly)) {
-                CollectOverrides(file, overrides, existing);
+                CollectOverrides(file, overrides, existing, source.Name);
             }
         }
 
@@ -23,7 +36,7 @@ public static class DataMerge {
     }
 
     private static void CollectOverrides(string path, List<DataOverride> overrides,
-        Dictionary<string, Dictionary<string, object?>> existing) {
+        Dictionary<string, Dictionary<string, object?>> existing, string sourceName) {
         try {
             var text = File.ReadAllText(path);
             var json = JsonDocument.Parse(text);
@@ -47,9 +60,10 @@ public static class DataMerge {
                     };
                     if (val is null) continue;
 
-                    // Conflict detection
-                    if (fields.TryGetValue(field.Name, out var prev) && !Equals(prev, val)) {
+                    fields.TryGetValue(field.Name, out var prev);
+                    if (!Equals(prev, val)) {
                         OnConflict?.Invoke(prop.Name, field.Name, prev, val);
+                        OnDataChanged?.Invoke(new DataChangeRecord(prop.Name, field.Name, prev, val, sourceName));
                     }
                     fields[field.Name] = val;
                     dataOverride.Fields[field.Name] = val;
