@@ -3,7 +3,7 @@ name: CI
 on:
   push:
     branches: [master, main]
-    tags: ['v*']
+    tags: ["v*"]
   pull_request:
     branches: [master, main]
 
@@ -43,7 +43,7 @@ jobs:
           echo "PACKAGE_VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Pack
-        run: dotnet pack FM39hz.DataCatalyst.SourceGen/FM39hz.DataCatalyst.SourceGen.csproj -c Release -o ./artifacts -p:Version=$PACKAGE_VERSION --no-build
+        run: dotnet pack DataCatalyst.SourceGen/DataCatalyst.SourceGen.csproj -c Release -o ./artifacts -p:Version=$PACKAGE_VERSION --no-build
 
       - name: NuGet login (OIDC → temp API key)
         uses: NuGet/login@v1
@@ -52,4 +52,4 @@ jobs:
           user: ${{ secrets.NUGET_USER }}
 
       - name: Push to nuget.org
-        run: dotnet nuget push ./artifacts/FM39hz.DataCatalyst.$PACKAGE_VERSION.nupkg --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+        run: dotnet nuget push ./artifacts/DataCatalyst.$PACKAGE_VERSION.nupkg --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
