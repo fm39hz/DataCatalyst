@@ -14,11 +14,9 @@ public sealed class DataRootGenerator : IIncrementalGenerator {
         context.RegisterPostInitializationOutput(static ctx => {
             ctx.AddSource("DataRootAttribute.g.cs", SourceText.From("""
                 using System;
-
                 [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)]
                 public sealed class DataRootAttribute : Attribute {
                     public string Directory { get; }
-                    public Type[]? Plugins { get; init; }
                     public DataRootAttribute(string directory) => Directory = directory;
                 }
                 """, Encoding.UTF8));
@@ -40,48 +38,22 @@ public sealed class DataRootGenerator : IIncrementalGenerator {
             var (roots, files) = payload;
             if (roots.IsDefaultOrEmpty) return;
 
-            var defaultPlugin = new DefaultSchemaPlugin();
-            var plugins = DataRootPluginRegistry.GetPlugins();
-
             foreach (var rootPrefix in roots) {
+                // Scan → inheritance graph → emit code
+                var scanner = new DataRootScanner();
+                scanner.Scan(rootPrefix, files);
+
+                var graph = new InheritanceGraph();
+                foreach (var s in scanner.Schemas) graph.AddSchema(s);
+                foreach (var d in scanner.DataFiles) graph.AddNode(d);
+
                 var ns = PathToNamespace(rootPrefix);
-                var allSource = new StringBuilder();
-
-                foreach (var (path, content) in files) {
-                    if (!path.StartsWith(rootPrefix, System.StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    var relativePath = path.Substring(rootPrefix.Length);
-
-                    // Core: always generates struct from kind/fields/inherits
-                    var pctx = new PluginContext(path, relativePath, content, ns, rootPrefix, spc);
-                    var baseResult = defaultPlugin.Process(pctx);
-
-                    if (baseResult.SourceCode.Length > 0)
-                        allSource.AppendLine(baseResult.SourceCode);
-                    foreach (var diag in baseResult.Diagnostics)
-                        spc.ReportDiagnostic(diag);
-                    foreach (var kvp in baseResult.AdditionalSources)
-                        spc.AddSource(kvp.Key, SourceText.From(kvp.Value, Encoding.UTF8));
-
-                    // Plugins: additive processing on top of core struct
-                    foreach (var plugin in plugins) {
-                        if (plugin == defaultPlugin) continue;
-                        if (!plugin.CanHandle(relativePath, content)) continue;
-
-                        var extra = plugin.Process(pctx);
-                        if (extra.SourceCode.Length > 0)
-                            allSource.AppendLine(extra.SourceCode);
-                        foreach (var diag in extra.Diagnostics)
-                            spc.ReportDiagnostic(diag);
-                        foreach (var kvp in extra.AdditionalSources)
-                            spc.AddSource(kvp.Key, SourceText.From(kvp.Value, Encoding.UTF8));
-                    }
-                }
+                var emitter = new NativePocoEmitter(graph, ns);
+                var code = emitter.EmitAll();
 
                 var sanitized = rootPrefix.Replace('/', '_').Replace('\\', '_').Replace(":", "");
-                if (allSource.Length > 0)
-                    spc.AddSource($"DataRoot_{sanitized}.g.cs", SourceText.From(allSource.ToString(), Encoding.UTF8));
+                if (code.Length > 0)
+                    spc.AddSource($"DataRoot_{sanitized}.g.cs", SourceText.From(code, Encoding.UTF8));
             }
         });
     }
