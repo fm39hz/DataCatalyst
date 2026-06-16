@@ -9,9 +9,12 @@ using System.Text.Json;
 public sealed class DataRootScanner {
     private readonly List<SchemaDefinition> _schemas = new();
     private readonly List<DataFileDefinition> _dataFiles = new();
+    private ImmutableArray<FieldDefinition> _templateFields = ImmutableArray<FieldDefinition>.Empty;
 
     public IReadOnlyList<SchemaDefinition> Schemas => _schemas;
     public IReadOnlyList<DataFileDefinition> DataFiles => _dataFiles;
+
+    public void SetTemplateFields(ImmutableArray<FieldDefinition> fields) => _templateFields = fields;
 
     public void Scan(string rootPrefix, IReadOnlyList<(string RelativePath, string Content)> files) {
         foreach (var (relativePath, content) in files) {
@@ -38,10 +41,29 @@ public sealed class DataRootScanner {
         var root = doc.RootElement;
         var name = System.IO.Path.GetFileNameWithoutExtension(relativePath);
         var ns = PathToNamespace(relativePath);
+
+        var dslId = root.TryGetProperty("$dsl", out var dslEl) ? dslEl.GetString() : null;
+        if (dslId is not null) {
+            _dataFiles.Add(new DataFileDefinition(name, ns, relativePath, null,
+                ImmutableArray<FieldDefinition>.Empty, ImmutableDictionary<string, object?>.Empty,
+                dslId: dslId));
+            return;
+        }
+
         var inherits = root.TryGetProperty("inherits", out var inh) ? inh.GetString() : null;
         var load = root.TryGetProperty("load", out var l) ? l.GetString() : "startup";
+
+        // Merge: template fields first, then JSON fields override
+        var mergedFields = ImmutableArray.CreateBuilder<FieldDefinition>();
+        var seen = new HashSet<string>();
+        foreach (var tf in _templateFields) { seen.Add(tf.Name); mergedFields.Add(tf); }
+        foreach (var jf in ParseFields(root)) {
+            if (seen.Contains(jf.Name)) continue; // template wins
+            mergedFields.Add(jf);
+        }
+
         _dataFiles.Add(new DataFileDefinition(name, ns, relativePath, inherits,
-            ParseFields(root), ParseDefaults(root),
+            mergedFields.ToImmutable(), ParseDefaults(root),
             isCompileEager: load == "compile"));
     }
 
@@ -62,6 +84,7 @@ public sealed class DataRootScanner {
         var kind = type switch {
             "ref" => FieldKind.Ref,
             "script" => FieldKind.Script,
+            "array" => FieldKind.Array,
             _ when obj.TryGetProperty("fields", out _) => FieldKind.Nested,
             _ => FieldKind.Primitive,
         };
@@ -73,6 +96,26 @@ public sealed class DataRootScanner {
             _ => LoadHint.Eager,
         };
         var refTarget = obj.TryGetProperty("target", out var r) ? r.GetString() : null;
+
+        // Nested fields
+        var nestedFields = ImmutableArray<FieldDefinition>.Empty;
+        if (kind == FieldKind.Nested && obj.TryGetProperty("fields", out var fEl)) {
+            var builder = ImmutableArray.CreateBuilder<FieldDefinition>();
+            foreach (var sub in fEl.EnumerateObject()) {
+                var sf = ParseField(sub);
+                if (sf is not null) builder.Add(sf);
+            }
+            nestedFields = builder.ToImmutable();
+        }
+
+        // Array element type
+        FieldDefinition? elementType = null;
+        if (kind == FieldKind.Array && obj.TryGetProperty("element", out var elemEl)) {
+            // Create a synthetic JsonProperty for the element
+            var elemType = elemEl.TryGetProperty("type", out var et) ? et.GetString() ?? "string" : "string";
+            elementType = new FieldDefinition("Item", elemType);
+        }
+
         object? defaultValue = null;
         if (obj.TryGetProperty("default", out var d)) {
             defaultValue = type switch {
@@ -84,7 +127,8 @@ public sealed class DataRootScanner {
                 _ => null,
             };
         }
-        return new FieldDefinition(prop.Name, type, kind, load, refTarget, defaultValue);
+        return new FieldDefinition(prop.Name, type, kind, load, refTarget, defaultValue,
+            elementType: elementType, nestedFields: nestedFields);
     }
 
     private static ImmutableDictionary<string, object?> ParseDefaults(JsonElement root) {

@@ -1,7 +1,9 @@
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 using System.Text;
 using FM39hz.DataCatalyst.DataRoot;
 
@@ -10,21 +12,24 @@ namespace FM39hz.DataCatalyst;
 [Generator]
 public sealed class DataRootGenerator : IIncrementalGenerator {
     public void Initialize(IncrementalGeneratorInitializationContext context) {
-        // Emit [DataRoot] attribute
         context.RegisterPostInitializationOutput(static ctx => {
             ctx.AddSource("DataRootAttribute.g.cs", SourceText.From("""
                 using System;
-                [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)]
+                [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
                 public sealed class DataRootAttribute : Attribute {
-                    public string Directory { get; }
-                    public DataRootAttribute(string directory) => Directory = directory;
+                    public string? Directory { get; init; }
+                    public System.Type? Template { get; init; }
                 }
                 """, Encoding.UTF8));
         });
 
-        // Collect DataRoot attributes + additional files
-        var dataRoots = context.CompilationProvider
-            .Select(static (comp, _) => ExtractDataRoots(comp));
+        var dataRoots = context.SyntaxProvider
+            .CreateSyntaxProvider(
+                static (node, _) => node is ClassDeclarationSyntax,
+                static (ctx, _) => ExtractDataRoot(ctx))
+            .Where(static r => r is not null)
+            .Select(static (r, _) => r!.Value)
+            .Collect();
 
         var additionalFiles = context.AdditionalTextsProvider
             .Where(static t => t.Path.EndsWith(".json"))
@@ -38,41 +43,81 @@ public sealed class DataRootGenerator : IIncrementalGenerator {
             var (roots, files) = payload;
             if (roots.IsDefaultOrEmpty) return;
 
-            foreach (var rootPrefix in roots) {
-                // Scan → inheritance graph → emit code
+            foreach (var (rootPrefix, templateType, className, classNs) in roots) {
                 var scanner = new DataRootScanner();
-                scanner.Scan(rootPrefix, files);
 
+                if (templateType is not null) {
+                    var tf = ImmutableArray.CreateBuilder<FieldDefinition>();
+                    foreach (var member in templateType.GetMembers()) {
+                        if (member is IPropertySymbol { IsStatic: false, IsIndexer: false, DeclaredAccessibility: Accessibility.Public } p)
+                            tf.Add(CreateFieldFromSymbol(p));
+                        if (member is IFieldSymbol { IsStatic: false, IsConst: false, DeclaredAccessibility: Accessibility.Public } f)
+                            tf.Add(CreateFieldFromSymbol(f));
+                    }
+                    scanner.SetTemplateFields(tf.ToImmutable());
+                }
+
+                scanner.Scan(rootPrefix, files);
                 var graph = new InheritanceGraph();
                 foreach (var s in scanner.Schemas) graph.AddSchema(s);
                 foreach (var d in scanner.DataFiles) graph.AddNode(d);
 
-                var ns = PathToNamespace(rootPrefix);
-                var emitter = new NativePocoEmitter(graph, ns);
+                var ns = BuildNamespace(classNs, rootPrefix);
+                var emitter = new NativePocoEmitter(graph, ns, className);
                 var code = emitter.EmitAll();
 
-                var sanitized = rootPrefix.Replace('/', '_').Replace('\\', '_').Replace(":", "");
                 if (code.Length > 0)
-                    spc.AddSource($"DataRoot_{sanitized}.g.cs", SourceText.From(code, Encoding.UTF8));
+                    spc.AddSource($"{className}.DataCatalyst.g.cs", SourceText.From(code, Encoding.UTF8));
             }
         });
     }
 
-    private static string PathToNamespace(string rootDir) {
-        return rootDir.TrimEnd('/').Replace('/', '.').Replace('\\', '.');
+    private static FieldDefinition CreateFieldFromSymbol(ISymbol symbol) {
+        var typeName = symbol switch {
+            IPropertySymbol p => p.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
+            IFieldSymbol f => f.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
+            _ => "string",
+        };
+        var csType = typeName switch {
+            "int" => "int", "long" => "long", "float" => "float",
+            "double" => "double", "bool" => "bool", "string" => "string",
+            _ => "string",
+        };
+        return new FieldDefinition(symbol.Name, csType);
     }
 
-    private static ImmutableArray<string> ExtractDataRoots(Compilation compilation) {
-        var roots = ImmutableArray.CreateBuilder<string>();
-        foreach (var attr in compilation.Assembly.GetAttributes()) {
-            if (attr.AttributeClass?.Name == "DataRootAttribute" &&
-                attr.ConstructorArguments.Length == 1 &&
-                attr.ConstructorArguments[0].Value is string dir) {
-                var normalized = dir.Replace('\\', '/');
-                if (!normalized.EndsWith("/")) normalized += "/";
-                roots.Add(normalized);
+    private static string BuildNamespace(string classNs, string rootPrefix) {
+        return classNs.Length > 0 ? classNs : rootPrefix.TrimEnd('/').Replace('/', '.').Replace('\\', '.');
+    }
+
+    private static (string RootPrefix, INamedTypeSymbol? TemplateType, string ClassName, string ClassNs)? ExtractDataRoot(GeneratorSyntaxContext ctx) {
+        if (ctx.Node is not ClassDeclarationSyntax cds) return null;
+        var model = ctx.SemanticModel;
+        var type = model.GetDeclaredSymbol(cds) as INamedTypeSymbol;
+        if (type is null) return null;
+
+        foreach (var attr in type.GetAttributes()) {
+            if (attr.AttributeClass?.Name != "DataRootAttribute") continue;
+
+            // Default directory = "Data/"
+            var normalized = "Data/";
+            foreach (var na in attr.NamedArguments) {
+                if (na.Key == "Directory" && na.Value.Value is string dir) {
+                    normalized = dir.Replace('\\', '/');
+                    if (!normalized.EndsWith("/")) normalized += "/";
+                }
             }
+
+            INamedTypeSymbol? template = null;
+            foreach (var na in attr.NamedArguments) {
+                if (na.Key == "Template" && na.Value.Value is INamedTypeSymbol t)
+                    template = t;
+            }
+
+            var ns = type.ContainingNamespace.IsGlobalNamespace ? "" : type.ContainingNamespace.ToDisplayString();
+            return (normalized, template, type.Name, ns);
         }
-        return roots.ToImmutable();
+
+        return null;
     }
 }
