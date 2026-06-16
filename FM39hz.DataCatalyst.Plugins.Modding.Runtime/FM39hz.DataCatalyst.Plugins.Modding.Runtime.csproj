@@ -13,5 +13,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FM39hz.DataCatalyst.Abstractions\FM39hz.DataCatalyst.Abstractions.csproj" />
+    <ProjectReference Include="..\FM39hz.DataCatalyst.Runtime\FM39hz.DataCatalyst.Runtime.csproj" />
   </ItemGroup>
 </Project>

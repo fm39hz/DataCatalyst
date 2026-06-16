@@ -70,13 +70,21 @@ public static class ModLoader {
         var sorted = TopoSort(ScanAll(sources));
 
         // Phase 1: Content — all mods
+        var overrides = new List<global::FM39hz.DataCatalyst.Runtime.DataOverride>();
         foreach (var r in sorted) {
             if (!r.Success || r.Manifest is null) continue;
             foreach (var e in r.Manifest.Content) {
-                if (e.Type == "component")
-                    LoadComponentSchema(e, r.Manifest.Directory, componentRegistry);
+                switch (e.Type) {
+                    case "component":
+                        LoadComponentSchema(e, r.Manifest.Directory, componentRegistry);
+                        break;
+                    case "data":
+                        CollectDataOverrides(e, r.Manifest.Directory, overrides);
+                        break;
+                }
             }
         }
+        global::FM39hz.DataCatalyst.Runtime.DataContextRegistry.InitializeAll(overrides);
 
         // Phase 2: Init — per mod
         var loaded = new List<ModLoadResult>();
@@ -138,6 +146,31 @@ public static class ModLoader {
         return new ModManifest(id, version, gameVersion, deps, content, Path.GetDirectoryName(path) ?? "");
     }
 
+    private static void CollectDataOverrides(ModContentEntry entry, string modDir,
+        List<global::FM39hz.DataCatalyst.Runtime.DataOverride> overrides) {
+        var path = Path.Combine(modDir, entry.File);
+        if (!File.Exists(path)) return;
+        var text = File.ReadAllText(path);
+        var json = System.Text.Json.JsonDocument.Parse(text);
+        foreach (var prop in json.RootElement.EnumerateObject()) {
+            var dataOverride = new global::FM39hz.DataCatalyst.Runtime.DataOverride { Target = prop.Name };
+            if (prop.Value.ValueKind == System.Text.Json.JsonValueKind.Object) {
+                foreach (var field in prop.Value.EnumerateObject()) {
+                    object? val = field.Value.ValueKind switch {
+                        System.Text.Json.JsonValueKind.Number when field.Value.TryGetInt32(out var i) => i,
+                        System.Text.Json.JsonValueKind.Number when field.Value.TryGetSingle(out var f) => f,
+                        System.Text.Json.JsonValueKind.True => (object?)true,
+                        System.Text.Json.JsonValueKind.False => (object?)false,
+                        System.Text.Json.JsonValueKind.String => field.Value.GetString(),
+                        _ => null,
+                    };
+                    if (val is not null) dataOverride.Fields[field.Name] = val;
+                }
+            }
+            overrides.Add(dataOverride);
+        }
+    }
+
     private static void LoadComponentSchema(ModContentEntry entry, string modDir, IComponentSchemaRegistry registry) {
         var path = Path.Combine(modDir, entry.File);
         var text = File.ReadAllText(path);
@@ -158,7 +191,7 @@ public static class ModLoader {
         var deduped = new List<ModLoadResult>(results.Count);
         for (var i = results.Count - 1; i >= 0; i--) {
             if (results[i].Manifest is null) { deduped.Insert(0, results[i]); continue; }
-            if (seen.Add(results[i].Manifest.Id)) deduped.Insert(0, results[i]);
+            if (seen.Add(results[i].Manifest!.Id)) deduped.Insert(0, results[i]);
         }
         return deduped;
     }
