@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>DataCatalyst.Runtime</RootNamespace>
+    <AssemblyName>DataCatalyst.Runtime</AssemblyName>
+    <Description>DataCatalyst runtime infrastructure — registries, selectors, and supporting types for generated catalogs.</Description>
+    <PackageTags>data-catalyst;game-data;runtime</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Text.Json" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\DataCatalyst.Abstractions\DataCatalyst.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

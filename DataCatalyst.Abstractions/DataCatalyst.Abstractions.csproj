@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>DataCatalyst.Abstractions</RootNamespace>
+    <AssemblyName>DataCatalyst.Abstractions</AssemblyName>
+    <Description>DataCatalyst runtime abstractions — interfaces and value types used by generated code.</Description>
+    <PackageTags>data-catalyst;game-data;source-generator;abstractions</PackageTags>
+  </PropertyGroup>
+</Project>

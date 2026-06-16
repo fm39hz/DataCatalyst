@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>DataCatalyst</RootNamespace>
+    <AssemblyName>DataCatalyst</AssemblyName>
+    <IsRoslynComponent>true</IsRoslynComponent>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <PackageId>DataCatalyst</PackageId>
+    <Version>0.2.5</Version>
+    <Description>Roslyn source generator that bakes JSON files into strongly-typed static C# catalogs at compile time. AOT-safe, zero reflection.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <NoWarn>RS2008</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
+    <PackageReference Include="System.Text.Json" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DataCatalyst.Abstractions\DataCatalyst.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Include="..\README.md" Pack="true" PackagePath="\" Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('build\DataCatalyst.targets')">
+    <None Include="build\DataCatalyst.targets" Pack="true" PackagePath="build\DataCatalyst.targets" Visible="false" />
+    <None Include="build\DataCatalyst.targets" Pack="true" PackagePath="buildTransitive\DataCatalyst.targets" Visible="false" />
+  </ItemGroup>
+</Project>

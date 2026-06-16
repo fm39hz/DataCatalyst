@@ -1,9 +1,0 @@
-{
-  "id": "HelloMod",
-  "version": "1.0.0",
-  "gameVersion": ">=1.0.0",
-  "content": [
-    { "type": "data", "file": "items_override.json", "target": "Item" },
-    { "type": "component", "file": "components.json" }
-  ]
-}
