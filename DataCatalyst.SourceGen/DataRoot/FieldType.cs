@@ -13,6 +13,7 @@ public abstract class FieldType {
     public abstract bool TryInfer(JsonElement element);
     public virtual bool IsComplex => false;
     public virtual void EmitDeclarations(StringBuilder sb, int indent) { }
+    public abstract string EmitJsonParse(string elementVar);
 }
 
 public enum LoadHint { Eager, Lazy }
@@ -22,6 +23,7 @@ public sealed class IntFieldType : FieldType {
     public override string EmitDefault(LoadHint load, object? value) => value is int i ? i.ToString() : "0";
     public override object? ParseValue(JsonElement e) => e.TryGetInt32(out var i) ? i : (int?)null;
     public override bool TryInfer(JsonElement e) => e.ValueKind == JsonValueKind.Number && e.TryGetInt32(out _);
+    public override string EmitJsonParse(string v) => $"{v}.GetInt32()";
 }
 
 public sealed class FloatFieldType : FieldType {
@@ -30,17 +32,18 @@ public sealed class FloatFieldType : FieldType {
         value is float f ? f.ToString("G") + "f" : value is int i ? i.ToString() + "f" : "0f";
     public override object? ParseValue(JsonElement e) => e.TryGetSingle(out var f) ? f : (float?)null;
     public override bool TryInfer(JsonElement e) => e.ValueKind == JsonValueKind.Number;
+    public override string EmitJsonParse(string v) => $"{v}.GetSingle()";
 }
 
 public sealed class BoolFieldType : FieldType {
     public override string CSharpName => "bool";
-    public override string EmitDefault(LoadHint load, object? value) =>
-        value is true ? "true" : "false";
+    public override string EmitDefault(LoadHint load, object? value) => value is true ? "true" : "false";
     public override object? ParseValue(JsonElement e) =>
         e.ValueKind == JsonValueKind.True ? (object?)true :
         e.ValueKind == JsonValueKind.False ? (object?)false : null;
     public override bool TryInfer(JsonElement e) =>
         e.ValueKind == JsonValueKind.True || e.ValueKind == JsonValueKind.False;
+    public override string EmitJsonParse(string v) => $"{v}.GetBoolean()";
 }
 
 public sealed class StringFieldType : FieldType {
@@ -49,6 +52,7 @@ public sealed class StringFieldType : FieldType {
         value is string s ? $"\"{Escape(s)}\"" : "\"\"";
     public override object? ParseValue(JsonElement e) => e.ValueKind == JsonValueKind.String ? e.GetString() : null;
     public override bool TryInfer(JsonElement e) => e.ValueKind == JsonValueKind.String;
+    public override string EmitJsonParse(string v) => $"{v}.GetString()";
     private static string Escape(string s) => s.Replace("\\", "\\\\").Replace("\"", "\\\"");
 }
 
@@ -62,6 +66,7 @@ public sealed class ArrayFieldType : FieldType {
     public override object? ParseValue(JsonElement e) => null;
     public override bool TryInfer(JsonElement e) => e.ValueKind == JsonValueKind.Array;
     public override bool IsComplex => true;
+    public override string EmitJsonParse(string v) => "default"; // not supported in override
 }
 
 public sealed class NestedFieldType : FieldType {
@@ -75,6 +80,7 @@ public sealed class NestedFieldType : FieldType {
     public override object? ParseValue(JsonElement e) => null;
     public override bool TryInfer(JsonElement e) => e.ValueKind == JsonValueKind.Object;
     public override bool IsComplex => true;
+    public override string EmitJsonParse(string v) => "default"; // not supported in override
     public override void EmitDeclarations(StringBuilder sb, int indent) {
         var ind = new string('\t', indent);
         sb.Append(ind).Append("public partial struct ").Append(StructName).AppendLine(" {");
@@ -93,8 +99,9 @@ public sealed class RefFieldType : FieldType {
     public RefFieldType(string target) => Target = target;
     public override string CSharpName => $"global::DataCatalyst.Abstractions.DataRef<{Target}>";
     public override string EmitDefault(LoadHint load, object? value) => "default";
-    public override object? ParseValue(JsonElement e) => null;
+    public override object? ParseValue(JsonElement e) => e.ValueKind == JsonValueKind.String ? e.GetString() : null;
     public override bool TryInfer(JsonElement e) => false;
+    public override string EmitJsonParse(string v) => $"{v}.GetString()";
 }
 
 public static class FieldTypeRegistry {
@@ -103,8 +110,7 @@ public static class FieldTypeRegistry {
     };
     public static void Register(FieldType type) => _types.Add(type);
     public static FieldType? Infer(JsonElement element) {
-        foreach (var t in _types)
-            if (t.TryInfer(element)) return t;
+        foreach (var t in _types) if (t.TryInfer(element)) return t;
         return null;
     }
     public static FieldType? GetNamed(string name) => name switch {

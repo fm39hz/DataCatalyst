@@ -6,28 +6,35 @@ using Xunit;
 namespace DataCatalyst.Tests;
 
 public class DataContextRegistryTests {
+    struct TestData { public int X; }
+
     [Fact]
-    public void Register_StoresInitializer() {
-        var invoked = false;
-        DataContextRegistry.Register(o => invoked = true);
+    public void Register_StoresHandler() {
+        int? captured = null;
+        DataContextRegistry.Register<TestData>(json => {
+            if (json is null) captured = 0;
+            else captured = json.Value.GetProperty("x").GetInt32();
+        });
         DataContextRegistry.InitializeAll();
-        invoked.Should().BeTrue();
+        captured.Should().Be(0);
     }
 
     [Fact]
-    public void InitializeAll_AppliesOverrides() {
-        DataOverride? captured = null;
-        DataContextRegistry.Register(o => captured = o is { Count: > 0 } ? o[0] : null);
-        DataContextRegistry.InitializeAll([new DataOverride { Target = "Test", Fields = { ["X"] = 1 } }]);
-        captured.Should().NotBeNull();
-        captured!.Target.Should().Be("Test");
-        captured.Fields["X"].Should().Be(1);
+    public void InitializeAll_AppliesOverride() {
+        int? captured = null;
+        DataContextRegistry.Register<TestData>(json => {
+            if (json is not null) captured = json.Value.GetProperty("x").GetInt32();
+        });
+        DataContextRegistry.InitializeAll([
+            new DataOverride { Target = "TestData", RawJson = """{"x":42}""" }
+        ]);
+        captured.Should().Be(42);
     }
 
     [Fact]
     public void Reset_ClearsAll() {
         var invoked = false;
-        DataContextRegistry.Register(o => invoked = true);
+        DataContextRegistry.Register<TestData>(json => invoked = true);
         DataContextRegistry.Reset();
         DataContextRegistry.InitializeAll();
         invoked.Should().BeFalse();

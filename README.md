@@ -6,6 +6,9 @@ Roslyn source generator: **JSON or any kind of Data stored into strongly-typed C
 
 In data-driven game development (especially using ECS architectures), managing static data often introduces boilerplate, performance overhead, or fragile magic strings. Existing configuration and serialization libraries typically rely on runtime reflection, heavy heap allocations, or force a strict coupling between code and raw asset files.
 
+> This is not a drop-in replacement for any runtime data, repository or serializer, it is immutable by design
+> Data driven, itself is not stat tuning, it is to parameterized game world. So this is not suitable for heavy CSV style tuning, as it is not designed for that things
+
 DataCatalyst was built to enforce a strict separation of concerns between game design and development:
 
 - **Zero Hardcoding:** Moves game values, schemas, and static data out of C# source code and into declarative JSON files.
@@ -123,8 +126,9 @@ public class FishingMod : IDataPlugin {
     static FishingMod() {
         // Register DSL types for runtime deserialization
         DataDslRegistry.Register<FishingRod>();
-        // Load and merge data from mod sources
-        DataMerge.Load(new[] { DataSource.From("Mods/", 10) });
+        // Load overrides from mod directory at startup
+        var modOverrides = DataFileLoader.LoadFromDirectory("Mods/");
+        DataContextRegistry.InitializeAll(modOverrides);
     }
 }
 
@@ -145,31 +149,18 @@ Plugins are optional. A project without plugins works the same — `[DataRoot]` 
 
 ---
 
-## Data Merge (Modding Support)
+## Data Override (Modding Support)
 
 ```csharp
-// Content/Data/Potion.json:   { "Potion": { "Health": 50 } }
-// Mods/data/override.json:    { "Potion": { "Health": 99 } }
+// Content/Data/items.json:  { "Sword": { "Damage": 99 } }
 
-DataMerge.Load(new[] {
-    DataSource.From("Content/Data/", priority: 0),   // base
-    DataSource.From("Mods/data/",    priority: 10),   // higher → wins on conflict
-});
-
+var overrides = new List<DataOverride>();
+overrides.AddRange(DataFileLoader.LoadFromDirectory("Content/Data/"));
+overrides.AddRange(DataFileLoader.LoadFromDirectory("Mods/"));
+DataContextRegistry.InitializeAll(overrides);
 ```
 
-Priority wins: later source overrides earlier when same field is set.
-
-Track every field change:
-
-```csharp
-DataMerge.OnDataChanged += r =>
-    Console.WriteLine($"[{r.SourceName}] {r.Target}.{r.Field}: {r.OldValue} → {r.NewValue}");
-// Output: "[Mods/data] Potion.Health: 50 → 99"
-
-```
-
-`DataFileLoader.LoadOverrides(sources)` handles the I/O separately. `DataMerge.Apply(overrides)` does the merge logic alone.
+Game code decides load order — later sources override earlier on conflict. Override JSON uses struct name as key, raw JSON values (no boxing, typed parsing).
 
 ---
 
@@ -221,9 +212,10 @@ DataViewAdapterRegistry.Register<Item>(new EcsItemAdapter(store));
 | `GameData.Items.Sword`                | Static readonly field (compile mode)          |
 | `GameData.Items.Potion`               | Static property, populated at startup         |
 | `DataContextRegistry.InitializeAll()` | Apply overrides to startup-mode data          |
-| `DataMerge.Load(sources)`             | Priority-merge data from multiple directories |
+| `DataContextRegistry.Register<T>()`   | Typed override handler registration           |
+| `DataFileLoader.LoadFromDirectory()`  | Read override JSON from a directory           |
 | `DataDslRegistry.Deserialize<T>()`    | JSON → typed object (plugin-registered types) |
-| `DataRef<TTarget, TTargetKind>`       | Typed cross-reference                         |
+| `DataRef<T>`                          | Typed cross-reference by string key           |
 | `PluginRegistry.Register<T>()`        | Plugin registration (via source gen)          |
 
 ## Extension Points

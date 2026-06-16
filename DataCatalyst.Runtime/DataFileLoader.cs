@@ -16,19 +16,10 @@ public static class DataFileLoader {
                 var json = JsonDocument.Parse(text);
                 foreach (var prop in json.RootElement.EnumerateObject()) {
                     if (prop.Value.ValueKind != JsonValueKind.Object) continue;
-                    var dataOverride = new DataOverride { Target = prop.Name };
-                    foreach (var field in prop.Value.EnumerateObject()) {
-                        object? val = field.Value.ValueKind switch {
-                            JsonValueKind.Number when field.Value.TryGetInt32(out var i) => i,
-                            JsonValueKind.Number when field.Value.TryGetSingle(out var f) => f,
-                            JsonValueKind.True => (object?)true,
-                            JsonValueKind.False => (object?)false,
-                            JsonValueKind.String => field.Value.GetString(),
-                            _ => null,
-                        };
-                        if (val is not null) dataOverride.Fields[field.Name] = val;
-                    }
-                    overrides.Add(dataOverride);
+                    overrides.Add(new DataOverride {
+                        Target = prop.Name,
+                        RawJson = prop.Value.GetRawText()
+                    });
                 }
             } catch { /* skip invalid */ }
         }

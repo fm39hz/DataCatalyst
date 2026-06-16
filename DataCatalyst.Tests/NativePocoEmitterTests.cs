@@ -21,10 +21,9 @@ public class NativePocoEmitterTests {
         var (graph, _) = BuildGraph("startup");
         var emitter = new NativePocoEmitter(graph, "Data");
         var code = emitter.EmitAll();
-        code.Should().Contain("public static TestData TestData { get; private set; }");
-        code.Should().Contain("DataContextRegistry.Register(Initialize)");
-        code.Should().Contain("static void Initialize");
-        code.Should().Contain("overrides is not null");
+        code.Should().Contain("public static TestData TestData { get; internal set; }");
+        code.Should().Contain("DataContextRegistry.Register<_.TestData>");
+        code.Should().Contain("overrideJson is null");
     }
 
     [Fact]
@@ -32,8 +31,8 @@ public class NativePocoEmitterTests {
         var (graph, node) = BuildGraph("startup", f => f.Add(new FieldDefinition("Y", new IntFieldType())));
         var emitter = new NativePocoEmitter(graph, "Data");
         var code = emitter.EmitAll();
-        code.Should().Contain("case \"TestData\"");
-        code.Should().Contain("TryGetValue(\"X\", out var _vX)");
+        code.Should().Contain("TryGetProperty(\"X\", out var _jX)");
+        code.Should().Contain("_v.X = _jX.GetInt32()");
     }
 
     [Fact]
@@ -55,7 +54,7 @@ public class NativePocoEmitterTests {
         var emitter = new NativePocoEmitter(graph, "Game.Items");
         var code = emitter.EmitAll();
         code.Should().Contain("namespace Game.Items");
-        code.Should().Contain("partial class ItemsContext");
+        code.Should().Contain("partial class Items");
     }
 
     [Fact]
