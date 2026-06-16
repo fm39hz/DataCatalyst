@@ -2,6 +2,5 @@
   <Project Path="FM39hz.DataCatalyst.Abstractions/FM39hz.DataCatalyst.Abstractions.csproj" />
   <Project Path="FM39hz.DataCatalyst.Runtime/FM39hz.DataCatalyst.Runtime.csproj" />
   <Project Path="FM39hz.DataCatalyst.SourceGen/FM39hz.DataCatalyst.SourceGen.csproj" />
-  <Project Path="FM39hz.DataCatalyst.Modding/FM39hz.DataCatalyst.Modding.csproj" />
   <Project Path="FM39hz.DataCatalyst.Tests/FM39hz.DataCatalyst.Tests.csproj" />
 </Solution>

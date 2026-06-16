@@ -1,4 +1,4 @@
-namespace FM39hz.DataCatalyst.Modding;
+namespace FM39hz.DataCatalyst.Runtime;
 
 using System;
 using System.Collections.Generic;

@@ -8,6 +8,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="System.Text.Json" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\FM39hz.DataCatalyst.Abstractions\FM39hz.DataCatalyst.Abstractions.csproj" />
   </ItemGroup>
 </Project>
