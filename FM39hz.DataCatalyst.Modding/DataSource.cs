@@ -1,18 +1,17 @@
-namespace FM39hz.DataCatalyst.Plugins.Modding.Runtime;
+namespace FM39hz.DataCatalyst.Modding;
 
 using System.IO;
 
-public sealed class ModSource {
+public sealed class DataSource {
     public string Name { get; }
     public string Directory { get; }
     public int Priority { get; }
 
-    public ModSource(string directory, int priority = 0) {
+    public DataSource(string directory, int priority = 0) {
         Name = Path.GetFileName(directory.TrimEnd('/', '\\')) ?? "Source";
         Directory = directory;
         Priority = priority;
     }
 
-    public static ModSource From(string directory, int priority = 0)
-        => new(directory, priority);
+    public static DataSource From(string directory, int priority = 0) => new(directory, priority);
 }
