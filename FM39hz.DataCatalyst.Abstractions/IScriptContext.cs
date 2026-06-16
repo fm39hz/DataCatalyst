@@ -23,6 +23,5 @@ public interface IScriptContext : IDisposable {
     void SetGlobal(string name, object? value);
     void LoadFile(string path);
     bool TryCall(string functionName, out object? result, params object?[] args);
-    void RegisterHook(string methodId, Func<HookArgs, bool?>? before, Action<HookArgs>? after);
     event Action<ScriptError> OnError;
 }

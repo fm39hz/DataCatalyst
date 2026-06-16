@@ -1,6 +1,6 @@
-# HelloMod - Ring 1: Data-only modding
+# HelloMod — Data override + script mod
 
-Demonstrates: JSON override + manifest + `ModLoader.Scan` + `ModLoader.Load`
+Demonstrates: JSON override + manifest + `ModLoader.Scan` + `ModLoader.LoadAllSources`
 
 ## Manifest
 
@@ -10,7 +10,8 @@ Demonstrates: JSON override + manifest + `ModLoader.Scan` + `ModLoader.Load`
   "version": "1.0.0",
   "gameVersion": ">=1.0.0",
   "content": [
-    { "type": "data", "file": "items_override.json", "target": "Item" }
+    { "type": "data", "file": "items_override.json", "target": "Item" },
+    { "type": "script", "file": "init.lua" }
   ]
 }
 ```
@@ -24,20 +25,23 @@ Demonstrates: JSON override + manifest + `ModLoader.Scan` + `ModLoader.Load`
 }
 ```
 
+## Lua script
+
+```lua
+-- init.lua
+Item_Add("CustomSword", { Health = 10, Weight = 2.0 })
+local item = Item_Get("Potion")
+Log("Potion health: " .. item.Health)
+```
+
 ## Game integration
 
 ```csharp
 [CatalystData("Items.json")]
 public partial struct Item { }
 
-var results = ModLoader.Scan("Mods/");
-foreach (var r in results) {
-    if (!r.Success) Log.Error($"{r.ModId}: {r.Error}");
-}
-
-// Data overrides loaded via existing ItemMod.LoadMods()
-ItemMod.LoadMods("Mods/HelloMod/");
-
-// Or via ModLoader with IScriptEngine:
-// ModLoader.Load("Mods/", new LuaScriptEngine(), new ComponentSchemaRegistry());
+ModLoader.LoadAllSources(new[] {
+    ModSource.From("Data/"),
+    ModSource.From("Mods/"),
+}, new LuaScriptEngine(), new ComponentSchemaRegistry());
 ```

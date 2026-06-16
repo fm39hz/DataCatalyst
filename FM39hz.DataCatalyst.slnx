@@ -5,7 +5,7 @@
   <Project Path="FM39hz.DataCatalyst.Plugins.Backends/FM39hz.DataCatalyst.Plugins.Backends.csproj" />
   <Project Path="FM39hz.DataCatalyst.Plugins.Modding/FM39hz.DataCatalyst.Plugins.Modding.csproj" />
   <Project Path="FM39hz.DataCatalyst.Plugins.Modding.Runtime/FM39hz.DataCatalyst.Plugins.Modding.Runtime.csproj" />
-  <Project Path="FM39hz.DataCatalyst.Plugins.Modding.Weaver/FM39hz.DataCatalyst.Plugins.Modding.Weaver.csproj" />
+
   <Project Path="FM39hz.DataCatalyst.Test/FM39hz.DataCatalyst.Test.csproj" />
   <Project Path="FM39hz.DataCatalyst.Plugins.Backends.Test/FM39hz.DataCatalyst.Plugins.Backends.Test.csproj" />
   <Project Path="FM39hz.DataCatalyst.Plugins.Modding.Test/FM39hz.DataCatalyst.Plugins.Modding.Test.csproj" />

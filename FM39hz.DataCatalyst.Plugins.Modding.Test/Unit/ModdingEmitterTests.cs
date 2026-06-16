@@ -38,26 +38,26 @@ public sealed class ModdingEmitterTests {
 
 	[Fact]
 	public void ModOverlayEmitter_Applies_WhenModSupportIsTrue() {
-		var ctx = MakeCtx(modSupport: true);
+		var ctx = MakeCtx(hasPlugin: true);
 		new ModOverlayDataEmitter().Applies(ctx).Should().BeTrue();
 	}
 
 	[Fact]
 	public void ModOverlayEmitter_Applies_Always() {
-		var ctx = MakeCtx(modSupport: false);
+		var ctx = MakeCtx(hasPlugin: false);
 		new ModOverlayDataEmitter().Applies(ctx).Should().BeTrue();
 	}
 
 	[Fact]
 	public void ModOverlayEmitter_Emit_ProducesLoadModsMethod() {
-		var ctx = MakeCtx(modSupport: true);
+		var ctx = MakeCtx(hasPlugin: true);
 		var code = new ModOverlayDataEmitter().Emit(Rows, FlatSchema, ctx);
 		code.Should().Contain("LoadMods").And.Contain("EnumerateFiles").And.Contain("*.json");
 	}
 
 	[Fact]
 	public void ModOverlayEmitter_Emit_ProducesKindToStringSwitch() {
-		var ctx = MakeCtx(modSupport: true);
+		var ctx = MakeCtx(hasPlugin: true);
 		var code = new ModOverlayDataEmitter().Emit(Rows, FlatSchema, ctx);
 		code.Should().Contain("KindToString")
 			.And.Contain("case MyDataKind.Potion").And.Contain("case MyDataKind.Elixir");
@@ -65,28 +65,28 @@ public sealed class ModdingEmitterTests {
 
 	[Fact]
 	public void ModOverlayEmitter_Emit_IncludesDslReaderIntegration() {
-		var ctx = MakeCtx(modSupport: true);
+		var ctx = MakeCtx(hasPlugin: true);
 		var code = new ModOverlayDataEmitter().Emit(Rows, FlatSchema, ctx);
 		code.Should().Contain("DslReaderRegistry").And.Contain("TryRead");
 	}
 
 	[Fact]
 	public void ModOverlayEmitter_Emit_ProducesTryGetMethod() {
-		var ctx = MakeCtx(modSupport: true);
+		var ctx = MakeCtx(hasPlugin: true);
 		var code = new ModOverlayDataEmitter().Emit(Rows, FlatSchema, ctx);
 		code.Should().Contain("internal static bool TryGet(string");
 	}
 
 	[Fact]
 	public void ModOverlayEmitter_Emit_ProducesGetAllModEntries() {
-		var ctx = MakeCtx(modSupport: true);
+		var ctx = MakeCtx(hasPlugin: true);
 		var code = new ModOverlayDataEmitter().Emit(Rows, FlatSchema, ctx);
 		code.Should().Contain("GetAllModEntries").And.Contain("Array.Empty");
 	}
 
 	[Fact]
 	public void ModOverlayEmitter_Emit_ProducesAddEntryMethod() {
-		var ctx = MakeCtx(modSupport: true);
+		var ctx = MakeCtx(hasPlugin: true);
 		var code = new ModOverlayDataEmitter().Emit(Rows, FlatSchema, ctx);
 		code.Should().Contain("public static void AddEntry(string key")
 			.And.Contain("_modEntries[key] = entry").And.Contain("OnEntryAdded");
@@ -94,7 +94,7 @@ public sealed class ModdingEmitterTests {
 
 	[Fact]
 	public void ModOverlayEmitter_Emit_ProducesRemoveEntryMethod() {
-		var ctx = MakeCtx(modSupport: true);
+		var ctx = MakeCtx(hasPlugin: true);
 		var code = new ModOverlayDataEmitter().Emit(Rows, FlatSchema, ctx);
 		code.Should().Contain("public static void RemoveEntry(string key)")
 			.And.Contain("_modEntries?.Remove").And.Contain("OnEntryRemoved");
@@ -102,7 +102,7 @@ public sealed class ModdingEmitterTests {
 
 	[Fact]
 	public void ModOverlayEmitter_Emit_ProducesClearMethod() {
-		var ctx = MakeCtx(modSupport: true);
+		var ctx = MakeCtx(hasPlugin: true);
 		var code = new ModOverlayDataEmitter().Emit(Rows, FlatSchema, ctx);
 		code.Should().Contain("public static void Clear()")
 			.And.Contain("_modEntries?.Clear()").And.Contain("OnAllCleared");
@@ -110,7 +110,7 @@ public sealed class ModdingEmitterTests {
 
 	[Fact]
 	public void ModOverlayEmitter_Emit_AdapterNotificationPresent() {
-		var ctx = MakeCtx(modSupport: true);
+		var ctx = MakeCtx(hasPlugin: true);
 		var code = new ModOverlayDataEmitter().Emit(Rows, FlatSchema, ctx);
 		code.Should().Contain("DataViewAdapterRegistry.GetAdapters<MyData>")
 			.And.Contain("a.OnEntryAdded").And.Contain("a.OnEntryRemoved")
@@ -119,7 +119,7 @@ public sealed class ModdingEmitterTests {
 
 	[Fact]
 	public void ModOverlayEmitter_Emit_LoadModsUsesAddEntry() {
-		var ctx = MakeCtx(modSupport: true);
+		var ctx = MakeCtx(hasPlugin: true);
 		var code = new ModOverlayDataEmitter().Emit(Rows, FlatSchema, ctx);
 		code.Should().Contain("AddEntry(KindToString(item.Kind), item)");
 	}
@@ -133,19 +133,19 @@ public sealed class ModdingEmitterTests {
 
 	[Fact]
 	public void LuaBridgeEmitter_Applies_WhenModSupportIsTrue() {
-		var ctx = MakeCtx(modSupport: true);
+		var ctx = MakeCtx(hasPlugin: true);
 		new LuaBridgeEmitter().Applies(ctx).Should().BeTrue();
 	}
 
 	[Fact]
 	public void LuaBridgeEmitter_Applies_Always() {
-		var ctx = MakeCtx(modSupport: false);
+		var ctx = MakeCtx(hasPlugin: false);
 		new LuaBridgeEmitter().Applies(ctx).Should().BeTrue();
 	}
 
 	[Fact]
 	public void LuaBridgeEmitter_Emit_ProducesRegisterMethod() {
-		var ctx = MakeCtx(modSupport: true);
+		var ctx = MakeCtx(hasPlugin: true);
 		var code = new LuaBridgeEmitter().Emit(Rows, FlatSchema, ctx);
 		code.Should().Contain("Register").And.Contain("MoonSharp.Interpreter.Script")
 			.And.Contain("_Add\"").And.Contain("_Get\"");
@@ -153,7 +153,7 @@ public sealed class ModdingEmitterTests {
 
 	[Fact]
 	public void LuaBridgeEmitter_Emit_GeneratesTypedMethods() {
-		var ctx = MakeCtx(modSupport: true);
+		var ctx = MakeCtx(hasPlugin: true);
 		var code = new LuaBridgeEmitter().Emit(Rows, FlatSchema, ctx);
 		code.Should().Contain("private static void Add(string key, string Name, int Health, float Weight)")
 			.And.Contain("Mod.AddEntry");
@@ -161,7 +161,7 @@ public sealed class ModdingEmitterTests {
 
 	// --- helper ---
 
-	private static DcGenerationContext MakeCtx(DataBackend backend = DataBackend.None, bool modSupport = false, int loadMode = 0, string schemaVersion = "") => new(
+	private static DcGenerationContext MakeCtx(DataBackend backend = DataBackend.None, bool hasPlugin = false, int loadMode = 0, string schemaVersion = "") => new(
 		targetFullyQualifiedName: "global::Test.MyData",
 		containingNamespace: "Test",
 		simpleName: "MyData",
@@ -171,7 +171,7 @@ public sealed class ModdingEmitterTests {
 		keyField: "",
 		jsonPath: "test.json",
 		backend: backend,
-		hasModdingPlugin: modSupport,
+		hasModdingPlugin: hasPlugin,
 		loadMode: loadMode,
 		schemaVersion: schemaVersion,
 		location: Location.None,
