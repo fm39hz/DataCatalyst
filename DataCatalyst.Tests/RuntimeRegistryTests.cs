@@ -17,7 +17,7 @@ public class DataContextRegistryTests {
     [Fact]
     public void InitializeAll_AppliesOverrides() {
         DataOverride? captured = null;
-        DataContextRegistry.Register(o => captured = o?.FirstOrDefault());
+        DataContextRegistry.Register(o => captured = o is { Count: > 0 } ? o[0] : null);
         DataContextRegistry.InitializeAll([new DataOverride { Target = "Test", Fields = { ["X"] = 1 } }]);
         captured.Should().NotBeNull();
         captured!.Target.Should().Be("Test");
@@ -69,6 +69,6 @@ public class PluginRegistryTests {
 }
 
 public class TestPlugin : IDataPlugin {
-    public static bool Constructed;
+    public static bool Constructed { get; set; }
     public TestPlugin() => Constructed = true;
 }
