@@ -1,114 +1,96 @@
 # DataCatalyst
 
-**Data protocol layer for games.** Translates data from any source (JSON, CSV, YAML, DB, mod files) into strongly-typed C# structs at compile time. Zero reflection. NativeAOT-safe. Engine-agnostic.
+Roslyn source generator: **JSON or any kind of Data stored into strongly-typed C# struct** at compile time. Zero reflection. NativeAOT-safe. Engine-agnostic.
 
-Like MCP for AI agents — DataCatalyst standardizes how game data is defined, accessed, and overridden.
+## Why DataCatalyst?
 
----
+In data-driven game development (especially using ECS architectures), managing static data often introduces boilerplate, performance overhead, or fragile magic strings. Existing configuration and serialization libraries typically rely on runtime reflection, heavy heap allocations, or force a strict coupling between code and raw asset files.
 
-## Concept
+DataCatalyst was built to enforce a strict separation of concerns between game design and development:
 
-```
-Source (any format)         DataCatalyst              Game code
-─────────────────    ─────────────────────    ─────────────────
-JSON / CSV / YAML    → IDslReader → struct   → ItemsContext.FireSword.Damage
-Database / API       → IDslReader → struct   → ItemsContext.Potion.Health
-Mod overrides        → DataMerge → override  → direct field access
-DSL (state-engine)   → DataDslRegistry       → type safe runtime
-```
+- **Zero Hardcoding:** Moves game values, schemas, and static data out of C# source code and into declarative JSON files.
+- **Pure Clean Code:** Designers modify JSON definitions safely without touching the codebase, while developers interact with pure, type-safe C# structures.
+- **Compile-Time Safety:** Catches data structure mismatches at compile time rather than crashing at runtime.
 
 ---
 
-## Plugin system
+## Requirements
+
+- .NET 8+ / .NET Standard 2.0+
+- C# 12+
+
+## Quick start
+
+```bash
+dotnet add package DataCatalyst
+
+```
+
+```xml
+<ItemGroup>
+  <AdditionalFiles Include="Data\*.json" />
+</ItemGroup>
+
+```
 
 ```csharp
-[DataPlugin(DependsOn = [typeof(CorePlugin)])]
-public class StateEnginePlugin : IDataPlugin {
-    static StateEnginePlugin() {
-        DataDslRegistry.Register<BehaviorGroup>();
-    }
-}
-```
-
-- `IDataPlugin` — marker interface, 0 methods
-- `[DataPlugin]` — class-level, `DependsOn` by Type ref
-- Static constructor = plugin entry point
-- Source gen: topo-sort → `PluginRegistry.Register<T>()` via `[ModuleInitializer]`
-
----
-
-## Data Root — JSON → struct
+[DataRoot]
+public static partial class GameData { }
 
 ```
-[assembly: DataRoot("Data/Items")]
 
-Data/Items/
-├── _schema.json     { "kind": "Weapon", "fields": { "Damage": { "type": "int" } } }
-├── Sword.json       { "inherits": "Weapon", "defaults": { "Damage": 25 }, "load": "compile" }
-├── Potion.json      { "inherits": "Weapon", "defaults": { "Damage": 10 }, "load": "startup" }
-└── states/behavior.json  { "$dsl": "BehaviorGroup", "Name": "Idle", ... }
+```json
+// Data/Items/_schema.json
+{ "kind": "Weapon", "fields": { "Damage": { "type": "int" } } }
+
+// Data/Items/Sword.json
+{ "inherits": "Weapon", "defaults": { "Damage": 25 }, "load": "compile" }
+
 ```
 
-Generated:
 ```csharp
-namespace Data.Items {
-    public struct Sword { public int Damage; }
-    public struct Potion { public int Damage; }
+int dmg = GameData.Items.Sword.Damage;   // 25, baked at compile time
 
-    public static partial class ItemsContext {
-        public static readonly Sword Sword = new() { Damage = 25 };  // compile-eager
-        public static Potion Potion { get; private set; }
-
-        [ModuleInitializer]
-        internal static void Init() => DataContextRegistry.Register(Initialize);
-
-        public static void Initialize(IReadOnlyList<DataOverride>? overrides) { ... }
-    }
-}
-```
-
-Access:
-```csharp
-int dmg = ItemsContext.Sword.Damage;   // direct field, zero cost
-int hp  = ItemsContext.Potion.Damage;  // init-once
 ```
 
 ---
 
-## Data context — runtime init + override
+## Core Concepts
 
-```csharp
-DataContextRegistry.Register(Initialize);   // [ModuleInitializer] tự gọi
-DataContextRegistry.InitializeAll(overrides); // apply base + mod
-```
+### Source Generation Mapping
+
+The `[DataRoot]` attribute triggers an incremental source generator to map file-system structures into compile-time types.
+
+- **What:** Directories map to nested class branches; `.json` files map to strongly-typed C# structs.
+- **Why:** Provides intuitive, predictable API access paths (e.g., `GameData.Items.Armor.Helmet`) that match your physical project structure without manual scaffolding.
+
+### Schema vs. Data Files
+
+- **Schema (`_*.json`):** Defines the structural blueprint (types and fields). Used to enforce data layout constraints across multiple instances.
+- **Data (`*.json`):** Defines concrete data instances. Supports prototyped inheritance (`inherits`) and default value initialization.
+
+### Load Modes
+
+Controls the lifecycle and mutability of generated data fields.
+
+| Mode                  | What it Generates                    | Concept                                                                                                         |
+| --------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| `compile` _(Default)_ | `static readonly T` field            | Maximum performance. Values are baked directly at build time; zero runtime overhead.                            |
+| `startup`             | `static T` property + `Initialize()` | Extensibility. Allows data to be modified or hot-reloaded via `DataContextRegistry` during game initialization. |
+
+### Supported Field Types
+
+Maps standard JSON definitions directly to optimized, allocation-free C# types:
+
+- **Primitives:** `int`, `float`, `string`, `bool`.
+- **Collections:** `ImmutableArray<T>` (via `array`) to ensure structural immutability.
+- **Complex Types:** Nested structures (via `object`) and safe cross-references (via `DataRef<T>`).
 
 ---
 
-## Data merge — priority resolution
+## Format Extensibility
 
-```csharp
-DataMerge.Load(new[] {
-    DataSource.From("Content/Data/", priority: 0),
-    DataSource.From("Mods/Items/",   priority: 10),
-});
-
-DataMerge.OnConflict += (target, field, oldVal, newVal)
-    => Console.WriteLine($"Conflict: {target}.{field}: {oldVal} → {newVal}");
-```
-
----
-
-## DSL registry — type-safe runtime
-
-```csharp
-DataDslRegistry.Register<BehaviorGroup>();
-DataDslRegistry.IsRegistered<BehaviorGroup>();
-var data = DataDslRegistry.Deserialize<BehaviorGroup>(json);
-```
-
----
-
-## Format extensibility — IDslReader
+JSON is the default format. Any format can be added via `IDslReader<T>`:
 
 ```csharp
 public interface IDslReader<TValue> {
@@ -116,35 +98,143 @@ public interface IDslReader<TValue> {
     bool TryRead(string text, out TValue value);
 }
 
-// Custom reader:
 public sealed class YamlReader : IDslReader<Item> {
     public string FileExtension => ".yaml";
-    public bool TryRead(string text, out Item value) { ... }
+    public bool TryRead(string text, out Item value) { /* parse YAML */ }
 }
 
 DslReaderRegistry.Register(new YamlReader());
+
+```
+
+At compile time, the source generator reads `<AdditionalFiles>` (JSON by convention). At runtime, `IDslReader` handles additional formats (YAML, CSV, custom DSL).
+
+---
+
+## Plugin System
+
+A plugin is any class implementing `IDataPlugin` (marker interface, no methods) with a static constructor.
+
+```csharp
+public record struct FishingRod(string Name, int Power);
+
+[DataPlugin(DependsOn = [typeof(CorePlugin)])]
+public class FishingMod : IDataPlugin {
+    static FishingMod() {
+        // Register DSL types for runtime deserialization
+        DataDslRegistry.Register<FishingRod>();
+        // Load and merge data from mod sources
+        DataMerge.Load(new[] { DataSource.From("Mods/", 10) });
+    }
+}
+
+```
+
+The source generator detects `IDataPlugin` types, topo-sorts by `DependsOn`, and emits:
+
+```csharp
+[ModuleInitializer]
+internal static void Init() {
+    PluginRegistry.Register<CorePlugin>();
+    PluginRegistry.Register<FishingMod>();
+}
+
+```
+
+Plugins are optional. A project without plugins works the same — `[DataRoot]` still generates structs, `DataMerge` still merges data.
+
+---
+
+## Data Merge (Modding Support)
+
+```csharp
+// Content/Data/Potion.json:   { "Potion": { "Health": 50 } }
+// Mods/data/override.json:    { "Potion": { "Health": 99 } }
+
+DataMerge.Load(new[] {
+    DataSource.From("Content/Data/", priority: 0),   // base
+    DataSource.From("Mods/data/",    priority: 10),   // higher → wins on conflict
+});
+
+```
+
+Priority wins: later source overrides earlier when same field is set.
+
+Track every field change:
+
+```csharp
+DataMerge.OnDataChanged += r =>
+    Console.WriteLine($"[{r.SourceName}] {r.Target}.{r.Field}: {r.OldValue} → {r.NewValue}");
+// Output: "[Mods/data] Potion.Health: 50 → 99"
+
+```
+
+`DataFileLoader.LoadOverrides(sources)` handles the I/O separately. `DataMerge.Apply(overrides)` does the merge logic alone.
+
+---
+
+## DSL Registry (Runtime Deserialization)
+
+```csharp
+// Register (typically in a plugin's static constructor):
+DataDslRegistry.Register<FishingRod>();
+
+// Later, at runtime:
+var json = """{ "Name": "Ultra Rod", "Power": 99 }""";
+var rod = DataDslRegistry.Deserialize<FishingRod>(json);
+Console.WriteLine(rod.Name); // "Ultra Rod"
+
+```
+
+Uses `System.Text.Json` under the hood. Custom options can be passed: `Register<T>(new JsonSerializerOptions { ... })`.
+
+---
+
+## Engine Adapter
+
+```csharp
+public class EcsItemAdapter : IDataViewAdapter<Item> {
+    public void OnEntryAdded(string key, Item entry) { /* create entity */ }
+    public void OnEntryRemoved(string key) { /* destroy entity */ }
+    public void OnAllCleared() { /* destroy all */ }
+}
+DataViewAdapterRegistry.Register<Item>(new EcsItemAdapter(store));
+
 ```
 
 ---
 
-## API surface
+## Performance & Compatibility
 
-| Type | Purpose |
-|---|---|
-| `IDataPlugin` | Plugin marker |
-| `[DataPlugin]` | Plugin declaration |
-| `PluginRegistry` | `Register<T>()` |
-| `[assembly: DataRoot("path")]` | Data folder declaration |
-| `DataContextRegistry` | Init + override data |
-| `DataDslRegistry` | DSL type registration + deserialize |
-| `DataMerge` | Priority data resolution |
-| `DataSource` | Source dir + priority |
-| `DataOverride` | Single data patch |
-| `IDataRepository<TKey,TValue>` | Data access contract |
-| `IDataViewAdapter<T>` | Data change notification |
-| `IDslReader<TValue>` | Format reader contract |
-| `DslReaderRegistry` | Reader registration |
-| `DataRef<TTarget,TTargetKind>` | Typed cross-reference |
+- **Runtimes:** Fully compatible with `.NET Standard 2.0+` and `.NET 8+`. Target-agnostic (Mono, IL2CPP, NativeAOT, CoreCLR).
+- **Game Engines:** Agnostic implementation. Out-of-the-box support for Godot, Stride, Unity (via modern MSBuild pipelines), or custom ECS frameworks (Arch, Friflo, DefaultEcs, etc...).
+- **Memory & GC:** Emits lightweight `struct` models. Zero runtime heap allocations during data retrieval.
+- **AOT-Ready:** Eliminates runtime Reflection completely. 100% linker/trimmer safe.
+- **Build Performance:** Implemented as an `IncrementalGenerator` to ensure minimal CPU/memory overhead during IDE editing and rapid iterative compilation.
+
+---
+
+## Generated API
+
+| Member                                | Description                                   |
+| ------------------------------------- | --------------------------------------------- |
+| `GameData.Items.Sword`                | Static readonly field (compile mode)          |
+| `GameData.Items.Potion`               | Static property, populated at startup         |
+| `DataContextRegistry.InitializeAll()` | Apply overrides to startup-mode data          |
+| `DataMerge.Load(sources)`             | Priority-merge data from multiple directories |
+| `DataDslRegistry.Deserialize<T>()`    | JSON → typed object (plugin-registered types) |
+| `DataRef<TTarget, TTargetKind>`       | Typed cross-reference                         |
+| `PluginRegistry.Register<T>()`        | Plugin registration (via source gen)          |
+
+## Extension Points
+
+| Extension           | Interface                                   | Mechanism                         |
+| ------------------- | ------------------------------------------- | --------------------------------- |
+| Data format         | `IDslReader<T>`                             | `DslReaderRegistry`               |
+| Engine bridge       | `IDataViewAdapter<T>`                       | `DataViewAdapterRegistry`         |
+| Plugin              | `IDataPlugin`                               | `[DataPlugin]` + `PluginRegistry` |
+| Data repository     | `IDataRepository<TKey,TValue>`              | User-provided                     |
+| Source gen pipeline | `IScanner`, `IGraphBuilder`, `ICodeEmitter` | Internal, replaceable             |
 
 ## License
 
