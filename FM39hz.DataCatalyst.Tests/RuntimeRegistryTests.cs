@@ -36,15 +36,20 @@ public class DataContextRegistryTests {
 
 public class DataDslRegistryTests {
     [Fact]
-    public void RegisterAndGetType() {
-        DataDslRegistry.Register("test-dsl", typeof(string));
-        DataDslRegistry.GetType("test-dsl").Should().Be(typeof(string));
-        DataDslRegistry.IsRegistered("test-dsl").Should().BeTrue();
+    public void RegisterAndCheck() {
+        DataDslRegistry.Register<string>();
+        DataDslRegistry.IsRegistered<string>().Should().BeTrue();
     }
 
     [Fact]
-    public void GetType_Unregistered_ReturnsNull() {
-        DataDslRegistry.GetType("nonexistent").Should().BeNull();
+    public void Unregistered_ReturnsFalse() {
+        DataDslRegistry.IsRegistered<DataDslRegistryTests>().Should().BeFalse();
+    }
+
+    [Fact]
+    public void GetAll_ReturnsRegistered() {
+        DataDslRegistry.Register<string>();
+        DataDslRegistry.GetAll().Should().Contain(typeof(string));
     }
 }
 

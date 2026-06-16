@@ -15,11 +15,9 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
             ctx.AddSource("DataPluginAttribute.g.cs", SourceText.From("""
                 using System;
 
-                [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)]
+                [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
                 public sealed class DataPluginAttribute : Attribute {
-                    public string Id { get; }
-                    public string[]? DependsOn { get; init; }
-                    public DataPluginAttribute(string id) => Id = id;
+                    public System.Type[]? DependsOn { get; init; }
                 }
 
                 public static class DepParser {
@@ -56,19 +54,6 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
                 }
                 """, Encoding.UTF8));
 
-            ctx.AddSource("DataDslAttribute.g.cs", SourceText.From("""
-                using System;
-
-                [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)]
-                public sealed class DataDslAttribute : Attribute {
-                    public string Id { get; }
-                    public Type SchemaType { get; }
-                    public DataDslAttribute(string id, Type schemaType) {
-                        Id = id;
-                        SchemaType = schemaType;
-                    }
-                }
-                """, Encoding.UTF8));
         });
 
         // Collect IDataPlugin types (classes implementing IDataPlugin in FM39hz.DataCatalyst.Abstractions)
@@ -131,27 +116,27 @@ public sealed class UniversalDataGenerator : IIncrementalGenerator {
         if (type is null) return null;
         if (!type.AllInterfaces.Any(i => i.Name == "IDataPlugin")) return null;
 
-        // Find the [DataPlugin] assembly attribute
         string id = type.Name;
         string[] dependsOn = [];
-        foreach (var attr in type.ContainingAssembly.GetAttributes()) {
-            if (attr.AttributeClass?.Name == "DataPluginAttribute" && attr.ConstructorArguments.Length == 1) {
-                id = attr.ConstructorArguments[0].Value as string ?? type.Name;
-                if (attr.NamedArguments.Length > 0) {
-                    foreach (var na in attr.NamedArguments) {
-                        if (na.Key == "DependsOn" && na.Value.Values is { Length: > 0 } vs) {
-                            var list = new List<string>();
-                            foreach (var v in vs) {
-                                var s = v.Value?.ToString();
-                                if (!string.IsNullOrEmpty(s)) list.Add(s!);
-                            }
-                            dependsOn = [.. list];
+
+        foreach (var attr in type.GetAttributes()) {
+            if (attr.AttributeClass?.Name != "DataPluginAttribute") continue;
+
+            foreach (var na in attr.NamedArguments) {
+                if (na.Key == "DependsOn" && na.Value.Values is { Length: > 0 } vs) {
+                    var list = new List<string>();
+                    foreach (var v in vs) {
+                        if (v.Value is INamedTypeSymbol depType) {
+                            if (!string.IsNullOrEmpty(depType.Name)) list.Add(depType.Name);
                         }
                     }
+                    dependsOn = [.. list];
                 }
-                break;
             }
+            break;
         }
+
+        id = type.Name;
 
         var fullType = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
         return (fullType, id, dependsOn);
