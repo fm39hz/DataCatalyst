@@ -44,7 +44,7 @@ public sealed class DataRootGenerator : IIncrementalGenerator {
             if (roots.IsDefaultOrEmpty) return;
 
             foreach (var (rootPrefix, templateType, className, classNs) in roots) {
-                var scanner = new DataRootScanner();
+                IScanner scanner = new DataRootScanner();
 
                 if (templateType is not null) {
                     var tf = ImmutableArray.CreateBuilder<FieldDefinition>();
@@ -58,12 +58,12 @@ public sealed class DataRootGenerator : IIncrementalGenerator {
                 }
 
                 scanner.Scan(rootPrefix, files);
-                var graph = new InheritanceGraph();
+                IGraphBuilder graph = new InheritanceGraph();
                 foreach (var s in scanner.Schemas) graph.AddSchema(s);
                 foreach (var d in scanner.DataFiles) graph.AddNode(d);
 
                 var ns = BuildNamespace(classNs, rootPrefix);
-                var emitter = new NativePocoEmitter(graph, ns, className);
+                ICodeEmitter emitter = new NativePocoEmitter((InheritanceGraph)graph, ns, className);
                 var code = emitter.EmitAll();
 
                 if (code.Length > 0)

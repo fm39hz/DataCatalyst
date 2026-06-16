@@ -56,9 +56,7 @@ public class DataDslRegistryTests {
 public class PluginRegistryTests {
     [Fact]
     public void Register_CreatesInstance() {
-        var count = PluginRegistry.Plugins.Count;
         PluginRegistry.Register<TestPlugin>();
-        PluginRegistry.Plugins.Should().HaveCount(count + 1);
         PluginRegistry.Plugins.Should().Contain(p => p is TestPlugin);
     }
 

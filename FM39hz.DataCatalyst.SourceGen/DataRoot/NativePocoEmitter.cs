@@ -5,7 +5,7 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
 
-public sealed class NativePocoEmitter {
+public sealed class NativePocoEmitter : ICodeEmitter {
     private readonly InheritanceGraph _graph;
     private readonly string _rootNamespace;
     private readonly string _contextName;

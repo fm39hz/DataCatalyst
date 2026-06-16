@@ -6,7 +6,7 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Text.Json;
 
-public sealed class DataRootScanner {
+public sealed class DataRootScanner : IScanner {
     private readonly List<SchemaDefinition> _schemas = new();
     private readonly List<DataFileDefinition> _dataFiles = new();
     private ImmutableArray<FieldDefinition> _templateFields = ImmutableArray<FieldDefinition>.Empty;

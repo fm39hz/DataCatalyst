@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
-public sealed class InheritanceGraph {
+public sealed class InheritanceGraph : IGraphBuilder {
     private readonly Dictionary<string, DataFileDefinition> _nodes = new();
     private readonly Dictionary<string, SchemaDefinition> _schemas = new();
 
