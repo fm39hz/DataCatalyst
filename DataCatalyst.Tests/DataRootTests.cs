@@ -42,7 +42,7 @@ public class InheritanceGraphTests {
         graph.AddNode(node);
         var fields = graph.FlattenedFields(node);
         fields.Should().ContainSingle(f => f.Name == "Value");
-        fields.First(f => f.Name == "Value").Type.Should().Be("float");
+        fields.First(f => f.Name == "Value").Type.CSharpName.Should().Be("float");
     }
 
     [Fact]
@@ -68,13 +68,19 @@ public class InheritanceGraphTests {
 
     private static DataFileDefinition MakeNode(string name, string? inherits,
         (string Name, string Type)[]? fields = null) {
-        var flds = (fields ?? []).Select(f => new FieldDefinition(f.Name, f.Type)).ToImmutableArray();
+        var flds = (fields ?? []).Select(f => new FieldDefinition(f.Name, Typ(f.Type))).ToImmutableArray();
         return new DataFileDefinition(name, "", $"{name}.json", inherits, flds,
             ImmutableDictionary<string, object?>.Empty);
     }
 
     private static SchemaDefinition MakeSchema(string name, (string Name, string Type)[] fields) {
         return new SchemaDefinition(name, "", $"{name}.json",
-            fields.Select(f => new FieldDefinition(f.Name, f.Type)).ToImmutableArray());
+            fields.Select(f => new FieldDefinition(f.Name, Typ(f.Type))).ToImmutableArray());
     }
+
+    private static FieldType Typ(string t) => t switch {
+        "int" => new IntFieldType(), "float" => new FloatFieldType(),
+        "bool" => new BoolFieldType(), "string" => new StringFieldType(),
+        _ => new StringFieldType(),
+    };
 }

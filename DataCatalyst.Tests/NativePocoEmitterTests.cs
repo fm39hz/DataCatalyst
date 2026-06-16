@@ -29,7 +29,7 @@ public class NativePocoEmitterTests {
 
     [Fact]
     public void EmitStartup_IncludesOverrideSwitch() {
-        var (graph, node) = BuildGraph("startup", f => f.Add(new FieldDefinition("Y", "int")));
+        var (graph, node) = BuildGraph("startup", f => f.Add(new FieldDefinition("Y", new IntFieldType())));
         var emitter = new NativePocoEmitter(graph, "Data");
         var code = emitter.EmitAll();
         code.Should().Contain("case \"TestData\"");
@@ -70,7 +70,7 @@ public class NativePocoEmitterTests {
         Action<ImmutableArray<FieldDefinition>.Builder>? extraFields = null) {
         var graph = new InheritanceGraph();
         var fb = ImmutableArray.CreateBuilder<FieldDefinition>();
-        fb.Add(new FieldDefinition("X", "int"));
+        fb.Add(new FieldDefinition("X", new IntFieldType()));
         if (extraFields is not null) extraFields(fb);
         graph.AddNode(new DataFileDefinition("TestData", "", "test.json", null,
             fb.ToImmutable(), ImmutableDictionary<string, object?>.Empty
@@ -80,8 +80,9 @@ public class NativePocoEmitterTests {
 
     private static DataFileDefinition MakeNode(string name, string? inherits,
         (string Name, string Type) field, bool isCompile = false) {
+        var ft = field.Type switch { "int" => (FieldType)new IntFieldType(), "float" => new FloatFieldType(), _ => new StringFieldType() };
         return new DataFileDefinition(name, "", $"{name}.json", inherits,
-            [new FieldDefinition(field.Name, field.Type)],
+            [new FieldDefinition(field.Name, ft)],
             ImmutableDictionary<string, object?>.Empty, isCompileEager: isCompile);
     }
 }

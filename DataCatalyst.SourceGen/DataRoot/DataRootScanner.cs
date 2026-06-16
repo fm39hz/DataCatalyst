@@ -13,7 +13,6 @@ public sealed class DataRootScanner : IScanner {
 
     public IReadOnlyList<SchemaDefinition> Schemas => _schemas;
     public IReadOnlyList<DataFileDefinition> DataFiles => _dataFiles;
-
     public void SetTemplateFields(ImmutableArray<FieldDefinition> fields) => _templateFields = fields;
 
     public void Scan(string rootPrefix, IReadOnlyList<(string RelativePath, string Content)> files) {
@@ -53,12 +52,11 @@ public sealed class DataRootScanner : IScanner {
         var inherits = root.TryGetProperty("inherits", out var inh) ? inh.GetString() : null;
         var load = root.TryGetProperty("load", out var l) ? l.GetString() : "startup";
 
-        // Merge: template fields first, then JSON fields override
         var mergedFields = ImmutableArray.CreateBuilder<FieldDefinition>();
         var seen = new HashSet<string>();
         foreach (var tf in _templateFields) { seen.Add(tf.Name); mergedFields.Add(tf); }
         foreach (var jf in ParseFields(root)) {
-            if (seen.Contains(jf.Name)) continue; // template wins
+            if (seen.Contains(jf.Name)) continue;
             mergedFields.Add(jf);
         }
 
@@ -80,55 +78,69 @@ public sealed class DataRootScanner : IScanner {
 
     private static FieldDefinition? ParseField(JsonProperty prop) {
         var obj = prop.Value;
-        var type = obj.TryGetProperty("type", out var t) ? t.GetString() ?? "string" : "string";
-        var kind = type switch {
-            "ref" => FieldKind.Ref,
-            "script" => FieldKind.Script,
-            "array" => FieldKind.Array,
-            _ when obj.TryGetProperty("fields", out _) => FieldKind.Nested,
-            _ => FieldKind.Primitive,
-        };
+        var typeStr = obj.TryGetProperty("type", out var t) ? t.GetString() : null;
         var loadStr = obj.TryGetProperty("load", out var l) ? l.GetString() : "eager";
-        var load = loadStr switch {
-            "lazy" => LoadHint.Lazy,
-            "stream" => LoadHint.Stream,
-            "ref" => LoadHint.Ref,
-            _ => LoadHint.Eager,
-        };
-        var refTarget = obj.TryGetProperty("target", out var r) ? r.GetString() : null;
+        var load = loadStr == "lazy" ? LoadHint.Lazy : LoadHint.Eager;
 
-        // Nested fields
-        var nestedFields = ImmutableArray<FieldDefinition>.Empty;
-        if (kind == FieldKind.Nested && obj.TryGetProperty("fields", out var fEl)) {
-            var builder = ImmutableArray.CreateBuilder<FieldDefinition>();
-            foreach (var sub in fEl.EnumerateObject()) {
-                var sf = ParseField(sub);
-                if (sf is not null) builder.Add(sf);
-            }
-            nestedFields = builder.ToImmutable();
+        FieldType? fieldType = null;
+
+        // Explicit type
+        if (typeStr is not null) {
+            fieldType = typeStr switch {
+                "array" when obj.TryGetProperty("element", out var el) => ParseArrayType(el),
+                "object" => ParseNestedType(obj, prop.Name),
+                "ref" when obj.TryGetProperty("target", out var rt) => new RefFieldType(rt.GetString() ?? "object"),
+                _ => FieldTypeRegistry.GetNamed(typeStr),
+            };
         }
 
-        // Array element type
-        FieldDefinition? elementType = null;
-        if (kind == FieldKind.Array && obj.TryGetProperty("element", out var elemEl)) {
-            // Create a synthetic JsonProperty for the element
-            var elemType = elemEl.TryGetProperty("type", out var et) ? et.GetString() ?? "string" : "string";
-            elementType = new FieldDefinition("Item", elemType);
+        // Inference from value
+        if (fieldType is null && obj.TryGetProperty("default", out var dVal)) {
+            fieldType = FieldTypeRegistry.Infer(dVal);
+        }
+
+        // Fallback
+        if (fieldType is null) {
+            // Check if it has sub-fields (nested object)
+            if (obj.TryGetProperty("fields", out _))
+                fieldType = ParseNestedType(obj, prop.Name);
+            else
+                fieldType = new StringFieldType();
         }
 
         object? defaultValue = null;
-        if (obj.TryGetProperty("default", out var d)) {
-            defaultValue = type switch {
-                "int" when d.TryGetInt32(out var i) => i,
-                "float" when d.TryGetSingle(out var f) => f,
-                "bool" when d.ValueKind == JsonValueKind.True => (object?)true,
-                "bool" when d.ValueKind == JsonValueKind.False => (object?)false,
-                _ when d.ValueKind == JsonValueKind.String => d.GetString(),
-                _ => null,
-            };
+        if (obj.TryGetProperty("default", out var def)) {
+            defaultValue = fieldType.ParseValue(def);
         }
-        return new FieldDefinition(prop.Name, type, kind, load, refTarget, defaultValue,
-            elementType: elementType, nestedFields: nestedFields);
+
+        return new FieldDefinition(prop.Name, fieldType, load, defaultValue);
+    }
+
+    private static FieldType ParseArrayType(JsonElement el) {
+        var elemType = el.TryGetProperty("type", out var et) ? et.GetString() : "string";
+        var inner = FieldTypeRegistry.GetNamed(elemType) ?? new StringFieldType();
+        return new ArrayFieldType(inner);
+    }
+
+    private static FieldType ParseNestedType(JsonElement obj, string propName) {
+        if (!obj.TryGetProperty("fields", out var fieldsEl)) {
+            // Try to infer from default object value
+            if (obj.TryGetProperty("default", out var d) && d.ValueKind == JsonValueKind.Object) {
+                var fb = ImmutableArray.CreateBuilder<FieldDefinition>();
+                foreach (var sub in d.EnumerateObject()) {
+                    var inferred = FieldTypeRegistry.Infer(sub.Value) ?? new StringFieldType();
+                    fb.Add(new FieldDefinition(sub.Name, inferred));
+                }
+                return new NestedFieldType(FieldDefinition.NestedTypeName(propName), fb.ToImmutable());
+            }
+            return new NestedFieldType(FieldDefinition.NestedTypeName(propName), ImmutableArray<FieldDefinition>.Empty);
+        }
+        var builder = ImmutableArray.CreateBuilder<FieldDefinition>();
+        foreach (var sub in fieldsEl.EnumerateObject()) {
+            var sf = ParseField(sub);
+            if (sf is not null) builder.Add(sf);
+        }
+        return new NestedFieldType(FieldDefinition.NestedTypeName(propName), builder.ToImmutable());
     }
 
     private static ImmutableDictionary<string, object?> ParseDefaults(JsonElement root) {

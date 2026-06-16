@@ -83,7 +83,7 @@ public sealed class DataRootGenerator : IIncrementalGenerator {
             "double" => "double", "bool" => "bool", "string" => "string",
             _ => "string",
         };
-        return new FieldDefinition(symbol.Name, csType);
+        return new FieldDefinition(symbol.Name, FieldTypeRegistry.GetNamed(csType) ?? new StringFieldType());
     }
 
     private static string BuildNamespace(string classNs, string rootPrefix) {

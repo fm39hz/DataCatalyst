@@ -13,7 +13,7 @@ public class DataRootScannerTests {
         scanner.Scan("Data/", [("Data/_weapon.json", json)]);
         scanner.Schemas.Should().ContainSingle();
         scanner.Schemas[0].Name.Should().Be("Weapon");
-        scanner.Schemas[0].Fields.Should().ContainSingle(f => f.Name == "Damage" && f.Type == "int");
+        scanner.Schemas[0].Fields.Should().ContainSingle(f => f.Name == "Damage" && f.Type is IntFieldType);
     }
 
     [Fact]
