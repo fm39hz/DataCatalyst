@@ -9,7 +9,6 @@
     <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
     <DevelopmentDependency>true</DevelopmentDependency>
     <PackageId>DataCatalyst</PackageId>
-    <Version>0.2.5</Version>
     <Description>Roslyn source generator that discovers [DataPrimitive] types and generates primitive registrations. Provides the compile-time foundation for data-driven composition.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <NoWarn>RS2008</NoWarn>

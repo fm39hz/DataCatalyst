@@ -12,6 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -30,6 +32,8 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -37,13 +41,8 @@ jobs:
 
       - run: dotnet build -c Release
 
-      - name: Set package version from tag
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          echo "PACKAGE_VERSION=$VERSION" >> $GITHUB_ENV
-
       - name: Pack
-        run: dotnet pack DataCatalyst.SourceGen/DataCatalyst.SourceGen.csproj -c Release -o ./artifacts -p:Version=$PACKAGE_VERSION --no-build
+        run: dotnet pack DataCatalyst.SourceGen/DataCatalyst.SourceGen.csproj -c Release -o ./artifacts --no-build
 
       - name: NuGet login (OIDC → temp API key)
         uses: NuGet/login@v1
@@ -52,4 +51,4 @@ jobs:
           user: ${{ secrets.NUGET_USER }}
 
       - name: Push to nuget.org
-        run: dotnet nuget push ./artifacts/DataCatalyst.$PACKAGE_VERSION.nupkg --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+        run: dotnet nuget push ./artifacts/*.nupkg --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
