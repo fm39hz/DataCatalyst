@@ -43,7 +43,7 @@ DataCatalyst is divided into small, focused modules to keep the core generic and
 └── DataCatalyst.Plugins.*      - Composable infrastructure plugins
     ├── NumericCompare          - Operator parser and threshold evaluation contract
     ├── Transition              - Transition and sensor condition data models
-    └── StateMachine            - Generic data-driven state machine evaluator
+    └── StateEngine            - Generic data-driven state machine evaluator
 ```
 
 ### 🔁 Data Flow Pipeline
@@ -77,8 +77,8 @@ dotnet add package DataCatalyst
 # Runtime engine & default JSON loader (transitively pulls Abstractions and Core)
 dotnet add package DataCatalyst.Loaders.Json
 
-# Optional StateMachine plugin (transitively pulls NumericCompare and Transition)
-dotnet add package DataCatalyst.Plugins.StateMachine
+# Optional StateEngine plugin (transitively pulls NumericCompare and Transition)
+dotnet add package DataCatalyst.Plugins.StateEngine
 ```
 
 ### 2. Define Components (C#)
@@ -188,7 +188,7 @@ DataCatalyst is engineered for **Native AOT (Ahead-of-Time) compilation** and st
 
 DataCatalyst includes pure data-driven plugins for common game patterns:
 
-### 🎮 StateMachine & Transition Plugins
+### 🎮 StateEngine & Transition Plugins
 
 Provides a generic, priority-based hierarchical state machine evaluator. It calculates transitions based on sensor inputs completely from data:
 
@@ -201,7 +201,7 @@ Provides a generic, priority-based hierarchical state machine evaluator. It calc
 
 ```csharp
 // Evaluate state transitions based on an active entity's state group and sensor readings
-var result = StateMachineEvaluator.Evaluate(
+var result = StateEngineEvaluator.Evaluate(
     currentStateId: "Locomotion.Idle",
     group: catalog.Get<StateGroup>("Locomotion"),
     viableStates: activeViableStates,

@@ -23,6 +23,6 @@
     <ProjectReference Include="..\DataCatalyst.SourceGen\DataCatalyst.SourceGen.csproj" />
     <ProjectReference Include="..\DataCatalyst.Plugins.NumericCompare\DataCatalyst.Plugins.NumericCompare.csproj" />
     <ProjectReference Include="..\DataCatalyst.Plugins.Transition\DataCatalyst.Plugins.Transition.csproj" />
-    <ProjectReference Include="..\DataCatalyst.Plugins.StateMachine\DataCatalyst.Plugins.StateMachine.csproj" />
+    <ProjectReference Include="..\DataCatalyst.Plugins.StateEngine\DataCatalyst.Plugins.StateEngine.csproj" />
   </ItemGroup>
 </Project>

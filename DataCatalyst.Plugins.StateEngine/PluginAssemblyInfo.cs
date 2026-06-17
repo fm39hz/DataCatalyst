@@ -1,7 +1,7 @@
-namespace DataCatalyst.Plugins.StateMachine;
+namespace DataCatalyst.Plugins.StateEngine;
 
 using DataCatalyst.Abstractions;
 
 /// <summary>Evaluates state machine transitions and resolution.</summary>
 [DataPlugin(DependsOn = [typeof(NumericCompare.NumericComparePlugin), typeof(Transition.TransitionPlugin)])]
-public class StateMachinePlugin : IDataPlugin { }
+public class StateEnginePlugin : IDataPlugin { }

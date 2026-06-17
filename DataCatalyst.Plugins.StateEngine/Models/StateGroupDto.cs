@@ -1,4 +1,4 @@
-namespace DataCatalyst.Plugins.StateMachine.Models;
+namespace DataCatalyst.Plugins.StateEngine.Models;
 
 using System.Collections.Generic;
 using DataCatalyst.Abstractions;

@@ -1,13 +1,13 @@
-namespace DataCatalyst.Plugins.StateMachine.Core;
+namespace DataCatalyst.Plugins.StateEngine.Core;
 
 using System;
 using System.Collections.Generic;
 using DataCatalyst.Plugins.NumericCompare.Core;
-using DataCatalyst.Plugins.StateMachine.Models;
 using DataCatalyst.Plugins.Transition.Models;
+using Models;
 
 /// <summary>Evaluates state transitions based on sensor input.</summary>
-public static class StateMachineEvaluator {
+public static class StateEngineEvaluator {
 	/// <summary>Result of a state machine evaluation.</summary>
 	public struct Result {
 		/// <summary>Resolved target state identifier.</summary>

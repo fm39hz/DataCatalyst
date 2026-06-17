@@ -1,13 +1,13 @@
-namespace DataCatalyst.Tests; 
+namespace DataCatalyst.Tests;
 using DataCatalyst.Plugins.NumericCompare.Contracts;
 using DataCatalyst.Plugins.NumericCompare.Core;
-using DataCatalyst.Plugins.StateMachine.Core;
-using DataCatalyst.Plugins.StateMachine.Models;
+using Plugins.StateEngine.Core;
+using Plugins.StateEngine.Models;
 using DataCatalyst.Plugins.Transition.Models;
 using FluentAssertions;
 using Xunit;
 
-public class StateMachineTests {
+public class StateEngineTests {
 	[Theory]
 	[InlineData("==", CompareOp.Equal)]
 	[InlineData("eq", CompareOp.Equal)]
@@ -43,14 +43,14 @@ public class StateMachineTests {
 	public void OperatorParser_EvaluateMatchesMath(float value, CompareOp op, float threshold, bool expected) => OperatorParser.Evaluate(value, op, threshold).Should().Be(expected);
 
 	[Fact]
-	public void StateMachineEvaluator_NoState_ReturnsFalse() {
+	public void StateEngineEvaluator_NoState_ReturnsFalse() {
 		var group = new StateGroup { GroupId = "AI" };
-		var result = StateMachineEvaluator.Evaluate("Idle", group, ["AI.Idle"], s => 0f);
+		var result = StateEngineEvaluator.Evaluate("Idle", group, ["AI.Idle"], s => 0f);
 		result.HasValue.Should().BeFalse();
 	}
 
 	[Fact]
-	public void StateMachineEvaluator_SimpleTransition_Succeeds() {
+	public void StateEngineEvaluator_SimpleTransition_Succeeds() {
 		// Arrange
 		var group = new StateGroup {
 			GroupId = "GuardAI",
@@ -75,17 +75,17 @@ public class StateMachineTests {
 		};
 
 		// 1. Time is 4.0 -> Should not transition
-		var result1 = StateMachineEvaluator.Evaluate("Idle", group, ["GuardAI.Idle", "GuardAI.Patrol"], s => s == "time" ? 4f : 0f);
+		var result1 = StateEngineEvaluator.Evaluate("Idle", group, ["GuardAI.Idle", "GuardAI.Patrol"], s => s == "time" ? 4f : 0f);
 		result1.HasValue.Should().BeFalse();
 
 		// 2. Time is 6.0 -> Should transition to Patrol
-		var result2 = StateMachineEvaluator.Evaluate("Idle", group, ["GuardAI.Idle", "GuardAI.Patrol"], s => s == "time" ? 6f : 0f);
+		var result2 = StateEngineEvaluator.Evaluate("Idle", group, ["GuardAI.Idle", "GuardAI.Patrol"], s => s == "time" ? 6f : 0f);
 		result2.HasValue.Should().BeTrue();
 		result2.TargetStateId.Should().Be("GuardAI.Patrol");
 	}
 
 	[Fact]
-	public void StateMachineEvaluator_RespectsAllAnyNoneConditions() {
+	public void StateEngineEvaluator_RespectsAllAnyNoneConditions() {
 		var group = new StateGroup {
 			GroupId = "GuardAI",
 			States = new Dictionary<string, StateDefinition> {
@@ -113,7 +113,7 @@ public class StateMachineTests {
 		};
 
 		// Helper to invoke evaluate
-		StateMachineEvaluator.Result Run(float hasTarget, float time, float boredom, float alert) => StateMachineEvaluator.Evaluate("Idle", group, ["GuardAI.Patrol"], s => s switch {
+		StateEngineEvaluator.Result Run(float hasTarget, float time, float boredom, float alert) => StateEngineEvaluator.Evaluate("Idle", group, ["GuardAI.Patrol"], s => s switch {
 			"has_target" => hasTarget,
 			"time" => time,
 			"boredom" => boredom,
@@ -135,7 +135,7 @@ public class StateMachineTests {
 	}
 
 	[Fact]
-	public void StateMachineEvaluator_HierarchicalTransitions_AppliesDepthPenalty() {
+	public void StateEngineEvaluator_HierarchicalTransitions_AppliesDepthPenalty() {
 		// Arrange
 		var group = new StateGroup {
 			GroupId = "RobotAI",
@@ -171,7 +171,7 @@ public class StateMachineTests {
 		// Parent transition priority: (1 * 10000) + 2000 - (1 * 1000) = 11000
 		// Child transition priority:  (1 * 10000) + 1500 - (0 * 1000) = 11500
 		// Child state transition (Attack) should win because of depth penalty on parent transition!
-		var result = StateMachineEvaluator.Evaluate("AggressivePatrol", group, ["RobotAI.Refuel", "RobotAI.Attack"], s => s switch {
+		var result = StateEngineEvaluator.Evaluate("AggressivePatrol", group, ["RobotAI.Refuel", "RobotAI.Attack"], s => s switch {
 			"battery" => 10f,
 			"see_enemy" => 1f,
 			_ => 0f
@@ -182,7 +182,7 @@ public class StateMachineTests {
 	}
 
 	[Fact]
-	public void StateMachineEvaluator_RespectsSensorInfluences() {
+	public void StateEngineEvaluator_RespectsSensorInfluences() {
 		// Arrange
 		var group = new StateGroup {
 			GroupId = "CombatAI",
@@ -217,7 +217,7 @@ public class StateMachineTests {
 		// Scenario 1: Anger is low (1.0), Fear is high (5.0).
 		// Attack priority = 1000 + 500 + (1 * 100) = 1600
 		// Flee priority   = 1000 + 600 + (5 * 50)  = 1850 -> Should Flee
-		var result1 = StateMachineEvaluator.Evaluate("Search", group, ["CombatAI.Attack", "CombatAI.Flee"], s => s switch {
+		var result1 = StateEngineEvaluator.Evaluate("Search", group, ["CombatAI.Attack", "CombatAI.Flee"], s => s switch {
 			"in_range" => 1f,
 			"anger" => 1f,
 			"fear" => 5f,
@@ -228,7 +228,7 @@ public class StateMachineTests {
 		// Scenario 2: Anger is high (6.0), Fear is low (1.0).
 		// Attack priority = 1000 + 500 + (6 * 100) = 2100
 		// Flee priority   = 1000 + 600 + (1 * 50)  = 1650 -> Should Attack
-		var result2 = StateMachineEvaluator.Evaluate("Search", group, ["CombatAI.Attack", "CombatAI.Flee"], s => s switch {
+		var result2 = StateEngineEvaluator.Evaluate("Search", group, ["CombatAI.Attack", "CombatAI.Flee"], s => s switch {
 			"in_range" => 1f,
 			"anger" => 6f,
 			"fear" => 1f,
@@ -238,7 +238,7 @@ public class StateMachineTests {
 	}
 
 	[Fact]
-	public void StateMachineEvaluator_FullyQualifiedCurrentState_Succeeds() {
+	public void StateEngineEvaluator_FullyQualifiedCurrentState_Succeeds() {
 		var group = new StateGroup {
 			GroupId = "GuardAI",
 			States = new Dictionary<string, StateDefinition> {
@@ -259,13 +259,13 @@ public class StateMachineTests {
 		};
 
 		// Current state passed as fully-qualified "GuardAI.Idle"
-		var result = StateMachineEvaluator.Evaluate("GuardAI.Idle", group, ["GuardAI.Patrol"], s => s == "time" ? 6f : 0f);
+		var result = StateEngineEvaluator.Evaluate("GuardAI.Idle", group, ["GuardAI.Patrol"], s => s == "time" ? 6f : 0f);
 		result.HasValue.Should().BeTrue();
 		result.TargetStateId.Should().Be("GuardAI.Patrol");
 	}
 
 	[Fact]
-	public void StateMachineEvaluator_ExitValue_AppliesHysteresis() {
+	public void StateEngineEvaluator_ExitValue_AppliesHysteresis() {
 		var group = new StateGroup {
 			GroupId = "TempAI",
 			States = new Dictionary<string, StateDefinition> {
@@ -298,22 +298,22 @@ public class StateMachineTests {
 
 		// 1. Current state is Idle (not at target Active). We must use Value (50f).
 		// Temp is 45f -> should not transition (45 > 50 is false)
-		var resultIdle = StateMachineEvaluator.Evaluate("Idle", group, ["TempAI.Active"], s => s == "temp" ? 45f : 0f);
+		var resultIdle = StateEngineEvaluator.Evaluate("Idle", group, ["TempAI.Active"], s => s == "temp" ? 45f : 0f);
 		resultIdle.HasValue.Should().BeFalse();
 
 		// 2. Current state is Active (at target Active). We should use ExitValue (40f).
 		// Temp is 45f -> should stay Active (45 > 40 is true)
-		var resultActive1 = StateMachineEvaluator.Evaluate("Active", group, ["TempAI.Active"], s => s == "temp" ? 45f : 0f);
+		var resultActive1 = StateEngineEvaluator.Evaluate("Active", group, ["TempAI.Active"], s => s == "temp" ? 45f : 0f);
 		resultActive1.HasValue.Should().BeTrue();
 		resultActive1.TargetStateId.Should().Be("TempAI.Active");
 
 		// 3. Current state is Active. Temp is 35f -> should exit Active (35 > 40 is false)
-		var resultActive2 = StateMachineEvaluator.Evaluate("Active", group, ["TempAI.Active"], s => s == "temp" ? 35f : 0f);
+		var resultActive2 = StateEngineEvaluator.Evaluate("Active", group, ["TempAI.Active"], s => s == "temp" ? 35f : 0f);
 		resultActive2.HasValue.Should().BeFalse();
 	}
 
 	[Fact]
-	public void StateMachineEvaluator_HierarchicalTransitions_FallsBackToParent() {
+	public void StateEngineEvaluator_HierarchicalTransitions_FallsBackToParent() {
 		// Arrange
 		var group = new StateGroup {
 			GroupId = "RobotAI",
@@ -349,7 +349,7 @@ public class StateMachineTests {
 		// Child transition (Attack) condition fails.
 		// Parent transition (Refuel) condition succeeds.
 		// It should fall back to Refuel.
-		var result = StateMachineEvaluator.Evaluate("AggressivePatrol", group, ["RobotAI.Refuel", "RobotAI.Attack"], s => s switch {
+		var result = StateEngineEvaluator.Evaluate("AggressivePatrol", group, ["RobotAI.Refuel", "RobotAI.Attack"], s => s switch {
 			"battery" => 10f,
 			"see_enemy" => 0f,
 			_ => 0f

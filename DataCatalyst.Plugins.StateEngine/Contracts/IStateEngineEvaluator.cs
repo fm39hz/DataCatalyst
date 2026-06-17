@@ -1,11 +1,11 @@
-namespace DataCatalyst.Plugins.StateMachine.Contracts;
+namespace DataCatalyst.Plugins.StateEngine.Contracts;
 
 using System;
 using System.Collections.Generic;
-using DataCatalyst.Plugins.StateMachine.Models;
+using Models;
 
 /// <summary>Evaluates state transitions based on sensor input.</summary>
-public interface IStateMachineEvaluator {
+public interface IStateEngineEvaluator {
 	/// <summary>Result of a single evaluation pass.</summary>
 	public struct Result { public string TargetStateId; public bool HasValue; }
 
