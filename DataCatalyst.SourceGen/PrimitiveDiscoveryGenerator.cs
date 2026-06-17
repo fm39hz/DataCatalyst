@@ -65,7 +65,8 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 		}
 
 		return HasAttr(t.GetAttributes(), "DataComponentAttribute")
-			? t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) : null;
+			? t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+			: null;
 	}
 
 	private static bool HasAttr(ImmutableArray<AttributeData> attrs, string name) {
@@ -97,13 +98,13 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 				}
 			}
 		}
+
 		return [];
 	}
 
 	private static void Emit(SourceProductionContext spc, Compilation comp,
 		ImmutableArray<(string FullType, string Id, string[] Deps)> classPlugins,
 		ImmutableArray<string> classPrims) {
-
 		var allPlugins = new List<(string FullType, string Id, string[] Deps)>();
 		var allPrims = new List<string>();
 
@@ -138,7 +139,7 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 			sb.Append("\t\tinternal static void Init() {\n");
 			foreach (var (ft, _, _) in sorted) {
 				sb.Append("\t\t\tglobal::DataCatalyst.Core.PluginRegistry.Register<")
-				  .Append(ft).AppendLine(">();");
+					.Append(ft).AppendLine(">();");
 			}
 
 			sb.Append("\t\t}\n");
@@ -149,7 +150,7 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 			sb.Append("\t\tinternal static void RegisterPrimitives() {\n");
 			foreach (var ft in allPrims) {
 				sb.Append("\t\t\tglobal::DataCatalyst.Core.PrimitiveRegistry.Register<")
-				  .Append(ft).AppendLine(">();");
+					.Append(ft).AppendLine(">();");
 			}
 
 			sb.Append("\t\t}\n");
@@ -160,34 +161,39 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 			var sorted = TopoSort(allPlugins);
 			foreach (var (ft, _, _) in sorted) {
 				sb.Append("\t\t\tregistry.RegisterPlugin<")
-				  .Append(ft).AppendLine(">();");
+					.Append(ft).AppendLine(">();");
 			}
 		}
+
 		if (allPrims.Count > 0) {
 			foreach (var ft in allPrims) {
 				sb.Append("\t\t\tregistry.RegisterComponent<")
-				  .Append(ft).AppendLine(">();");
+					.Append(ft).AppendLine(">();");
 			}
 		}
+
 		sb.Append("\t\t}\n");
 
 		sb.Append("\t}\n}");
 		spc.AddSource("PrimitiveRegistrations.g.cs", SourceText.From(sb.ToString(), Encoding.UTF8));
 	}
 
-	private static void ScanAssembly(IAssemblySymbol asm, List<(string, string, string[])> plugins, List<string> prims) {
+	private static void ScanAssembly(IAssemblySymbol asm, List<(string, string, string[])> plugins,
+		List<string> prims) {
 		foreach (var type in GetAllTypes(asm.GlobalNamespace)) {
 			if (type.TypeKind != TypeKind.Class) {
 				continue;
 			}
 
-			if (type.AllInterfaces.Any(i => i.Name == "IDataPlugin") && HasAttr(type.GetAttributes(), "DataPluginAttribute")) {
+			if (type.AllInterfaces.Any(i => i.Name == "IDataPlugin") &&
+				HasAttr(type.GetAttributes(), "DataPluginAttribute")) {
 				var ft = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
 				if (!plugins.Any(p => p.Item1 == ft)) {
 					plugins.Add((ft, type.Name, GetDeps(type.GetAttributes())));
 				}
 			}
 		}
+
 		foreach (var type in GetAllTypes(asm.GlobalNamespace)) {
 			if (HasAttr(type.GetAttributes(), "DataComponentAttribute")) {
 				var ft = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
@@ -215,10 +221,18 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 		var indeg = new Dictionary<string, int>();
 		var edges = new Dictionary<string, List<string>>();
 
-		foreach (var p in plugins) { map[p.Item2] = p; indeg[p.Item2] = 0; edges[p.Item2] = []; }
+		foreach (var p in plugins) {
+			map[p.Item2] = p;
+			indeg[p.Item2] = 0;
+			edges[p.Item2] = [];
+		}
+
 		foreach (var (_, id, deps) in plugins) {
 			foreach (var d in deps) {
-				if (map.ContainsKey(d)) { edges[d].Add(id); indeg[id]++; }
+				if (map.ContainsKey(d)) {
+					edges[d].Add(id);
+					indeg[id]++;
+				}
 			}
 		}
 
@@ -240,6 +254,7 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 				}
 			}
 		}
+
 		foreach (var p in plugins) {
 			if (!result.Contains(p)) {
 				result.Add(p);

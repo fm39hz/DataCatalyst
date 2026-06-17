@@ -1,27 +1,27 @@
 <Project>
-  <PropertyGroup>
-    <LangVersion>latest</LangVersion>
-    <Nullable>enable</Nullable>
-    <Deterministic>true</Deterministic>
-    <DebugType>embedded</DebugType>
-    <DebugSymbols>true</DebugSymbols>
-    <PublishRepositoryUrl>true</PublishRepositoryUrl>
-    <EmbedUntrackedSources>true</EmbedUntrackedSources>
-    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true' OR '$(CI)' == 'true'">true</ContinuousIntegrationBuild>
-    <Authors>FM39hz</Authors>
-    <Copyright>Copyright (c) 2026 FM39hz</Copyright>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/fm39hz/DataCatalyst</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/fm39hz/DataCatalyst</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
-    <PackageTags>roslyn;source-generator;c#;code-generation;json;data;game-development</PackageTags>
-    <MinVerTagPrefix>v-modular-</MinVerTagPrefix>
-    <MinVerDefaultVersion>0.0.1-alpha.0</MinVerDefaultVersion>
-  </PropertyGroup>
+	<PropertyGroup>
+		<LangVersion>latest</LangVersion>
+		<Nullable>enable</Nullable>
+		<Deterministic>true</Deterministic>
+		<DebugType>embedded</DebugType>
+		<DebugSymbols>true</DebugSymbols>
+		<PublishRepositoryUrl>true</PublishRepositoryUrl>
+		<EmbedUntrackedSources>true</EmbedUntrackedSources>
+		<ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true' OR '$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+		<Authors>FM39hz</Authors>
+		<Copyright>Copyright (c) 2026 FM39hz</Copyright>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageProjectUrl>https://github.com/fm39hz/DataCatalyst</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/fm39hz/DataCatalyst</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageTags>roslyn;source-generator;c#;code-generation;json;data;game-development</PackageTags>
+		<MinVerTagPrefix>v-modular-</MinVerTagPrefix>
+		<MinVerDefaultVersion>0.0.1-alpha.0</MinVerDefaultVersion>
+	</PropertyGroup>
 
 
-  <ItemGroup>
-    <Compile Include="$(MSBuildThisFileDirectory)Polyfill.cs" Visible="false" />
-    <PackageReference Include="MinVer" PrivateAssets="All" />
-  </ItemGroup>
+	<ItemGroup>
+		<Compile Include="$(MSBuildThisFileDirectory)Polyfill.cs" Visible="false"/>
+		<PackageReference Include="MinVer" PrivateAssets="All"/>
+	</ItemGroup>
 </Project>

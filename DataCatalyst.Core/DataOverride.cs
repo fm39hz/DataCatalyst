@@ -4,6 +4,7 @@ namespace DataCatalyst.Core;
 public sealed record DataOverride {
 	/// <summary>Entry key to override.</summary>
 	public string Target { get; init; } = "";
+
 	/// <summary>Raw JSON payload for the override.</summary>
 	public string RawJson { get; init; } = "";
 }

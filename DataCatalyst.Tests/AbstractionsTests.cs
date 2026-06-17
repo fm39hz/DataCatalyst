@@ -1,6 +1,7 @@
-namespace DataCatalyst.Tests; 
-using DataCatalyst.Abstractions;
-using DataCatalyst.Core;
+namespace DataCatalyst.Tests;
+
+using Abstractions;
+using Core;
 using FluentAssertions;
 using Xunit;
 
@@ -80,7 +81,7 @@ public class AbstractionsTests : IDisposable {
 		};
 
 		dataOverride.Target.Should().Be("item_sword");
-		dataOverride.RawJson.Should().Be(/*lang=json,strict*/ "{ \"Damage\": 50 }");
+		dataOverride.RawJson.Should().Be( /*lang=json,strict*/ "{ \"Damage\": 50 }");
 	}
 }
 
@@ -88,7 +89,8 @@ public class TestService {
 	public string Name { get; set; } = "";
 }
 
-public class UnregisteredService { }
+public class UnregisteredService {
+}
 
 public class TestViewAdapter : IDataViewAdapter<TestStruct> {
 	public void OnEntryAdded(string key, TestStruct entry) { }
@@ -97,4 +99,4 @@ public class TestViewAdapter : IDataViewAdapter<TestStruct> {
 	public void OnAllCleared() { }
 }
 
- // namespace DataCatalyst.Tests
+// namespace DataCatalyst.Tests

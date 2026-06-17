@@ -231,12 +231,20 @@ public class PluginRegistryTests : IDisposable {
 	}
 }
 
-public struct TestStruct : IComponent { public int X { get; set; } }
-public struct OtherStruct : IComponent { public int Y { get; set; } }
-public interface IComponent { }
+public struct TestStruct : IComponent {
+	public int X { get; set; }
+}
+
+public struct OtherStruct : IComponent {
+	public int Y { get; set; }
+}
+
+public interface IComponent {
+}
 
 public class TestPlugin : IDataPlugin {
 	public static bool Constructed { get; set; }
+
 	public TestPlugin() {
 		Constructed = true;
 	}
@@ -244,6 +252,7 @@ public class TestPlugin : IDataPlugin {
 
 public class DataCatalogExtensionsTests {
 	public enum BindTestKind { A, B }
+
 	public struct BindTestStruct {
 		public BindTestKind Kind { get; set; }
 		public int Value { get; set; }
@@ -282,4 +291,3 @@ public class DataRegistryTests {
 		registry.GetPlugins().Should().Contain(p => p is TestPlugin);
 	}
 }
-

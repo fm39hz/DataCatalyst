@@ -19,7 +19,6 @@ public static class DataCatalogExtensions {
 		Func<TComponent, TEnum> kindSelector)
 		where TEnum : struct, Enum
 		where TComponent : struct {
-
 		var dict = new Dictionary<TEnum, TComponent>();
 
 		foreach (var entry in catalog.Entries.Values) {

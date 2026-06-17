@@ -1,14 +1,15 @@
 namespace DataCatalyst.Core;
 
 using System.Collections.Generic;
-using DataCatalyst.Abstractions;
+using Abstractions;
 
 /// <summary>Registry for plugin discovery and instantiation.</summary>
 public static class PluginRegistry {
 	private static readonly RegistryStore<string, IDataPlugin> _plugins = new();
 
 	/// <summary>Registers and instantiates a plugin type.</summary>
-	public static void Register<T>() where T : IDataPlugin, new() => _plugins.Add(typeof(T).FullName ?? typeof(T).Name, new T());
+	public static void Register<T>() where T : IDataPlugin, new() =>
+		_plugins.Add(typeof(T).FullName ?? typeof(T).Name, new T());
 
 	/// <summary>Registers a plugin by fully qualified type name.</summary>
 	public static void RegisterByTypeName(string typeName) {

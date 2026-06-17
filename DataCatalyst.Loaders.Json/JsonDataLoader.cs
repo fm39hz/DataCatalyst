@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
-using DataCatalyst.Core;
+using Core;
 
 /// <summary>Result of a JSON directory load operation, containing resolved entries and diagnostics.</summary>
 public sealed class LoadResult {
@@ -19,8 +19,10 @@ public sealed class LoadResult {
 public static class JsonDataLoader {
 	/// <summary>Loads entries from all JSON files in a directory. NOT Native AOT/Trim compatible.</summary>
 	[Obsolete("Use LoadDirectory with JsonSerializerOptions for Native AOT compatibility.")]
-	[System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Reflection-based serialization is not Native AOT compatible. Use the overload accepting JsonSerializerOptions.")]
-	[System.Diagnostics.CodeAnalysis.RequiresDynamicCode("Reflection-based serialization is not Native AOT compatible. Use the overload accepting JsonSerializerOptions.")]
+	[System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode(
+		"Reflection-based serialization is not Native AOT compatible. Use the overload accepting JsonSerializerOptions.")]
+	[System.Diagnostics.CodeAnalysis.RequiresDynamicCode(
+		"Reflection-based serialization is not Native AOT compatible. Use the overload accepting JsonSerializerOptions.")]
 	public static List<DataEntry> LoadDirectory(string directory) => LoadDirectoryReflection(directory).Entries;
 
 	/// <summary>Loads entries from all JSON files in a directory in an AOT-safe manner.</summary>
@@ -29,6 +31,7 @@ public static class JsonDataLoader {
 		foreach (var t in PrimitiveRegistry.GetAll()) {
 			registry.RegisterComponent(t);
 		}
+
 		return LoadDirectory(directory, registry, options);
 	}
 
@@ -37,8 +40,10 @@ public static class JsonDataLoader {
 		if (registry == null) {
 			throw new ArgumentNullException(nameof(registry));
 		}
+
 		if (options == null) {
-			throw new ArgumentNullException(nameof(options), "JsonSerializerOptions must be provided for AOT compatibility.");
+			throw new ArgumentNullException(nameof(options),
+				"JsonSerializerOptions must be provided for AOT compatibility.");
 		}
 
 		var result = new LoadResult();
@@ -98,14 +103,17 @@ public static class JsonDataLoader {
 					}
 					else {
 						if (duplicates.Contains(prop.Name)) {
-							result.Diagnostics.Add($"Ambiguous component short name '{prop.Name}' in file '{file}'. Use fully-qualified name.");
+							result.Diagnostics.Add(
+								$"Ambiguous component short name '{prop.Name}' in file '{file}'. Use fully-qualified name.");
 							continue;
 						}
+
 						shortNames.TryGetValue(prop.Name, out type);
 					}
 
 					if (type == null) {
-						result.Diagnostics.Add($"Unrecognized component type '{prop.Name}' in file '{file}'. Make sure it is marked with [DataComponent] and registered.");
+						result.Diagnostics.Add(
+							$"Unrecognized component type '{prop.Name}' in file '{file}'. Make sure it is marked with [DataComponent] and registered.");
 						continue;
 					}
 
@@ -116,11 +124,13 @@ public static class JsonDataLoader {
 							components[type] = deserialized;
 						}
 						else {
-							result.Diagnostics.Add($"Failed to deserialize component '{prop.Name}' in file '{file}': Result was null.");
+							result.Diagnostics.Add(
+								$"Failed to deserialize component '{prop.Name}' in file '{file}': Result was null.");
 						}
 					}
 					catch (Exception ex) {
-						result.Diagnostics.Add($"Error deserializing component '{prop.Name}' in file '{file}': {ex.Message}");
+						result.Diagnostics.Add(
+							$"Error deserializing component '{prop.Name}' in file '{file}': {ex.Message}");
 					}
 				}
 
@@ -135,8 +145,10 @@ public static class JsonDataLoader {
 	}
 
 	/// <summary>Loads entries using reflection. NOT Native AOT/Trim compatible.</summary>
-	[System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Reflection-based serialization is not Native AOT compatible. Use the overload accepting JsonSerializerOptions.")]
-	[System.Diagnostics.CodeAnalysis.RequiresDynamicCode("Reflection-based serialization is not Native AOT compatible. Use the overload accepting JsonSerializerOptions.")]
+	[System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode(
+		"Reflection-based serialization is not Native AOT compatible. Use the overload accepting JsonSerializerOptions.")]
+	[System.Diagnostics.CodeAnalysis.RequiresDynamicCode(
+		"Reflection-based serialization is not Native AOT compatible. Use the overload accepting JsonSerializerOptions.")]
 	public static LoadResult LoadDirectoryReflection(string directory) {
 		var result = new LoadResult();
 		if (!Directory.Exists(directory)) {
@@ -195,14 +207,17 @@ public static class JsonDataLoader {
 					}
 					else {
 						if (duplicates.Contains(prop.Name)) {
-							result.Diagnostics.Add($"Ambiguous component short name '{prop.Name}' in file '{file}'. Use fully-qualified name.");
+							result.Diagnostics.Add(
+								$"Ambiguous component short name '{prop.Name}' in file '{file}'. Use fully-qualified name.");
 							continue;
 						}
+
 						shortNames.TryGetValue(prop.Name, out type);
 					}
 
 					if (type == null) {
-						result.Diagnostics.Add($"Unrecognized component type '{prop.Name}' in file '{file}'. Make sure it is marked with [DataComponent] and registered.");
+						result.Diagnostics.Add(
+							$"Unrecognized component type '{prop.Name}' in file '{file}'. Make sure it is marked with [DataComponent] and registered.");
 						continue;
 					}
 
@@ -212,11 +227,13 @@ public static class JsonDataLoader {
 							components[type] = deserialized;
 						}
 						else {
-							result.Diagnostics.Add($"Failed to deserialize component '{prop.Name}' in file '{file}': Result was null.");
+							result.Diagnostics.Add(
+								$"Failed to deserialize component '{prop.Name}' in file '{file}': Result was null.");
 						}
 					}
 					catch (Exception ex) {
-						result.Diagnostics.Add($"Error deserializing component '{prop.Name}' in file '{file}': {ex.Message}");
+						result.Diagnostics.Add(
+							$"Error deserializing component '{prop.Name}' in file '{file}': {ex.Message}");
 					}
 				}
 
@@ -232,9 +249,10 @@ public static class JsonDataLoader {
 
 	private static string MakeKey(string rootDir, string filePath) {
 		var fullDir = Path.GetFullPath(rootDir).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-			+ Path.DirectorySeparatorChar;
+					+ Path.DirectorySeparatorChar;
 		var rel = filePath.StartsWith(fullDir, StringComparison.OrdinalIgnoreCase)
-			? filePath[fullDir.Length..] : filePath;
+			? filePath[fullDir.Length..]
+			: filePath;
 		return Path.ChangeExtension(rel, null).Replace('\\', '.').Replace('/', '.');
 	}
 }

@@ -9,10 +9,12 @@ public static class DataGraphBuilder {
 		var graph = new DataGraph();
 		foreach (var entry in entries) {
 			if (graph.Entries.TryGetValue(entry.Key, out var existing)) {
-				diagnostics?.Add($"Entry '{entry.Key}' from '{entry.SourceFile ?? "unknown"}' overrides/merges components of existing entry from '{existing.SourceFile ?? "unknown"}'.");
+				diagnostics?.Add(
+					$"Entry '{entry.Key}' from '{entry.SourceFile ?? "unknown"}' overrides/merges components of existing entry from '{existing.SourceFile ?? "unknown"}'.");
 				foreach (var (type, val) in entry.Components) {
 					existing._components[type] = val;
 				}
+
 				if (entry.Inherits != null) {
 					existing.Inherits = entry.Inherits;
 				}

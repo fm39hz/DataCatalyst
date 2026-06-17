@@ -4,7 +4,8 @@
 [![CI Status](https://img.shields.io/github/actions/workflow/status/fm39hz/DataCatalyst/ci.yml?branch=master&style=flat-square)](https://github.com/fm39hz/DataCatalyst/actions)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
 
-**DataCatalyst** is a foundational, compile-time composition framework for C# and .NET. It enforces a strict separation of concerns: **Code defines mechanism, Data defines content.**
+**DataCatalyst** is a foundational, compile-time composition framework for C# and .NET. It enforces a strict separation
+of concerns: **Code defines mechanism, Data defines content.**
 
 ---
 
@@ -18,16 +19,21 @@ DataCatalyst is:
 - 🚫 **NOT** a behavior engine.
 - 🚫 **NOT** a Domain-Specific Language (DSL).
 
-It is a **pure infrastructure layer** that is completely mechanics-agnostic. How the resolved composition is utilized is entirely up to the consumer (e.g., your game engine or ECS runtime).
+It is a **pure infrastructure layer** that is completely mechanics-agnostic. How the resolved composition is utilized is
+entirely up to the consumer (e.g., your game engine or ECS runtime).
 
 ### 🔌 Modding & Patch Composition
 
-DataCatalyst is designed from the ground up for modularity and mod compatibility. It behaves similarly to **SMAPI's ContentPatcher**:
+DataCatalyst is designed from the ground up for modularity and mod compatibility. It behaves similarly to **SMAPI's
+ContentPatcher**:
 
 - **Base Content**: Base game data is defined as a series of JSON files representing entities, items, or states.
-- **Mod Patches**: Mods can supply their own JSON files. If a mod file declares an entry with the same key (e.g., `Entities.Goblin`), DataCatalyst automatically **merges** the components.
-- **Component-Level Overrides**: Mod components overwrite existing base components or append new ones deterministically based on the loading order.
-- **No C# Recompilation**: Designers and modders can alter composition, override values, and inject data without changing a single line of C# code.
+- **Mod Patches**: Mods can supply their own JSON files. If a mod file declares an entry with the same key (e.g.,
+  `Entities.Goblin`), DataCatalyst automatically **merges** the components.
+- **Component-Level Overrides**: Mod components overwrite existing base components or append new ones deterministically
+  based on the loading order.
+- **No C# Recompilation**: Designers and modders can alter composition, override values, and inject data without
+  changing a single line of C# code.
 
 ---
 
@@ -68,7 +74,8 @@ graph TD
 
 ### 1. Installation
 
-Add the core packages to your projects. For central package versioning, add them to your `Directory.Build.props` or reference them directly:
+Add the core packages to your projects. For central package versioning, add them to your `Directory.Build.props` or
+reference them directly:
 
 ```bash
 # Compile-time Source Generator
@@ -83,7 +90,8 @@ dotnet add package DataCatalyst.Plugins.StateEngine
 
 ### 2. Define Components (C#)
 
-Mark any plain struct as a component using the `[DataComponent]` attribute. The Source Generator will automatically discover it.
+Mark any plain struct as a component using the `[DataComponent]` attribute. The Source Generator will automatically
+discover it.
 
 ```csharp
 using DataCatalyst.Abstractions;
@@ -176,11 +184,15 @@ if (catalog.TryGetEntry("Goblin", out var goblin))
 
 ## ⚡ Native AOT & Trim Safety
 
-DataCatalyst is engineered for **Native AOT (Ahead-of-Time) compilation** and strict trimming (essential for modern high-performance game runtimes such as Godot 4 .NET, Unity, or custom engines):
+DataCatalyst is engineered for **Native AOT (Ahead-of-Time) compilation** and strict trimming (essential for modern
+high-performance game runtimes such as Godot 4 .NET, Unity, or custom engines):
 
-- **Zero Runtime Reflection**: The Roslyn source generator (`DataCatalyst.SourceGen`) scans your assemblies at compile time and registers component types inside static `[ModuleInitializer]` methods.
-- **Explicit Type Resolution**: No runtime JSON type-name scanning. Components are resolved against statically registered types.
-- **Trim-Safe Serialization**: `JsonDataLoader` accepts `JsonSerializerOptions` to integrate seamlessly with `System.Text.Json` source-generated serialization contexts.
+- **Zero Runtime Reflection**: The Roslyn source generator (`DataCatalyst.SourceGen`) scans your assemblies at compile
+  time and registers component types inside static `[ModuleInitializer]` methods.
+- **Explicit Type Resolution**: No runtime JSON type-name scanning. Components are resolved against statically
+  registered types.
+- **Trim-Safe Serialization**: `JsonDataLoader` accepts `JsonSerializerOptions` to integrate seamlessly with
+  `System.Text.Json` source-generated serialization contexts.
 
 ---
 
@@ -190,13 +202,17 @@ DataCatalyst includes pure data-driven plugins for common game patterns:
 
 ### 🎮 StateEngine & Transition Plugins
 
-Provides a generic, priority-based hierarchical state machine evaluator. It calculates transitions based on sensor inputs completely from data:
+Provides a generic, priority-based hierarchical state machine evaluator. It calculates transitions based on sensor
+inputs completely from data:
 
 - **Transitions**: Priority-based edges from a source state to a target state.
 - **Conditions**: Supports `All` (AND), `Any` (OR), and `None` (NOT) condition groups.
-- **Hysteresis**: Supports separate entry `Value` and `ExitValue` parameters on conditions to prevent rapid flickering between states.
-- **Hierarchical States**: State definitions can specify a `Parent`. If child transition conditions are not met, the evaluator automatically falls back to parent transitions.
-- **Depth Penalty**: A penalty applied to parent transition priorities so that more specific child transitions win when competing.
+- **Hysteresis**: Supports separate entry `Value` and `ExitValue` parameters on conditions to prevent rapid flickering
+  between states.
+- **Hierarchical States**: State definitions can specify a `Parent`. If child transition conditions are not met, the
+  evaluator automatically falls back to parent transitions.
+- **Depth Penalty**: A penalty applied to parent transition priorities so that more specific child transitions win when
+  competing.
 - **Dynamic Influences**: Priorities can be dynamically modified by multiplying sensor values by configured weights.
 
 ```csharp

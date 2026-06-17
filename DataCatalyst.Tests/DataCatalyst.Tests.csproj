@@ -1,28 +1,28 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <IsPackable>false</IsPackable>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="FluentAssertions" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.runner.visualstudio">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\DataCatalyst.Abstractions\DataCatalyst.Abstractions.csproj" />
-    <ProjectReference Include="..\DataCatalyst.Core\DataCatalyst.Core.csproj" />
-    <ProjectReference Include="..\DataCatalyst.Loaders.Json\DataCatalyst.Loaders.Json.csproj" />
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<IsPackable>false</IsPackable>
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="FluentAssertions"/>
+		<PackageReference Include="Microsoft.NET.Test.Sdk"/>
+		<PackageReference Include="xunit"/>
+		<PackageReference Include="xunit.runner.visualstudio">
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+			<PrivateAssets>all</PrivateAssets>
+		</PackageReference>
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp"/>
+	</ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\DataCatalyst.Abstractions\DataCatalyst.Abstractions.csproj"/>
+		<ProjectReference Include="..\DataCatalyst.Core\DataCatalyst.Core.csproj"/>
+		<ProjectReference Include="..\DataCatalyst.Loaders.Json\DataCatalyst.Loaders.Json.csproj"/>
 
-    <ProjectReference Include="..\DataCatalyst.SourceGen\DataCatalyst.SourceGen.csproj" />
-    <ProjectReference Include="..\DataCatalyst.Plugins.NumericCompare\DataCatalyst.Plugins.NumericCompare.csproj" />
-    <ProjectReference Include="..\DataCatalyst.Plugins.Transition\DataCatalyst.Plugins.Transition.csproj" />
-    <ProjectReference Include="..\DataCatalyst.Plugins.StateEngine\DataCatalyst.Plugins.StateEngine.csproj" />
-  </ItemGroup>
+		<ProjectReference Include="..\DataCatalyst.SourceGen\DataCatalyst.SourceGen.csproj"/>
+		<ProjectReference Include="..\DataCatalyst.Plugins.NumericCompare\DataCatalyst.Plugins.NumericCompare.csproj"/>
+		<ProjectReference Include="..\DataCatalyst.Plugins.Transition\DataCatalyst.Plugins.Transition.csproj"/>
+		<ProjectReference Include="..\DataCatalyst.Plugins.StateEngine\DataCatalyst.Plugins.StateEngine.csproj"/>
+	</ItemGroup>
 </Project>

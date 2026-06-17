@@ -25,7 +25,6 @@ public static class DataCatalogBuilder {
 		DataEntry entry, DataGraph graph,
 		Dictionary<string, DataEntry> resolved,
 		HashSet<string> visiting) {
-
 		if (resolved.ContainsKey(entry.Key)) {
 			return;
 		}
@@ -77,6 +76,7 @@ public static class DataCatalogBuilder {
 					}
 				}
 			}
+
 			result.Add(entry);
 		}
 

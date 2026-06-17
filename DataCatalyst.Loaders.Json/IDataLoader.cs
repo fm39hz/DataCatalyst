@@ -1,7 +1,7 @@
 namespace DataCatalyst.Loaders;
 
 using System.Collections.Generic;
-using DataCatalyst.Core;
+using Core;
 
 /// <summary>Loads data entries from an external source.</summary>
 public interface IDataLoader {

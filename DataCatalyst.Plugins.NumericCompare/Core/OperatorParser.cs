@@ -2,7 +2,7 @@ namespace DataCatalyst.Plugins.NumericCompare.Core;
 
 using System;
 using System.Collections.Generic;
-using DataCatalyst.Plugins.NumericCompare.Contracts;
+using Contracts;
 
 /// <summary>Parses and evaluates numeric comparison operators.</summary>
 public static class OperatorParser {
@@ -18,7 +18,7 @@ public static class OperatorParser {
 		["<"] = CompareOp.LessThan,
 		["lt"] = CompareOp.LessThan,
 		["<="] = CompareOp.LessThanOrEqual,
-		["lte"] = CompareOp.LessThanOrEqual,
+		["lte"] = CompareOp.LessThanOrEqual
 	};
 
 	/// <summary>Converts a string token to a CompareOp value.</summary>
@@ -38,6 +38,6 @@ public static class OperatorParser {
 		CompareOp.GreaterThanOrEqual => value >= threshold,
 		CompareOp.LessThan => value < threshold,
 		CompareOp.LessThanOrEqual => value <= threshold,
-		_ => false,
+		_ => false
 	};
 }

@@ -12,6 +12,7 @@ public static class StateEngineEvaluator {
 	public struct Result {
 		/// <summary>Resolved target state identifier.</summary>
 		public string TargetStateId;
+
 		/// <summary>Whether a valid transition was found.</summary>
 		public bool HasValue;
 	}
@@ -22,7 +23,6 @@ public static class StateEngineEvaluator {
 		StateGroup group,
 		HashSet<string> viableStates,
 		Func<string, float> readSensor) {
-
 		var stateKey = currentStateId;
 		var prefix = group.GroupId + ".";
 		if (stateKey.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) {
@@ -93,7 +93,10 @@ public static class StateEngineEvaluator {
 		if (conds.Any != null) {
 			var anyOk = false;
 			foreach (var c in conds.Any) {
-				if (EvalSensor(c, readSensor, atTarget)) { anyOk = true; break; }
+				if (EvalSensor(c, readSensor, atTarget)) {
+					anyOk = true;
+					break;
+				}
 			}
 
 			if (!anyOk) {
@@ -114,12 +117,13 @@ public static class StateEngineEvaluator {
 
 	private static bool EvalSensor(SensorConditionDef c, Func<string, float> readSensor, bool atTarget) {
 		var value = readSensor(c.Signal);
-		var threshold = (atTarget && c.ExitValue != 0f) ? c.ExitValue : c.Value;
+		var threshold = atTarget && c.ExitValue != 0f ? c.ExitValue : c.Value;
 		var op = OperatorParser.Parse(c.Op);
 		return OperatorParser.Evaluate(value, op, threshold);
 	}
 
-	private static string ResolveStateId(string target, string familyId) => target.Contains(".") ? target : $"{familyId}.{target}";
+	private static string ResolveStateId(string target, string familyId) =>
+		target.Contains(".") ? target : $"{familyId}.{target}";
 
 	private static List<StateDefinition> CollectHierarchy(string name,
 		Dictionary<string, StateDefinition> allStates) {
@@ -134,6 +138,7 @@ public static class StateEngineEvaluator {
 			result.Add(def);
 			current = def.Parent;
 		}
+
 		return result;
 	}
 }

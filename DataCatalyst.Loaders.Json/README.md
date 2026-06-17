@@ -25,6 +25,7 @@ var loadResult = JsonDataLoader.LoadDirectory("Data/", options);
 JSON files define an inherits list and component objects:
 
 `Entities/Goblin.json`:
+
 ```json
 {
   "inherits": [ "Entities.BaseMonster" ],
@@ -35,5 +36,8 @@ JSON files define an inherits list and component objects:
 }
 ```
 
-* **Entry Keys**: Generated automatically based on relative file paths (e.g., `Entities/Goblin.json` relative to `Data/` becomes `"Entities.Goblin"`).
-* **Component Resolution**: The loader reads properties (like `"Health"`) and resolves them against types registered in `PrimitiveRegistry`. If a component name is ambiguous (declared in multiple namespaces), you must use its fully-qualified type name (e.g., `"MyGame.Components.Health"`).
+* **Entry Keys**: Generated automatically based on relative file paths (e.g., `Entities/Goblin.json` relative to `Data/`
+  becomes `"Entities.Goblin"`).
+* **Component Resolution**: The loader reads properties (like `"Health"`) and resolves them against types registered in
+  `PrimitiveRegistry`. If a component name is ambiguous (declared in multiple namespaces), you must use its
+  fully-qualified type name (e.g., `"MyGame.Components.Health"`).

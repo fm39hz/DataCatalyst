@@ -1,4 +1,5 @@
-namespace DataCatalyst.Tests; 
+namespace DataCatalyst.Tests;
+
 using FluentAssertions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -12,13 +13,14 @@ public class SourceGenTests {
 
 		// Reference assemblies needed for compilation.
 		var references = new List<MetadataReference> {
-		MetadataReference.CreateFromFile(Path.Combine(assemblyPath, "System.Private.CoreLib.dll")),
-		MetadataReference.CreateFromFile(Path.Combine(assemblyPath, "System.Runtime.dll")),
-		MetadataReference.CreateFromFile(Path.Combine(assemblyPath, "netstandard.dll")),
-		MetadataReference.CreateFromFile(typeof(System.Runtime.CompilerServices.ModuleInitializerAttribute).Assembly.Location),
-		MetadataReference.CreateFromFile(typeof(Abstractions.DataComponentAttribute).Assembly.Location),
-		MetadataReference.CreateFromFile(typeof(Core.DataRegistry).Assembly.Location)
-	};
+			MetadataReference.CreateFromFile(Path.Combine(assemblyPath, "System.Private.CoreLib.dll")),
+			MetadataReference.CreateFromFile(Path.Combine(assemblyPath, "System.Runtime.dll")),
+			MetadataReference.CreateFromFile(Path.Combine(assemblyPath, "netstandard.dll")),
+			MetadataReference.CreateFromFile(typeof(System.Runtime.CompilerServices.ModuleInitializerAttribute).Assembly
+				.Location),
+			MetadataReference.CreateFromFile(typeof(Abstractions.DataComponentAttribute).Assembly.Location),
+			MetadataReference.CreateFromFile(typeof(Core.DataRegistry).Assembly.Location)
+		};
 
 		var compilation = CSharpCompilation.Create(
 			"TestAssembly",
@@ -29,7 +31,9 @@ public class SourceGenTests {
 		// Assert no syntax or semantic errors in the test code setup
 		var compileDiagnostics = compilation.GetDiagnostics();
 		var errors = compileDiagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
-		errors.Should().BeEmpty($"The input source code failed to compile: {string.Join(Environment.NewLine, errors.Select(e => e.GetMessage()))}");
+		errors.Should()
+			.BeEmpty(
+				$"The input source code failed to compile: {string.Join(Environment.NewLine, errors.Select(e => e.GetMessage()))}");
 
 		var generator = new PrimitiveDiscoveryGenerator();
 		GeneratorDriver driver = CSharpGeneratorDriver.Create(generator);
@@ -90,4 +94,4 @@ public class SourceGenTests {
 	}
 }
 
- // namespace DataCatalyst.Tests
+// namespace DataCatalyst.Tests

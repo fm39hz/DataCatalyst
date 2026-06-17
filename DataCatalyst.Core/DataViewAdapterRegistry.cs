@@ -1,7 +1,7 @@
 namespace DataCatalyst.Core;
 
 using System.Collections.Generic;
-using DataCatalyst.Abstractions;
+using Abstractions;
 
 /// <summary>Registry for data view adapters.</summary>
 public static class DataViewAdapterRegistry {
@@ -23,6 +23,7 @@ public static class DataViewAdapterRegistry {
 		if (_adapters.TryGet(typeof(T), out var existing) && existing is List<IDataViewAdapter<T>> list) {
 			return [.. list];
 		}
+
 		return [];
 	}
 

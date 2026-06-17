@@ -1,9 +1,10 @@
-namespace DataCatalyst.Tests; 
+namespace DataCatalyst.Tests;
+
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
-using DataCatalyst.Core;
-using DataCatalyst.Loaders;
+using Core;
 using FluentAssertions;
+using Loaders;
 using Xunit;
 
 public class IntegrationTests : IDisposable {
@@ -19,6 +20,7 @@ public class IntegrationTests : IDisposable {
 		if (Directory.Exists(_tempDir)) {
 			Directory.Delete(_tempDir, true);
 		}
+
 		PrimitiveRegistry.Clear();
 		GC.SuppressFinalize(this);
 	}
@@ -71,7 +73,7 @@ public class IntegrationTests : IDisposable {
 		// Goblin should have merged components
 		var goblin = catalog.Entries["Goblin"];
 		goblin.Get<GameComponent>().Value.Should().Be(99); // Overridden
-		goblin.Get<OtherStruct>().Y.Should().Be(20);      // Inherited from BaseMonster
+		goblin.Get<OtherStruct>().Y.Should().Be(20);       // Inherited from BaseMonster
 	}
 
 	[Fact]
@@ -167,4 +169,4 @@ public class IntegrationTests : IDisposable {
 	}
 }
 
- // namespace DataCatalyst.Tests
+// namespace DataCatalyst.Tests

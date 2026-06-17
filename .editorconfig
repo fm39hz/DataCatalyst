@@ -53,7 +53,7 @@ end_of_line = lf
 [Makefile]
 indent_style = tab
 
-[*_Generated.cs, *.g.cs,         *.generated.cs]
+[*_Generated.cs, *.g.cs,          *.generated.cs]
 # Ignore a lack of documentation for generated code. Doesn't apply to builds,
 # just to viewing generation output.
 dotnet_diagnostic.CS1591.severity = none

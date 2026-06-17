@@ -2,7 +2,7 @@ namespace DataCatalyst.Core;
 
 using System;
 using System.Collections.Generic;
-using DataCatalyst.Abstractions;
+using Abstractions;
 
 /// <summary>Instance-based registry for components and plugins.</summary>
 public sealed class DataRegistry {
@@ -28,6 +28,7 @@ public sealed class DataRegistry {
 		if (!type.IsValueType) {
 			throw new ArgumentException("Component must be a value type (struct).", nameof(type));
 		}
+
 		lock (_components) {
 			_components.Add(type);
 		}

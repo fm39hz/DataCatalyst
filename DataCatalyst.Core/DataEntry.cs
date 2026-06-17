@@ -7,10 +7,13 @@ using System.Collections.Generic;
 public sealed class DataEntry(string key, Dictionary<Type, object>? components = null, List<string>? inherits = null) {
 	/// <summary>Unique identifier for this entry.</summary>
 	public string Key { get; } = key;
+
 	/// <summary>Parent entry keys to inherit components from.</summary>
 	public List<string>? Inherits { get; internal set; } = inherits;
+
 	/// <summary>Component data indexed by type.</summary>
 	public IReadOnlyDictionary<Type, object> Components => _components;
+
 	internal Dictionary<Type, object> _components = components ?? [];
 	internal bool _resolved;
 
@@ -35,6 +38,7 @@ public sealed class DataEntry(string key, Dictionary<Type, object>? components =
 			value = (T)boxed;
 			return true;
 		}
+
 		value = default;
 		return false;
 	}

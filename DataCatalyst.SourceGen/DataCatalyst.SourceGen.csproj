@@ -1,31 +1,31 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <RootNamespace>DataCatalyst</RootNamespace>
-    <AssemblyName>DataCatalyst</AssemblyName>
-    <IsRoslynComponent>true</IsRoslynComponent>
-    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
-    <IncludeBuildOutput>false</IncludeBuildOutput>
-    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
-    <DevelopmentDependency>true</DevelopmentDependency>
-    <PackageId>DataCatalyst</PackageId>
-    <Description>Roslyn source generator that discovers [DataPrimitive] types and generates primitive registrations. Provides the compile-time foundation for data-driven composition.</Description>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
-    <NoWarn>RS2008</NoWarn>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<RootNamespace>DataCatalyst</RootNamespace>
+		<AssemblyName>DataCatalyst</AssemblyName>
+		<IsRoslynComponent>true</IsRoslynComponent>
+		<EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+		<IncludeBuildOutput>false</IncludeBuildOutput>
+		<SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+		<DevelopmentDependency>true</DevelopmentDependency>
+		<PackageId>DataCatalyst</PackageId>
+		<Description>Roslyn source generator that discovers [DataPrimitive] types and generates primitive registrations. Provides the compile-time foundation for data-driven composition.</Description>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<NoWarn>RS2008</NoWarn>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all"/>
+		<PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all"/>
+	</ItemGroup>
 
-  <ItemGroup>
-    <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
-    <None Include="..\README.md" Pack="true" PackagePath="\" Visible="false" />
-  </ItemGroup>
+	<ItemGroup>
+		<None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false"/>
+		<None Include="..\README.md" Pack="true" PackagePath="\" Visible="false"/>
+	</ItemGroup>
 
-  <ItemGroup Condition="Exists('build\DataCatalyst.targets')">
-    <None Include="build\DataCatalyst.targets" Pack="true" PackagePath="build\DataCatalyst.targets" Visible="false" />
-    <None Include="build\DataCatalyst.targets" Pack="true" PackagePath="buildTransitive\DataCatalyst.targets" Visible="false" />
-  </ItemGroup>
+	<ItemGroup Condition="Exists('build\DataCatalyst.targets')">
+		<None Include="build\DataCatalyst.targets" Pack="true" PackagePath="build\DataCatalyst.targets" Visible="false"/>
+		<None Include="build\DataCatalyst.targets" Pack="true" PackagePath="buildTransitive\DataCatalyst.targets" Visible="false"/>
+	</ItemGroup>
 </Project>

@@ -7,4 +7,5 @@ using System;
 	AttributeTargets.Struct | AttributeTargets.Class |
 	AttributeTargets.Enum | AttributeTargets.Method,
 	AllowMultiple = false, Inherited = false)]
-public sealed class DataComponentAttribute : Attribute { }
+public sealed class DataComponentAttribute : Attribute {
+}

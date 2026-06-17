@@ -1,16 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFrameworks>netstandard2.1;net8.0</TargetFrameworks>
-    <RootNamespace>DataCatalyst.Core</RootNamespace>
-    <AssemblyName>DataCatalyst.Core</AssemblyName>
-    <Description>DataCatalyst runtime infrastructure — primitive registry, data graph, catalog builder, and supporting types.</Description>
-    <PackageTags>data-catalyst;game-data;runtime;core</PackageTags>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFrameworks>netstandard2.1;net8.0</TargetFrameworks>
+		<RootNamespace>DataCatalyst.Core</RootNamespace>
+		<AssemblyName>DataCatalyst.Core</AssemblyName>
+		<Description>DataCatalyst runtime infrastructure — primitive registry, data graph, catalog builder, and supporting types.</Description>
+		<PackageTags>data-catalyst;game-data;runtime;core</PackageTags>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="System.Text.Json" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\DataCatalyst.Abstractions\DataCatalyst.Abstractions.csproj" />
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="System.Text.Json"/>
+	</ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\DataCatalyst.Abstractions\DataCatalyst.Abstractions.csproj"/>
+	</ItemGroup>
 </Project>

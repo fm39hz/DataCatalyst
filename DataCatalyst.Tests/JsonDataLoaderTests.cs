@@ -13,13 +13,13 @@ namespace DataCatalyst.Tests {
 
 namespace ModNamespace {
 	using DataCatalyst.Tests;
+
 	public struct GameComponent : IComponent {
 		public string Name { get; set; }
 	}
 }
 
 namespace DataCatalyst.Tests {
-
 	public class JsonDataLoaderTests : IDisposable {
 		private readonly string _tempDir;
 
@@ -33,6 +33,7 @@ namespace DataCatalyst.Tests {
 			if (Directory.Exists(_tempDir)) {
 				Directory.Delete(_tempDir, true);
 			}
+
 			PrimitiveRegistry.Clear();
 			GC.SuppressFinalize(this);
 		}

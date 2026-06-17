@@ -36,14 +36,16 @@ Defines a single state and its parent for hierarchical inheritance:
 
 ## ⚡ Evaluator Engine
 
-`StateEngineEvaluator.Evaluate` evaluates transitions and selects the best target state by finding the valid transition with the highest priority.
+`StateEngineEvaluator.Evaluate` evaluates transitions and selects the best target state by finding the valid transition
+with the highest priority.
 
 ### Priority Formula
 
 $$\text{Priority} = (\text{PriorityTier} \times \text{TierScale}) + \text{BasePriority} - (\text{Depth} \times \text{DepthPenalty}) + \sum (\text{SensorValue} \times \text{Weight})$$
 
 - **BasePriority**: `t.Priority` defined on the transition.
-- **Depth Penalty**: Encourages more specific child transitions to win over inherited parent transitions when they compete.
+- **Depth Penalty**: Encourages more specific child transitions to win over inherited parent transitions when they
+  compete.
 - **Dynamic Influences**: Adds sensor-based weight modifiers.
 
 ### Example Usage
