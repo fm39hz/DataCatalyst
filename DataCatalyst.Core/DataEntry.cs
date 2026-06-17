@@ -3,37 +3,42 @@ namespace DataCatalyst.Core;
 using System;
 using System.Collections.Generic;
 
-public sealed class DataEntry {
-    public string Key { get; }
-    public List<string>? Inherits { get; internal set; }
-    public IReadOnlyDictionary<Type, object> Components => _components;
-    internal Dictionary<Type, object> _components;
-    internal bool _resolved;
+/// <summary>Data entry with typed components and inheritance.</summary>
+public sealed class DataEntry(string key, Dictionary<Type, object>? components = null, List<string>? inherits = null) {
+	/// <summary>Unique identifier for this entry.</summary>
+	public string Key { get; } = key;
+	/// <summary>Parent entry keys to inherit components from.</summary>
+	public List<string>? Inherits { get; internal set; } = inherits;
+	/// <summary>Component data indexed by type.</summary>
+	public IReadOnlyDictionary<Type, object> Components => _components;
+	internal Dictionary<Type, object> _components = components ?? [];
+	internal bool _resolved;
 
-    public DataEntry(string key, Dictionary<Type, object>? components = null, List<string>? inherits = null) {
-        Key = key;
-        _components = components ?? new Dictionary<Type, object>();
-        Inherits = inherits;
-    }
+	/// <summary>The source file path from which this entry was loaded.</summary>
+	public string? SourceFile { get; set; }
 
-    public void Set<T>(T value) where T : struct {
-        _components[typeof(T)] = value;
-    }
+	/// <summary>Adds or replaces a component value.</summary>
+	public void Set<T>(T value) where T : struct => _components[typeof(T)] = value;
 
-    public T Get<T>() where T : struct {
-        if (_components.TryGetValue(typeof(T), out var boxed))
-            return (T)boxed;
-        throw new KeyNotFoundException($"Component '{typeof(T).Name}' not found in entry '{Key}'");
-    }
+	/// <summary>Retrieves a component by type. Throws if missing.</summary>
+	public T Get<T>() where T : struct {
+		if (_components.TryGetValue(typeof(T), out var boxed)) {
+			return (T)boxed;
+		}
 
-    public bool TryGet<T>(out T value) where T : struct {
-        if (_components.TryGetValue(typeof(T), out var boxed)) {
-            value = (T)boxed;
-            return true;
-        }
-        value = default;
-        return false;
-    }
+		throw new KeyNotFoundException($"Component '{typeof(T).Name}' not found in entry '{Key}'");
+	}
 
-    public bool Has<T>() where T : struct => _components.ContainsKey(typeof(T));
+	/// <summary>Attempts to retrieve a component by type.</summary>
+	public bool TryGet<T>(out T value) where T : struct {
+		if (_components.TryGetValue(typeof(T), out var boxed)) {
+			value = (T)boxed;
+			return true;
+		}
+		value = default;
+		return false;
+	}
+
+	/// <summary>Checks if a component type exists.</summary>
+	public bool Has<T>() where T : struct => _components.ContainsKey(typeof(T));
 }

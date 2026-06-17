@@ -3,22 +3,35 @@ namespace DataCatalyst.Core;
 using System;
 using System.Collections.Generic;
 
+/// <summary>Registry of known data component types.</summary>
 public static class PrimitiveRegistry {
-    private static readonly HashSet<Type> _types = new();
+	private static readonly HashSet<Type> _types = [];
 
-    public static void Register<T>() {
-        lock (_types) _types.Add(typeof(T));
-    }
+	/// <summary>Registers a type as a known primitive.</summary>
+	public static void Register<T>() {
+		lock (_types) {
+			_types.Add(typeof(T));
+		}
+	}
 
-    public static bool IsRegistered(Type type) {
-        lock (_types) return _types.Contains(type);
-    }
+	/// <summary>Checks if a type is a registered primitive.</summary>
+	public static bool IsRegistered(Type type) {
+		lock (_types) {
+			return _types.Contains(type);
+		}
+	}
 
-    public static IReadOnlyCollection<Type> GetAll() {
-        lock (_types) return new List<Type>(_types);
-    }
+	/// <summary>Returns all registered primitive types.</summary>
+	public static IReadOnlyCollection<Type> GetAll() {
+		lock (_types) {
+			return [.. _types];
+		}
+	}
 
-    public static void Clear() {
-        lock (_types) _types.Clear();
-    }
+	/// <summary>Removes all registered primitives.</summary>
+	public static void Clear() {
+		lock (_types) {
+			_types.Clear();
+		}
+	}
 }

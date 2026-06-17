@@ -1,6 +1,9 @@
 namespace DataCatalyst.Core;
 
-public sealed class DataOverride {
-    public string Target { get; set; } = "";
-    public string RawJson { get; set; } = "";  // raw JSON object, no boxing
+/// <summary>Runtime override targeting a specific entry.</summary>
+public sealed record DataOverride {
+	/// <summary>Entry key to override.</summary>
+	public string Target { get; init; } = "";
+	/// <summary>Raw JSON payload for the override.</summary>
+	public string RawJson { get; init; } = "";
 }

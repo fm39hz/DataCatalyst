@@ -16,4 +16,8 @@
     <RepositoryType>git</RepositoryType>
     <PackageTags>roslyn;source-generator;c#;code-generation;json;data;game-development</PackageTags>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)Polyfill.cs" Visible="false" />
+  </ItemGroup>
 </Project>

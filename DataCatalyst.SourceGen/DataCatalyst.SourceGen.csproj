@@ -18,12 +18,6 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
-    <PackageReference Include="System.Text.Json" PrivateAssets="all" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\DataCatalyst.Abstractions\DataCatalyst.Abstractions.csproj" />
-    <ProjectReference Include="..\DataCatalyst.Core\DataCatalyst.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>

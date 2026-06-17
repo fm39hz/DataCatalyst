@@ -2,6 +2,9 @@
   <Project Path="DataCatalyst.Abstractions/DataCatalyst.Abstractions.csproj" />
   <Project Path="DataCatalyst.Core/DataCatalyst.Core.csproj" />
   <Project Path="DataCatalyst.SourceGen/DataCatalyst.SourceGen.csproj" />
-  <Project Path="DataCatalyst.Loaders.Json/DataCatalyst.Loaders.Json.csproj" />
+  <Project Path="DataCatalyst.Loaders/DataCatalyst.Loaders.csproj" />
+  <Project Path="DataCatalyst.Plugins.NumericCompare/DataCatalyst.Plugins.NumericCompare.csproj" />
+  <Project Path="DataCatalyst.Plugins.Transition/DataCatalyst.Plugins.Transition.csproj" />
+  <Project Path="DataCatalyst.Plugins.StateMachine/DataCatalyst.Plugins.StateMachine.csproj" />
   <Project Path="DataCatalyst.Tests/DataCatalyst.Tests.csproj" />
 </Solution>

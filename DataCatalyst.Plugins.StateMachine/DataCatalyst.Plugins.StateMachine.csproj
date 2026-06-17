@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <RootNamespace>DataCatalyst.Plugins.StateMachine</RootNamespace>
+    <AssemblyName>DataCatalyst.Plugins.StateMachine</AssemblyName>
+    <Description>Generic data-driven state machine plugin for DataCatalyst. Bake transition tables, evaluate conditions, resolve priority. No ECS coupling, no game-specific types.</Description>
+    <PackageTags>data-catalyst;state-machine;plugin</PackageTags>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\DataCatalyst.Core\DataCatalyst.Core.csproj" />
+    <ProjectReference Include="..\DataCatalyst.Plugins.NumericCompare\DataCatalyst.Plugins.NumericCompare.csproj" />
+    <ProjectReference Include="..\DataCatalyst.Plugins.Transition\DataCatalyst.Plugins.Transition.csproj" />
+  </ItemGroup>
+</Project>

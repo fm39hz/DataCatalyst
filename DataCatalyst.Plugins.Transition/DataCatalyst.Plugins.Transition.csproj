@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <RootNamespace>DataCatalyst.Plugins.Transition</RootNamespace>
+    <AssemblyName>DataCatalyst.Plugins.Transition</AssemblyName>
+    <Description>Transition and sensor influence data models for data-driven state machines.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\DataCatalyst.Core\DataCatalyst.Core.csproj" />
+    <ProjectReference Include="..\DataCatalyst.Plugins.NumericCompare\DataCatalyst.Plugins.NumericCompare.csproj" />
+  </ItemGroup>
+</Project>
