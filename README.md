@@ -39,7 +39,7 @@ DataCatalyst is divided into small, focused modules to keep the core generic and
 ├── DataCatalyst.Abstractions   - [DataComponent], [DataPlugin], DataKey<T>, and contracts
 ├── DataCatalyst.Core           - Registry stores, Graph and Catalog builders, composition engine
 ├── DataCatalyst.SourceGen      - Roslyn Incremental Generator for static AOT/Trim registration
-├── DataCatalyst.Loaders        - AOT-safe JSON file loader
+├── DataCatalyst.Loaders.Json   - AOT-safe JSON file loader
 └── DataCatalyst.Plugins.*      - Composable infrastructure plugins
     ├── NumericCompare          - Operator parser and threshold evaluation contract
     ├── Transition              - Transition and sensor condition data models
@@ -71,8 +71,14 @@ graph TD
 Add the core packages to your projects. For central package versioning, add them to your `Directory.Build.props` or reference them directly:
 
 ```bash
+# Compile-time Source Generator
 dotnet add package DataCatalyst
-dotnet add package DataCatalyst.Loaders
+
+# Runtime engine & default JSON loader (transitively pulls Abstractions and Core)
+dotnet add package DataCatalyst.Loaders.Json
+
+# Optional StateMachine plugin (transitively pulls NumericCompare and Transition)
+dotnet add package DataCatalyst.Plugins.StateMachine
 ```
 
 ### 2. Define Components (C#)
