@@ -1,33 +1,33 @@
 # DataCatalyst.Core
 
-Composition resolution engine + registries. netstandard2.1.
+The core composition and resolution engine for the DataCatalyst framework.
 
-## Pipeline
+## 🔄 Composition Pipeline
+
+DataCatalyst resolves compositions mechanically through a multi-stage pipeline:
 
 ```
-DataEntry (typed components + optional inherits)
-  → DataGraphBuilder.Build() → DataGraph (unresolved)
-  → DataCatalogBuilder.Resolve() → DataCatalog (resolved, immutable)
-     - Inheritance flatten (DAG, deep chain)
-     - Child override parent
-     - Cycle detection
+DataEntry (unresolved components + inherits)
+  ↳ DataGraphBuilder.Build() ──> DataGraph (unresolved map, merges mod patches)
+      ↳ DataCatalogBuilder.Resolve() ──> DataCatalog (resolved, flattened, immutable)
 ```
 
-## Public API
+During resolution, the engine processes:
+1. **Mod Patches**: Automatically merges duplicate keys based on load order (the ContentPatcher pattern).
+2. **Inheritance DAG**: Processes inheritance trees to flatten parents into children.
+3. **Value Overrides**: Allows children to override parent components.
+4. **Cycle Detection**: Validates that the dependency tree contains no cyclic loops (throws `InvalidOperationException` if a cycle is found).
+
+## 📦 Public API
 
 | Type | Description |
 |------|-------------|
-| `PrimitiveRegistry` | `Register<T>()`, `IsRegistered(Type)`, `GetAll()`, `Clear()` |
-| `PluginRegistry` | `Register<T>()`, `RegisterByTypeName()`, `Plugins` |
-| `DataEntry` | Key + Inherits + `Set<T>()`/`Get<T>()`/`TryGet<T>()`/`Has<T>()` |
-| `DataGraph` | `Dictionary<string, DataEntry>` entries |
-| `DataGraphBuilder` | `Build(IEnumerable<DataEntry>) → DataGraph` |
-| `DataCatalog` | `IReadOnlyDictionary<string, DataEntry>` + `Get<T>(key)`/`TryGet<T>(key)` |
-| `DataCatalogBuilder` | `Resolve(DataGraph) → DataCatalog` |
-| `DataOverride` | Raw JSON override (legacy compat) |
-| `DataViewAdapterRegistry` | View adapter registration |
-| `ServiceRegistry` | Generic service locator |
-
-## NOT in Core
-
-Serializer, format reader, file loader, entity model, behavior engine, DSL.
+| `PrimitiveRegistry` | Centralized registry for known data component types. |
+| `PluginRegistry` | Centralized registry for initializing discovered custom plugins. |
+| `DataEntry` | Container representing an entry's key, components, and inherits lists. |
+| `DataGraph` | Unresolved key-value entry map. |
+| `DataGraphBuilder` | Builds a `DataGraph` from a raw list of entries, merging duplicate keys/mods. |
+| `DataCatalog` | The resolved, immutable, read-only dictionary of composition entries. |
+| `DataCatalogBuilder` | Resolves a `DataGraph` into a finalized `DataCatalog`. |
+| `DataViewAdapterRegistry` | Registers observers/view adapters for engine-specific bridges. |
+| `ServiceRegistry` | Lightweight, generic service locator. |

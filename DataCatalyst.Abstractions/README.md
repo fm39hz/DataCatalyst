@@ -1,13 +1,15 @@
 # DataCatalyst.Abstractions
 
-Zero-dependency contracts for DataCatalyst. netstandard2.1.
+Zero-dependency abstractions and contracts for the DataCatalyst composition framework.
 
-| Type | Role |
-|------|------|
-| `[DataComponent]` | Mark any type as composable data component |
-| `[DataPlugin]` | Mark plugin class with optional `DependsOn` |
-| `DataKey<T>` | Typed cross-reference by string key |
-| `IDataPlugin` | Plugin marker interface |
-| `IDataViewAdapter<T>` | Engine bridge: `OnEntryAdded/Removed/Modified/AllCleared` |
-| `IDataRepository<TKey, TValue>` | Generic repository: `Get/TryGet/GetAll/Count` |
-| `IFormatReader<TValue>` | Optional format parser: `FileExtension` + `TryRead` |
+## 📦 Core Types
+
+| Type | Description |
+|------|-------------|
+| `[DataComponent]` | Applied to structs to mark them as discoverable composition data components. |
+| `[DataPlugin]` | Applied to classes to register them as custom plugins with optional dependency ordering (`DependsOn`). |
+| `IDataPlugin` | Marker interface for plugins. |
+| `DataKey<T>` | A type-safe, read-only cross-reference pointing to another entry by string ID. |
+| `IDataViewAdapter<T>` | Engine bridge interface providing hook callbacks for entry lifecycle changes (`OnEntryAdded`, `OnEntryRemoved`, `OnEntryModified`, `OnAllCleared`). |
+| `IDataRepository<TKey, TValue>` | Generic repository contract for data management. |
+| `IFormatReader<TValue>` | Parser contract for custom file loading. |
