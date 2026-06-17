@@ -18,7 +18,7 @@
   <ItemGroup>
     <ProjectReference Include="..\DataCatalyst.Abstractions\DataCatalyst.Abstractions.csproj" />
     <ProjectReference Include="..\DataCatalyst.Core\DataCatalyst.Core.csproj" />
-    <ProjectReference Include="..\DataCatalyst.Loaders\DataCatalyst.Loaders.Json.csproj" />
+    <ProjectReference Include="..\DataCatalyst.Loaders.Json\DataCatalyst.Loaders.Json.csproj" />
 
     <ProjectReference Include="..\DataCatalyst.SourceGen\DataCatalyst.SourceGen.csproj" />
     <ProjectReference Include="..\DataCatalyst.Plugins.NumericCompare\DataCatalyst.Plugins.NumericCompare.csproj" />
