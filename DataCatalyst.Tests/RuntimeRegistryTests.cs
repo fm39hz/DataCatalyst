@@ -267,3 +267,19 @@ public class DataCatalogExtensionsTests {
 	}
 }
 
+public class DataRegistryTests {
+	[Fact]
+	public void RegisterComponent_StoresType() {
+		var registry = new DataRegistry();
+		registry.RegisterComponent<TestStruct>();
+		registry.GetComponents().Should().Contain(typeof(TestStruct));
+	}
+
+	[Fact]
+	public void RegisterPlugin_StoresPluginInstance() {
+		var registry = new DataRegistry();
+		registry.RegisterPlugin<TestPlugin>();
+		registry.GetPlugins().Should().Contain(p => p is TestPlugin);
+	}
+}
+

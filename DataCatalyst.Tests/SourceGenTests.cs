@@ -22,7 +22,8 @@ public class SourceGenTests {
 			MetadataReference.CreateFromFile(System.IO.Path.Combine(assemblyPath, "System.Runtime.dll")),
 			MetadataReference.CreateFromFile(System.IO.Path.Combine(assemblyPath, "netstandard.dll")),
 			MetadataReference.CreateFromFile(typeof(System.Runtime.CompilerServices.ModuleInitializerAttribute).Assembly.Location),
-			MetadataReference.CreateFromFile(typeof(DataCatalyst.Abstractions.DataComponentAttribute).Assembly.Location)
+			MetadataReference.CreateFromFile(typeof(DataCatalyst.Abstractions.DataComponentAttribute).Assembly.Location),
+			MetadataReference.CreateFromFile(typeof(DataCatalyst.Core.DataRegistry).Assembly.Location)
 		};
 
 		var compilation = CSharpCompilation.Create(
@@ -61,6 +62,8 @@ public class SourceGenTests {
 
 		var generated = RunGenerator(source);
 		generated.Should().Contain("global::DataCatalyst.Core.PrimitiveRegistry.Register<global::MyGame.Health>();");
+		generated.Should().Contain("public static void RegisterTo(global::DataCatalyst.Core.DataRegistry registry)");
+		generated.Should().Contain("registry.RegisterComponent<global::MyGame.Health>();");
 	}
 
 	[Fact]
@@ -80,10 +83,12 @@ public class SourceGenTests {
 		var generated = RunGenerator(source);
 		generated.Should().Contain("global::DataCatalyst.Core.PluginRegistry.Register<global::MyGame.PluginB>();");
 		generated.Should().Contain("global::DataCatalyst.Core.PluginRegistry.Register<global::MyGame.PluginA>();");
+		generated.Should().Contain("registry.RegisterPlugin<global::MyGame.PluginB>();");
+		generated.Should().Contain("registry.RegisterPlugin<global::MyGame.PluginA>();");
 
-		// Verify topological order: PluginB must be registered before PluginA
-		var indexA = generated.IndexOf("PluginRegistry.Register<global::MyGame.PluginA>()");
-		var indexB = generated.IndexOf("PluginRegistry.Register<global::MyGame.PluginB>()");
+		// Verify topological order in RegisterTo: PluginB must be registered before PluginA
+		var indexA = generated.IndexOf("registry.RegisterPlugin<global::MyGame.PluginA>()");
+		var indexB = generated.IndexOf("registry.RegisterPlugin<global::MyGame.PluginB>()");
 
 		indexA.Should().BeGreaterThan(-1, "PluginA registration should be present in generated code.");
 		indexB.Should().BeGreaterThan(-1, "PluginB registration should be present in generated code.");

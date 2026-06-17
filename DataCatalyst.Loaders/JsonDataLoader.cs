@@ -28,6 +28,18 @@ public static class JsonDataLoader {
 
 	/// <summary>Loads entries from all JSON files in a directory in an AOT-safe manner.</summary>
 	public static LoadResult LoadDirectory(string directory, JsonSerializerOptions options) {
+		var registry = new DataRegistry();
+		foreach (var t in PrimitiveRegistry.GetAll()) {
+			registry.RegisterComponent(t);
+		}
+		return LoadDirectory(directory, registry, options);
+	}
+
+	/// <summary>Loads entries from all JSON files in a directory using a custom registry in an AOT-safe manner.</summary>
+	public static LoadResult LoadDirectory(string directory, DataRegistry registry, JsonSerializerOptions options) {
+		if (registry == null) {
+			throw new ArgumentNullException(nameof(registry));
+		}
 		if (options == null) {
 			throw new ArgumentNullException(nameof(options), "JsonSerializerOptions must be provided for AOT compatibility.");
 		}
@@ -38,7 +50,7 @@ public static class JsonDataLoader {
 			return result;
 		}
 
-		var knownPrimitives = PrimitiveRegistry.GetAll();
+		var knownPrimitives = registry.GetComponents();
 		var shortNames = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
 		var fullNames = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
 		var duplicates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

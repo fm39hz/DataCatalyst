@@ -155,6 +155,22 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 			sb.Append("\t\t}\n");
 		}
 
+		sb.Append("\n\t\tpublic static void RegisterTo(global::DataCatalyst.Core.DataRegistry registry) {\n");
+		if (allPlugins.Count > 0) {
+			var sorted = TopoSort(allPlugins);
+			foreach (var (ft, _, _) in sorted) {
+				sb.Append("\t\t\tregistry.RegisterPlugin<")
+				  .Append(ft).AppendLine(">();");
+			}
+		}
+		if (allPrims.Count > 0) {
+			foreach (var ft in allPrims) {
+				sb.Append("\t\t\tregistry.RegisterComponent<")
+				  .Append(ft).AppendLine(">();");
+			}
+		}
+		sb.Append("\t\t}\n");
+
 		sb.Append("\t}\n}");
 		spc.AddSource("PrimitiveRegistrations.g.cs", SourceText.From(sb.ToString(), Encoding.UTF8));
 	}

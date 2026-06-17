@@ -175,5 +175,31 @@ public class JsonDataLoaderTests : IDisposable {
 		resolvedEntry.Get<GameComponent>().Value.Should().Be(25);
 		resolvedEntry.Get<OtherStruct>().Y.Should().Be(99);
 	}
+
+	[Fact]
+	public void LoadDirectory_WithInstanceRegistry_Succeeds() {
+		// Arrange
+		var registry = new DataRegistry();
+		registry.RegisterComponent<GameComponent>();
+
+		var jsonPath = Path.Combine(_tempDir, "hero.json");
+		File.WriteAllText(jsonPath, @"{
+			""GameComponent"": {
+				""Value"": 123
+			}
+		}");
+
+		var options = CreateAotOptions();
+
+		// Act
+		var result = JsonDataLoader.LoadDirectory(_tempDir, registry, options);
+
+		// Assert
+		result.Diagnostics.Should().BeEmpty();
+		result.Entries.Should().ContainSingle();
+		var entry = result.Entries[0];
+		entry.Key.Should().Be("hero");
+		entry.Get<GameComponent>().Value.Should().Be(123);
+	}
 }
 } // namespace DataCatalyst.Tests
