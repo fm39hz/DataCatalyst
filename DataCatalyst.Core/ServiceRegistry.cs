@@ -1,4 +1,4 @@
-namespace DataCatalyst.Runtime;
+namespace DataCatalyst.Core;
 
 using System.Collections.Generic;
 

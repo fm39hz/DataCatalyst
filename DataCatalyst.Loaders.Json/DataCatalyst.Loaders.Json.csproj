@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>DataCatalyst.Loaders</RootNamespace>
+    <AssemblyName>DataCatalyst.Loaders.Json</AssemblyName>
+    <Description>JSON loader plugin for DataCatalyst. Reads JSON files and deserializes into typed DataEntry lists using PrimitiveRegistry.</Description>
+    <PackageTags>data-catalyst;json;loader;plugin</PackageTags>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Text.Json" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\DataCatalyst.Core\DataCatalyst.Core.csproj" />
+  </ItemGroup>
+</Project>

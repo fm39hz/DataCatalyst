@@ -1,4 +1,4 @@
-namespace DataCatalyst.Runtime;
+namespace DataCatalyst.Core;
 
 public sealed class DataOverride {
     public string Target { get; set; } = "";

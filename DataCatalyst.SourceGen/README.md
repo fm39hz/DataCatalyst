@@ -2,11 +2,15 @@
 
 Source generators for DataCatalyst.
 
-## UniversalDataGenerator
+## PrimitiveDiscoveryGenerator
 
-Emits `[DataPlugin]` attribute. Detects `IDataPlugin` implementations, topo-sorts by `DependsOn`, emits `PluginRegistrations.g.cs`.
+Emits `[DataPlugin]` attribute. Scans for `[DataPrimitive]` and `IDataPlugin` types.
+Generates `PrimitiveRegistrations.g.cs` with `ModuleInitializer` for both.
 
 ```csharp
+[DataPrimitive]
+public struct Health : IComponent { public float Current, Max; }
+
 [DataPlugin(DependsOn = [typeof(Other)])]
 public class MyPlugin : IDataPlugin { }
 ```
@@ -16,20 +20,6 @@ Generated:
 [ModuleInitializer]
 internal static void Init() {
     PluginRegistry.Register<MyPlugin>();
-    PluginRegistry.Register<Other>();
+    PrimitiveRegistry.Register<Health>();
 }
 ```
-
-## DataRootGenerator
-
-Emits `[DataRoot]` attribute. Scans `Data/` folder (via AdditionalTextsProvider), parses JSON files, resolves inheritance, emits structs + context class.
-
-Pipeline:
-```
-AdditionalTextsProvider (JSON files)
-  → IScanner (DataRootScanner) — parse schema/data/DSL files
-    → IGraphBuilder (InheritanceGraph) — resolve inherits, flatten fields
-      → ICodeEmitter (NativePocoEmitter) — emit C# struct + branch context
-```
-
-Abstractions `IScanner`, `IGraphBuilder`, `ICodeEmitter` in `DataCatalyst.DataRoot` namespace.

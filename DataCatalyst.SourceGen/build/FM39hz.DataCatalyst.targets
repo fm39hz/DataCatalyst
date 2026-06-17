@@ -11,16 +11,14 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ModSource Include="%(Identity)/**/*.cs" Condition="Exists('%(Identity)/mod.json')" />
-      <ModData Include="%(Identity)/**/*.json" Exclude="%(Identity)/mod.json" Condition="Exists('%(Identity)/mod.json')" />
+      <ModData Include="%(Identity)/**/*.json" Condition="Exists('%(Identity)/mod.json')" />
     </ItemGroup>
 
     <ItemGroup>
-      <Compile Include="@(ModSource)" />
       <AdditionalFiles Include="@(ModData)" />
     </ItemGroup>
 
-    <Message Text="DataCatalyst: merged @(ModSource->Count()) source files, @(ModData->Count()) data files from $(ModsDirectory)"
+    <Message Text="DataCatalyst: merged @(ModData->Count()) data files from $(ModsDirectory)"
              Importance="High" />
   </Target>
 </Project>
