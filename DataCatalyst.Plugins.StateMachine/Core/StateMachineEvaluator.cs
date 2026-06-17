@@ -2,9 +2,8 @@ namespace DataCatalyst.Plugins.StateMachine.Core;
 
 using System;
 using System.Collections.Generic;
-using DataCatalyst.Plugins.StateMachine.Models;
 using DataCatalyst.Plugins.NumericCompare.Core;
-using DataCatalyst.Plugins.NumericCompare.Contracts;
+using DataCatalyst.Plugins.StateMachine.Models;
 using DataCatalyst.Plugins.Transition.Models;
 
 /// <summary>Evaluates state transitions based on sensor input.</summary>

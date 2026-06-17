@@ -166,7 +166,7 @@ public class DataCatalogBuilderTests {
 	}
 }
 
-public class PrimitiveRegistryTests : System.IDisposable {
+public class PrimitiveRegistryTests : IDisposable {
 	public PrimitiveRegistryTests() {
 		PrimitiveRegistry.Clear();
 	}
@@ -199,7 +199,7 @@ public class PrimitiveRegistryTests : System.IDisposable {
 	}
 }
 
-public class PluginRegistryTests : System.IDisposable {
+public class PluginRegistryTests : IDisposable {
 	public PluginRegistryTests() {
 		PluginRegistry.Clear();
 	}

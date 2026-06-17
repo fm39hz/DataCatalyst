@@ -1,14 +1,10 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
+namespace DataCatalyst.Tests; 
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using DataCatalyst.Core;
 using DataCatalyst.Loaders;
 using FluentAssertions;
 using Xunit;
-
-namespace DataCatalyst.Tests {
 
 public class IntegrationTests : IDisposable {
 	private readonly string _tempDir;
@@ -27,11 +23,9 @@ public class IntegrationTests : IDisposable {
 		GC.SuppressFinalize(this);
 	}
 
-	private static JsonSerializerOptions CreateOptions() {
-		return new JsonSerializerOptions {
-			TypeInfoResolver = new DefaultJsonTypeInfoResolver()
-		};
-	}
+	private static JsonSerializerOptions CreateOptions() => new() {
+		TypeInfoResolver = new DefaultJsonTypeInfoResolver()
+	};
 
 	[Fact]
 	public void EndToEnd_LoadAndResolveInheritance_FlattensCorrectly() {
@@ -40,14 +34,14 @@ public class IntegrationTests : IDisposable {
 		PrimitiveRegistry.Register<OtherStruct>();
 
 		// Write BaseEntity.json
-		File.WriteAllText(Path.Combine(_tempDir, "BaseEntity.json"), @"{
+		File.WriteAllText(Path.Combine(_tempDir, "BaseEntity.json"), /*lang=json,strict*/ @"{
 			""GameComponent"": {
 				""Value"": 10
 			}
 		}");
 
 		// Write BaseMonster.json inheriting BaseEntity
-		File.WriteAllText(Path.Combine(_tempDir, "BaseMonster.json"), @"{
+		File.WriteAllText(Path.Combine(_tempDir, "BaseMonster.json"), /*lang=json,strict*/ @"{
 			""inherits"": [ ""BaseEntity"" ],
 			""OtherStruct"": {
 				""Y"": 20
@@ -55,7 +49,7 @@ public class IntegrationTests : IDisposable {
 		}");
 
 		// Write Goblin.json inheriting BaseMonster and overriding GameComponent
-		File.WriteAllText(Path.Combine(_tempDir, "Goblin.json"), @"{
+		File.WriteAllText(Path.Combine(_tempDir, "Goblin.json"), /*lang=json,strict*/ @"{
 			""inherits"": [ ""BaseMonster"" ],
 			""GameComponent"": {
 				""Value"": 99
@@ -85,11 +79,11 @@ public class IntegrationTests : IDisposable {
 		// Arrange
 		PrimitiveRegistry.Register<GameComponent>();
 
-		File.WriteAllText(Path.Combine(_tempDir, "LoopA.json"), @"{
+		File.WriteAllText(Path.Combine(_tempDir, "LoopA.json"), /*lang=json,strict*/ @"{
 			""inherits"": [ ""LoopB"" ]
 		}");
 
-		File.WriteAllText(Path.Combine(_tempDir, "LoopB.json"), @"{
+		File.WriteAllText(Path.Combine(_tempDir, "LoopB.json"), /*lang=json,strict*/ @"{
 			""inherits"": [ ""LoopA"" ]
 		}");
 
@@ -108,7 +102,7 @@ public class IntegrationTests : IDisposable {
 		// Arrange
 		PrimitiveRegistry.Register<GameComponent>();
 
-		File.WriteAllText(Path.Combine(_tempDir, "SelfLoop.json"), @"{
+		File.WriteAllText(Path.Combine(_tempDir, "SelfLoop.json"), /*lang=json,strict*/ @"{
 			""inherits"": [ ""SelfLoop"" ]
 		}");
 
@@ -128,15 +122,15 @@ public class IntegrationTests : IDisposable {
 		PrimitiveRegistry.Register<GameComponent>();
 
 		// A -> B -> C -> B (Nested loop starting at B)
-		File.WriteAllText(Path.Combine(_tempDir, "LoopA.json"), @"{
+		File.WriteAllText(Path.Combine(_tempDir, "LoopA.json"), /*lang=json,strict*/ @"{
 			""inherits"": [ ""LoopB"" ]
 		}");
 
-		File.WriteAllText(Path.Combine(_tempDir, "LoopB.json"), @"{
+		File.WriteAllText(Path.Combine(_tempDir, "LoopB.json"), /*lang=json,strict*/ @"{
 			""inherits"": [ ""LoopC"" ]
 		}");
 
-		File.WriteAllText(Path.Combine(_tempDir, "LoopC.json"), @"{
+		File.WriteAllText(Path.Combine(_tempDir, "LoopC.json"), /*lang=json,strict*/ @"{
 			""inherits"": [ ""LoopB"" ]
 		}");
 
@@ -155,7 +149,7 @@ public class IntegrationTests : IDisposable {
 		// Arrange
 		PrimitiveRegistry.Register<GameComponent>();
 
-		File.WriteAllText(Path.Combine(_tempDir, "Goblin.json"), @"{
+		File.WriteAllText(Path.Combine(_tempDir, "Goblin.json"), /*lang=json,strict*/ @"{
 			""inherits"": [ ""NonExistentParent"" ],
 			""GameComponent"": {
 				""Value"": 1
@@ -173,4 +167,4 @@ public class IntegrationTests : IDisposable {
 	}
 }
 
-} // namespace DataCatalyst.Tests
+ // namespace DataCatalyst.Tests

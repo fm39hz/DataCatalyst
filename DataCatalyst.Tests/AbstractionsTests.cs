@@ -1,11 +1,8 @@
-using System;
-using System.Collections.Generic;
+namespace DataCatalyst.Tests; 
 using DataCatalyst.Abstractions;
 using DataCatalyst.Core;
 using FluentAssertions;
 using Xunit;
-
-namespace DataCatalyst.Tests {
 
 public class AbstractionsTests : IDisposable {
 	public AbstractionsTests() {
@@ -53,7 +50,7 @@ public class AbstractionsTests : IDisposable {
 	[Fact]
 	public void ServiceRegistry_RegisterAndResolve() {
 		var service = new TestService { Name = "Auth" };
-		ServiceRegistry.Register<TestService>(service);
+		ServiceRegistry.Register(service);
 
 		var resolved = ServiceRegistry.Get<TestService>();
 		resolved.Should().NotBeNull();
@@ -69,7 +66,7 @@ public class AbstractionsTests : IDisposable {
 	[Fact]
 	public void DataViewAdapterRegistry_RegisterAndGet() {
 		var adapter = new TestViewAdapter();
-		DataViewAdapterRegistry.Register<TestStruct>(adapter);
+		DataViewAdapterRegistry.Register(adapter);
 
 		var adapters = DataViewAdapterRegistry.GetAdapters<TestStruct>();
 		adapters.Should().ContainSingle().And.Contain(adapter);
@@ -79,11 +76,11 @@ public class AbstractionsTests : IDisposable {
 	public void DataOverride_Constructor_SetsProperties() {
 		var dataOverride = new DataOverride {
 			Target = "item_sword",
-			RawJson = "{ \"Damage\": 50 }"
+			RawJson = /*lang=json,strict*/ "{ \"Damage\": 50 }"
 		};
 
 		dataOverride.Target.Should().Be("item_sword");
-		dataOverride.RawJson.Should().Be("{ \"Damage\": 50 }");
+		dataOverride.RawJson.Should().Be(/*lang=json,strict*/ "{ \"Damage\": 50 }");
 	}
 }
 
@@ -100,4 +97,4 @@ public class TestViewAdapter : IDataViewAdapter<TestStruct> {
 	public void OnAllCleared() { }
 }
 
-} // namespace DataCatalyst.Tests
+ // namespace DataCatalyst.Tests

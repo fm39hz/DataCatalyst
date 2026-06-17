@@ -7,17 +7,26 @@ using DataCatalyst.Plugins.NumericCompare.Contracts;
 /// <summary>Parses and evaluates numeric comparison operators.</summary>
 public static class OperatorParser {
 	private static readonly Dictionary<string, CompareOp> Map = new(StringComparer.OrdinalIgnoreCase) {
-		["=="] = CompareOp.Equal, ["eq"] = CompareOp.Equal,
-		["!="] = CompareOp.NotEqual, ["neq"] = CompareOp.NotEqual,
-		[">"] = CompareOp.GreaterThan, ["gt"] = CompareOp.GreaterThan,
-		[">="] = CompareOp.GreaterThanOrEqual, ["gte"] = CompareOp.GreaterThanOrEqual,
-		["<"] = CompareOp.LessThan, ["lt"] = CompareOp.LessThan,
-		["<="] = CompareOp.LessThanOrEqual, ["lte"] = CompareOp.LessThanOrEqual,
+		["=="] = CompareOp.Equal,
+		["eq"] = CompareOp.Equal,
+		["!="] = CompareOp.NotEqual,
+		["neq"] = CompareOp.NotEqual,
+		[">"] = CompareOp.GreaterThan,
+		["gt"] = CompareOp.GreaterThan,
+		[">="] = CompareOp.GreaterThanOrEqual,
+		["gte"] = CompareOp.GreaterThanOrEqual,
+		["<"] = CompareOp.LessThan,
+		["lt"] = CompareOp.LessThan,
+		["<="] = CompareOp.LessThanOrEqual,
+		["lte"] = CompareOp.LessThanOrEqual,
 	};
 
 	/// <summary>Converts a string token to a CompareOp value.</summary>
 	public static CompareOp Parse(string op) {
-		if (Map.TryGetValue(op, out var result)) return result;
+		if (Map.TryGetValue(op, out var result)) {
+			return result;
+		}
+
 		throw new ArgumentException($"Unknown operator: {op}");
 	}
 

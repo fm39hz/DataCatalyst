@@ -1,14 +1,11 @@
-using System;
-using System.Collections.Generic;
+namespace DataCatalyst.Tests; 
 using DataCatalyst.Plugins.NumericCompare.Contracts;
 using DataCatalyst.Plugins.NumericCompare.Core;
-using DataCatalyst.Plugins.Transition.Models;
 using DataCatalyst.Plugins.StateMachine.Core;
 using DataCatalyst.Plugins.StateMachine.Models;
+using DataCatalyst.Plugins.Transition.Models;
 using FluentAssertions;
 using Xunit;
-
-namespace DataCatalyst.Tests {
 
 public class StateMachineTests {
 	[Theory]
@@ -24,9 +21,7 @@ public class StateMachineTests {
 	[InlineData("lt", CompareOp.LessThan)]
 	[InlineData("<=", CompareOp.LessThanOrEqual)]
 	[InlineData("lte", CompareOp.LessThanOrEqual)]
-	public void OperatorParser_ParsesAllTokens(string token, CompareOp expected) {
-		OperatorParser.Parse(token).Should().Be(expected);
-	}
+	public void OperatorParser_ParsesAllTokens(string token, CompareOp expected) => OperatorParser.Parse(token).Should().Be(expected);
 
 	[Fact]
 	public void OperatorParser_ThrowsOnInvalidToken() {
@@ -45,9 +40,7 @@ public class StateMachineTests {
 	[InlineData(5f, CompareOp.LessThan, 10f, true)]
 	[InlineData(10f, CompareOp.LessThan, 10f, false)]
 	[InlineData(10f, CompareOp.LessThanOrEqual, 10f, true)]
-	public void OperatorParser_EvaluateMatchesMath(float value, CompareOp op, float threshold, bool expected) {
-		OperatorParser.Evaluate(value, op, threshold).Should().Be(expected);
-	}
+	public void OperatorParser_EvaluateMatchesMath(float value, CompareOp op, float threshold, bool expected) => OperatorParser.Evaluate(value, op, threshold).Should().Be(expected);
 
 	[Fact]
 	public void StateMachineEvaluator_NoState_ReturnsFalse() {
@@ -65,17 +58,17 @@ public class StateMachineTests {
 			DefaultState = "Idle",
 			States = new Dictionary<string, StateDefinition> {
 				["Idle"] = new StateDefinition {
-					Transitions = new List<TransitionDef> {
-						new TransitionDef {
-							TargetState = "Patrol",
-							Priority = 5,
-							Conditions = new ConditionGroupDef {
-								All = new List<SensorConditionDef> {
-									new SensorConditionDef { Signal = "time", Op = ">", Value = 5f }
-								}
-							}
+					Transitions = [
+					new() {
+						TargetState = "Patrol",
+						Priority = 5,
+						Conditions = new ConditionGroupDef {
+							All = [
+								new() { Signal = "time", Op = ">", Value = 5f }
+							]
 						}
 					}
+				]
 				},
 				["Patrol"] = new StateDefinition()
 			}
@@ -97,38 +90,36 @@ public class StateMachineTests {
 			GroupId = "GuardAI",
 			States = new Dictionary<string, StateDefinition> {
 				["Idle"] = new StateDefinition {
-					Transitions = new List<TransitionDef> {
-						new TransitionDef {
-							TargetState = "Patrol",
-							Conditions = new ConditionGroupDef {
-								All = new List<SensorConditionDef> {
-									new SensorConditionDef { Signal = "has_target", Op = "==", Value = 0f }
-								},
-								Any = new List<SensorConditionDef> {
-									new SensorConditionDef { Signal = "time", Op = ">", Value = 10f },
-									new SensorConditionDef { Signal = "boredom", Op = ">", Value = 50f }
-								},
-								None = new List<SensorConditionDef> {
-									new SensorConditionDef { Signal = "alert", Op = "==", Value = 1f }
-								}
-							}
+					Transitions = [
+					new() {
+						TargetState = "Patrol",
+						Conditions = new ConditionGroupDef {
+							All = [
+								new() { Signal = "has_target", Op = "==", Value = 0f }
+							],
+							Any = [
+								new() { Signal = "time", Op = ">", Value = 10f },
+								new() { Signal = "boredom", Op = ">", Value = 50f }
+							],
+							None = [
+								new() { Signal = "alert", Op = "==", Value = 1f }
+							]
 						}
 					}
+				]
 				},
 				["Patrol"] = new StateDefinition()
 			}
 		};
 
 		// Helper to invoke evaluate
-		StateMachineEvaluator.Result Run(float hasTarget, float time, float boredom, float alert) {
-			return StateMachineEvaluator.Evaluate("Idle", group, ["GuardAI.Patrol"], s => s switch {
-				"has_target" => hasTarget,
-				"time" => time,
-				"boredom" => boredom,
-				"alert" => alert,
-				_ => 0f
-			});
-		}
+		StateMachineEvaluator.Result Run(float hasTarget, float time, float boredom, float alert) => StateMachineEvaluator.Evaluate("Idle", group, ["GuardAI.Patrol"], s => s switch {
+			"has_target" => hasTarget,
+			"time" => time,
+			"boredom" => boredom,
+			"alert" => alert,
+			_ => 0f
+		});
 
 		// Conditions should pass: no target (0), boredom > 50 (60), alert is false (0)
 		Run(0f, 2f, 60f, 0f).HasValue.Should().BeTrue();
@@ -153,23 +144,23 @@ public class StateMachineTests {
 			DepthPenalty = 1000,
 			States = new Dictionary<string, StateDefinition> {
 				["Patrol"] = new StateDefinition {
-					Transitions = new List<TransitionDef> {
-						new TransitionDef {
-							TargetState = "Refuel",
-							Priority = 2000, // Parent transition priority
-							Conditions = new ConditionGroupDef { All = new List<SensorConditionDef> { new SensorConditionDef { Signal = "battery", Op = "<", Value = 20f } } }
-						}
+					Transitions = [
+					new() {
+						TargetState = "Refuel",
+						Priority = 2000, // Parent transition priority
+						Conditions = new ConditionGroupDef { All = [new() { Signal = "battery", Op = "<", Value = 20f }] }
 					}
+				]
 				},
 				["AggressivePatrol"] = new StateDefinition {
 					Parent = "Patrol",
-					Transitions = new List<TransitionDef> {
-						new TransitionDef {
-							TargetState = "Attack",
-							Priority = 1500, // Child transition priority
-							Conditions = new ConditionGroupDef { All = new List<SensorConditionDef> { new SensorConditionDef { Signal = "see_enemy", Op = "==", Value = 1f } } }
-						}
+					Transitions = [
+					new() {
+						TargetState = "Attack",
+						Priority = 1500, // Child transition priority
+						Conditions = new ConditionGroupDef { All = [new() { Signal = "see_enemy", Op = "==", Value = 1f }] }
 					}
+				]
 				},
 				["Refuel"] = new StateDefinition(),
 				["Attack"] = new StateDefinition()
@@ -199,24 +190,24 @@ public class StateMachineTests {
 			TierScale = 1000,
 			States = new Dictionary<string, StateDefinition> {
 				["Search"] = new StateDefinition {
-					Transitions = new List<TransitionDef> {
-						new TransitionDef {
-							TargetState = "Attack",
-							Priority = 500,
-							Conditions = new ConditionGroupDef { All = new List<SensorConditionDef> { new SensorConditionDef { Signal = "in_range", Op = "==", Value = 1f } } },
-							Influences = new List<SensorInfluenceDef> {
-								new SensorInfluenceDef { Signal = "anger", Weight = 100f }
-							}
-						},
-						new TransitionDef {
-							TargetState = "Flee",
-							Priority = 600, // Flee has higher base priority (600 vs 500)
-							Conditions = new ConditionGroupDef { All = new List<SensorConditionDef> { new SensorConditionDef { Signal = "in_range", Op = "==", Value = 1f } } },
-							Influences = new List<SensorInfluenceDef> {
-								new SensorInfluenceDef { Signal = "fear", Weight = 50f }
-							}
-						}
+					Transitions = [
+					new() {
+						TargetState = "Attack",
+						Priority = 500,
+						Conditions = new ConditionGroupDef { All = [new() { Signal = "in_range", Op = "==", Value = 1f }] },
+						Influences = [
+							new() { Signal = "anger", Weight = 100f }
+						]
+					},
+					new() {
+						TargetState = "Flee",
+						Priority = 600, // Flee has higher base priority (600 vs 500)
+						Conditions = new ConditionGroupDef { All = [new() { Signal = "in_range", Op = "==", Value = 1f }] },
+						Influences = [
+							new() { Signal = "fear", Weight = 50f }
+						]
 					}
+				]
 				},
 				["Attack"] = new StateDefinition(),
 				["Flee"] = new StateDefinition()
@@ -252,16 +243,16 @@ public class StateMachineTests {
 			GroupId = "GuardAI",
 			States = new Dictionary<string, StateDefinition> {
 				["Idle"] = new StateDefinition {
-					Transitions = new List<TransitionDef> {
-						new TransitionDef {
-							TargetState = "Patrol",
-							Conditions = new ConditionGroupDef {
-								All = new List<SensorConditionDef> {
-									new SensorConditionDef { Signal = "time", Op = ">", Value = 5f }
-								}
-							}
+					Transitions = [
+					new() {
+						TargetState = "Patrol",
+						Conditions = new ConditionGroupDef {
+							All = [
+								new() { Signal = "time", Op = ">", Value = 5f }
+							]
 						}
 					}
+				]
 				},
 				["Patrol"] = new StateDefinition()
 			}
@@ -279,28 +270,28 @@ public class StateMachineTests {
 			GroupId = "TempAI",
 			States = new Dictionary<string, StateDefinition> {
 				["Idle"] = new StateDefinition {
-					Transitions = new List<TransitionDef> {
-						new TransitionDef {
-							TargetState = "Active",
-							Conditions = new ConditionGroupDef {
-								All = new List<SensorConditionDef> {
-									new SensorConditionDef { Signal = "temp", Op = ">", Value = 50f, ExitValue = 40f }
-								}
-							}
+					Transitions = [
+					new() {
+						TargetState = "Active",
+						Conditions = new ConditionGroupDef {
+							All = [
+								new() { Signal = "temp", Op = ">", Value = 50f, ExitValue = 40f }
+							]
 						}
 					}
+				]
 				},
 				["Active"] = new StateDefinition {
-					Transitions = new List<TransitionDef> {
-						new TransitionDef {
-							TargetState = "Active",
-							Conditions = new ConditionGroupDef {
-								All = new List<SensorConditionDef> {
-									new SensorConditionDef { Signal = "temp", Op = ">", Value = 50f, ExitValue = 40f }
-								}
-							}
+					Transitions = [
+					new() {
+						TargetState = "Active",
+						Conditions = new ConditionGroupDef {
+							All = [
+								new() { Signal = "temp", Op = ">", Value = 50f, ExitValue = 40f }
+							]
 						}
 					}
+				]
 				}
 			}
 		};
@@ -331,23 +322,23 @@ public class StateMachineTests {
 			DepthPenalty = 1000,
 			States = new Dictionary<string, StateDefinition> {
 				["Patrol"] = new StateDefinition {
-					Transitions = new List<TransitionDef> {
-						new TransitionDef {
-							TargetState = "Refuel",
-							Priority = 2000,
-							Conditions = new ConditionGroupDef { All = new List<SensorConditionDef> { new SensorConditionDef { Signal = "battery", Op = "<", Value = 20f } } }
-						}
+					Transitions = [
+					new() {
+						TargetState = "Refuel",
+						Priority = 2000,
+						Conditions = new ConditionGroupDef { All = [new() { Signal = "battery", Op = "<", Value = 20f }] }
 					}
+				]
 				},
 				["AggressivePatrol"] = new StateDefinition {
 					Parent = "Patrol",
-					Transitions = new List<TransitionDef> {
-						new TransitionDef {
-							TargetState = "Attack",
-							Priority = 1500,
-							Conditions = new ConditionGroupDef { All = new List<SensorConditionDef> { new SensorConditionDef { Signal = "see_enemy", Op = "==", Value = 1f } } }
-						}
+					Transitions = [
+					new() {
+						TargetState = "Attack",
+						Priority = 1500,
+						Conditions = new ConditionGroupDef { All = [new() { Signal = "see_enemy", Op = "==", Value = 1f }] }
 					}
+				]
 				},
 				["Refuel"] = new StateDefinition(),
 				["Attack"] = new StateDefinition()
@@ -369,4 +360,4 @@ public class StateMachineTests {
 	}
 }
 
-} // namespace DataCatalyst.Tests
+ // namespace DataCatalyst.Tests

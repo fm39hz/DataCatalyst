@@ -1,34 +1,28 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
+namespace DataCatalyst.Tests; 
+using FluentAssertions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-using DataCatalyst;
-using FluentAssertions;
 using Xunit;
-
-namespace DataCatalyst.Tests {
 
 public class SourceGenTests {
 	private static string RunGenerator(string sourceCode) {
 		var syntaxTree = CSharpSyntaxTree.ParseText(sourceCode);
 
-		var assemblyPath = System.IO.Path.GetDirectoryName(typeof(object).Assembly.Location)!;
+		var assemblyPath = Path.GetDirectoryName(typeof(object).Assembly.Location)!;
 
 		// Reference assemblies needed for compilation.
 		var references = new List<MetadataReference> {
-			MetadataReference.CreateFromFile(System.IO.Path.Combine(assemblyPath, "System.Private.CoreLib.dll")),
-			MetadataReference.CreateFromFile(System.IO.Path.Combine(assemblyPath, "System.Runtime.dll")),
-			MetadataReference.CreateFromFile(System.IO.Path.Combine(assemblyPath, "netstandard.dll")),
-			MetadataReference.CreateFromFile(typeof(System.Runtime.CompilerServices.ModuleInitializerAttribute).Assembly.Location),
-			MetadataReference.CreateFromFile(typeof(DataCatalyst.Abstractions.DataComponentAttribute).Assembly.Location),
-			MetadataReference.CreateFromFile(typeof(DataCatalyst.Core.DataRegistry).Assembly.Location)
-		};
+		MetadataReference.CreateFromFile(Path.Combine(assemblyPath, "System.Private.CoreLib.dll")),
+		MetadataReference.CreateFromFile(Path.Combine(assemblyPath, "System.Runtime.dll")),
+		MetadataReference.CreateFromFile(Path.Combine(assemblyPath, "netstandard.dll")),
+		MetadataReference.CreateFromFile(typeof(System.Runtime.CompilerServices.ModuleInitializerAttribute).Assembly.Location),
+		MetadataReference.CreateFromFile(typeof(Abstractions.DataComponentAttribute).Assembly.Location),
+		MetadataReference.CreateFromFile(typeof(Core.DataRegistry).Assembly.Location)
+	};
 
 		var compilation = CSharpCompilation.Create(
 			"TestAssembly",
-			new[] { syntaxTree },
+			[syntaxTree],
 			references,
 			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
@@ -96,4 +90,4 @@ public class SourceGenTests {
 	}
 }
 
-} // namespace DataCatalyst.Tests
+ // namespace DataCatalyst.Tests

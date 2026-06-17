@@ -16,7 +16,8 @@ public static class DataGraphBuilder {
 				if (entry.Inherits != null) {
 					existing.Inherits = entry.Inherits;
 				}
-			} else {
+			}
+			else {
 				graph.Entries[entry.Key] = entry;
 			}
 		}

@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using DataCatalyst.Core;
 
 /// <summary>Result of a JSON directory load operation, containing resolved entries and diagnostics.</summary>
@@ -22,9 +21,7 @@ public static class JsonDataLoader {
 	[Obsolete("Use LoadDirectory with JsonSerializerOptions for Native AOT compatibility.")]
 	[System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Reflection-based serialization is not Native AOT compatible. Use the overload accepting JsonSerializerOptions.")]
 	[System.Diagnostics.CodeAnalysis.RequiresDynamicCode("Reflection-based serialization is not Native AOT compatible. Use the overload accepting JsonSerializerOptions.")]
-	public static List<DataEntry> LoadDirectory(string directory) {
-		return LoadDirectoryReflection(directory).Entries;
-	}
+	public static List<DataEntry> LoadDirectory(string directory) => LoadDirectoryReflection(directory).Entries;
 
 	/// <summary>Loads entries from all JSON files in a directory in an AOT-safe manner.</summary>
 	public static LoadResult LoadDirectory(string directory, JsonSerializerOptions options) {
@@ -98,7 +95,8 @@ public static class JsonDataLoader {
 					Type? type;
 					if (prop.Name.Contains('.')) {
 						fullNames.TryGetValue(prop.Name, out type);
-					} else {
+					}
+					else {
 						if (duplicates.Contains(prop.Name)) {
 							result.Diagnostics.Add($"Ambiguous component short name '{prop.Name}' in file '{file}'. Use fully-qualified name.");
 							continue;
@@ -116,7 +114,8 @@ public static class JsonDataLoader {
 						var deserialized = JsonSerializer.Deserialize(prop.Value.GetRawText(), typeInfo);
 						if (deserialized != null) {
 							components[type] = deserialized;
-						} else {
+						}
+						else {
 							result.Diagnostics.Add($"Failed to deserialize component '{prop.Name}' in file '{file}': Result was null.");
 						}
 					}
@@ -193,7 +192,8 @@ public static class JsonDataLoader {
 					Type? type;
 					if (prop.Name.Contains('.')) {
 						fullNames.TryGetValue(prop.Name, out type);
-					} else {
+					}
+					else {
 						if (duplicates.Contains(prop.Name)) {
 							result.Diagnostics.Add($"Ambiguous component short name '{prop.Name}' in file '{file}'. Use fully-qualified name.");
 							continue;
@@ -210,7 +210,8 @@ public static class JsonDataLoader {
 						var deserialized = JsonSerializer.Deserialize(prop.Value.GetRawText(), type);
 						if (deserialized != null) {
 							components[type] = deserialized;
-						} else {
+						}
+						else {
 							result.Diagnostics.Add($"Failed to deserialize component '{prop.Name}' in file '{file}': Result was null.");
 						}
 					}
