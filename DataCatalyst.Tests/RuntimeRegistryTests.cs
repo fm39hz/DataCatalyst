@@ -241,3 +241,29 @@ public class TestPlugin : IDataPlugin {
 		Constructed = true;
 	}
 }
+
+public class DataCatalogExtensionsTests {
+	public enum BindTestKind { A, B }
+	public struct BindTestStruct {
+		public BindTestKind Kind { get; set; }
+		public int Value { get; set; }
+	}
+
+	[Fact]
+	public void Bind_MapsEnumCorrectly() {
+		var e1 = new DataEntry("A");
+		e1.Set(new BindTestStruct { Kind = BindTestKind.A, Value = 10 });
+		var e2 = new DataEntry("B");
+		e2.Set(new BindTestStruct { Kind = BindTestKind.B, Value = 20 });
+
+		var graph = DataGraphBuilder.Build([e1, e2]);
+		var catalog = DataCatalogBuilder.Resolve(graph);
+
+		var result = catalog.Bind<BindTestKind, BindTestStruct>(s => s.Kind);
+
+		result.Should().HaveCount(2);
+		result[BindTestKind.A].Value.Should().Be(10);
+		result[BindTestKind.B].Value.Should().Be(20);
+	}
+}
+
