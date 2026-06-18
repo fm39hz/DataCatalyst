@@ -20,6 +20,9 @@ public sealed class DataEntry(string key, Dictionary<Type, object>? components =
 	/// <summary>The source file path from which this entry was loaded.</summary>
 	public string? SourceFile { get; set; }
 
+	/// <summary>Patch layer priority. Higher layers override lower layers during merge.</summary>
+	public int Layer { get; set; }
+
 	/// <summary>Adds or replaces a component value. Internal — use constructor for initial data.</summary>
 	internal void Set<T>(T value) where T : struct => _components[typeof(T)] = value;
 
