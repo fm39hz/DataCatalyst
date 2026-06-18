@@ -13,11 +13,12 @@ public static class DataCatalogBuilder {
 		var ordered = TopologicalSort(graph);
 
 		foreach (var entry in ordered) {
-			if (entry._resolved) {
+			if (resolved.ContainsKey(entry.Key)) {
 				continue;
 			}
 
-			ResolveEntry(entry, graph, resolved, []);
+			var merged = CollectComponents(entry, graph, resolved, []);
+			resolved[entry.Key] = new DataEntry(entry.Key, merged, null) { SourceFile = entry.SourceFile };
 		}
 
 		var catalog = new DataCatalog(resolved);
@@ -30,41 +31,39 @@ public static class DataCatalogBuilder {
 		return catalog;
 	}
 
-	private static void ResolveEntry(
+	private static Dictionary<Type, object> CollectComponents(
 		DataEntry entry, DataGraph graph,
 		Dictionary<string, DataEntry> resolved,
 		HashSet<string> visiting) {
-		if (resolved.ContainsKey(entry.Key)) {
-			return;
-		}
 
 		if (!visiting.Add(entry.Key)) {
 			throw new InvalidOperationException($"Cycle detected: {entry.Key}");
 		}
 
+		// Start with own components
+		var merged = new Dictionary<Type, object>(entry._components);
+
 		if (entry.Inherits != null) {
 			foreach (var parentKey in entry.Inherits) {
 				if (resolved.TryGetValue(parentKey, out var parentEntry)) {
-					MergeComponents(entry, parentEntry);
+					CopyMissing(merged, parentEntry._components);
 				}
 				else if (graph.Entries.TryGetValue(parentKey, out var parentGraphEntry)) {
-					ResolveEntry(parentGraphEntry, graph, resolved, visiting);
-					if (resolved.TryGetValue(parentKey, out var resolvedParent)) {
-						MergeComponents(entry, resolvedParent);
-					}
+					var parentMerged = CollectComponents(parentGraphEntry, graph, resolved, visiting);
+					resolved[parentKey] = new DataEntry(parentKey, parentMerged, null) { SourceFile = parentGraphEntry.SourceFile };
+					CopyMissing(merged, parentMerged);
 				}
 			}
 		}
 
 		visiting.Remove(entry.Key);
-		entry._resolved = true;
-		resolved[entry.Key] = entry;
+		return merged;
 	}
 
-	private static void MergeComponents(DataEntry child, DataEntry parent) {
-		foreach (var (type, val) in parent._components) {
-			if (!child._components.ContainsKey(type)) {
-				child._components[type] = val;
+	private static void CopyMissing(Dictionary<Type, object> target, Dictionary<Type, object> source) {
+		foreach (var (type, val) in source) {
+			if (!target.ContainsKey(type)) {
+				target[type] = val;
 			}
 		}
 	}

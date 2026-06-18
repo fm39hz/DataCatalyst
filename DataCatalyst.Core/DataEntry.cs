@@ -15,7 +15,6 @@ public sealed class DataEntry(string key, Dictionary<Type, object>? components =
 	public IReadOnlyDictionary<Type, object> Components => _components;
 
 	internal Dictionary<Type, object> _components = components ?? [];
-	internal bool _resolved;
 
 	/// <summary>The source file path from which this entry was loaded.</summary>
 	public string? SourceFile { get; set; }
