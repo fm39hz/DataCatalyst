@@ -6,14 +6,10 @@ using FluentAssertions;
 using Xunit;
 
 public class AbstractionsTests : IDisposable {
-	public AbstractionsTests() {
-		ServiceRegistry.Clear();
-		DataViewAdapterRegistry.Clear();
-	}
+	private readonly ServiceRegistry _services = new();
+	private readonly DataViewAdapterRegistry _adapters = new();
 
 	public void Dispose() {
-		ServiceRegistry.Clear();
-		DataViewAdapterRegistry.Clear();
 		GC.SuppressFinalize(this);
 	}
 
@@ -51,25 +47,25 @@ public class AbstractionsTests : IDisposable {
 	[Fact]
 	public void ServiceRegistry_RegisterAndResolve() {
 		var service = new TestService { Name = "Auth" };
-		ServiceRegistry.Register(service);
+		_services.Register(service);
 
-		var resolved = ServiceRegistry.Get<TestService>();
+		var resolved = _services.Get<TestService>();
 		resolved.Should().NotBeNull();
 		resolved!.Name.Should().Be("Auth");
 	}
 
 	[Fact]
 	public void ServiceRegistry_ResolveUnregistered_ReturnsNull() {
-		var resolved = ServiceRegistry.Get<UnregisteredService>();
+		var resolved = _services.Get<UnregisteredService>();
 		resolved.Should().BeNull();
 	}
 
 	[Fact]
 	public void DataViewAdapterRegistry_RegisterAndGet() {
 		var adapter = new TestViewAdapter();
-		DataViewAdapterRegistry.Register(adapter);
+		_adapters.Register(adapter);
 
-		var adapters = DataViewAdapterRegistry.GetAdapters<TestStruct>();
+		var adapters = _adapters.GetAdapters<TestStruct>();
 		adapters.Should().ContainSingle().And.Contain(adapter);
 	}
 

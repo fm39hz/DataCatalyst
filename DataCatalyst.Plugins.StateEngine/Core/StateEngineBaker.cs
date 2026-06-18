@@ -16,9 +16,6 @@ public static class StateEngineBaker {
 		where TState : notnull
 		where TSensor : notnull {
 
-		if (group == null) {
-			throw new ArgumentNullException(nameof(group));
-		}
 		if (stateMapper == null) {
 			throw new ArgumentNullException(nameof(stateMapper));
 		}
@@ -106,13 +103,14 @@ public static class StateEngineBaker {
 		ConditionGroupDef? conds,
 		Func<string, TSensor> sensorMapper)
 		where TSensor : notnull {
-		if (conds == null) {
+		if (conds is null) {
 			return null;
 		}
 
-		var all = BakeSensorConditions(conds.All, sensorMapper);
-		var any = BakeSensorConditions(conds.Any, sensorMapper);
-		var none = BakeSensorConditions(conds.None, sensorMapper);
+		var c = conds.Value;
+		var all = BakeSensorConditions(c.All, sensorMapper);
+		var any = BakeSensorConditions(c.Any, sensorMapper);
+		var none = BakeSensorConditions(c.None, sensorMapper);
 
 		return new BakedConditionGroup<TSensor> {
 			All = all,

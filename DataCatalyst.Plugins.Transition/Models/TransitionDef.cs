@@ -5,9 +5,9 @@ using Abstractions;
 
 /// <summary>Defines a state transition with conditions.</summary>
 [DataComponent]
-public sealed record TransitionDef {
+public readonly record struct TransitionDef {
 	/// <summary>Target state identifier.</summary>
-	public string TargetState { get; init; } = "";
+	public string TargetState { get; init; }
 
 	/// <summary>Transition evaluation priority.</summary>
 	public int Priority { get; init; }
@@ -21,7 +21,7 @@ public sealed record TransitionDef {
 
 /// <summary>Group of sensor conditions with logical operators.</summary>
 [DataComponent]
-public sealed record ConditionGroupDef {
+public readonly record struct ConditionGroupDef {
 	/// <summary>All conditions must pass (AND).</summary>
 	public List<SensorConditionDef>? All { get; init; }
 
@@ -34,12 +34,12 @@ public sealed record ConditionGroupDef {
 
 /// <summary>Sensor-based condition with operator and thresholds.</summary>
 [DataComponent]
-public sealed record SensorConditionDef {
+public readonly record struct SensorConditionDef {
 	/// <summary>Sensor signal identifier.</summary>
-	public string Signal { get; init; } = "";
+	public string Signal { get; init; }
 
 	/// <summary>Comparison operator string.</summary>
-	public string Op { get; init; } = "";
+	public string Op { get; init; }
 
 	/// <summary>Threshold value for triggering.</summary>
 	public float Value { get; init; }
@@ -50,9 +50,9 @@ public sealed record SensorConditionDef {
 
 /// <summary>Modifies transition priority based on sensor input.</summary>
 [DataComponent]
-public sealed record SensorInfluenceDef {
+public readonly record struct SensorInfluenceDef {
 	/// <summary>Sensor signal identifier.</summary>
-	public string Signal { get; init; } = "";
+	public string Signal { get; init; }
 
 	/// <summary>Weight multiplier applied to sensor value.</summary>
 	public float Weight { get; init; }

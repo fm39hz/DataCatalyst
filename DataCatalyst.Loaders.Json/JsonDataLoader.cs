@@ -18,12 +18,13 @@ public sealed class LoadResult {
 
 /// <summary>Loads data entries from JSON files using component discriminators registered in PrimitiveRegistry.</summary>
 public static class JsonDataLoader {
-	private static Type? ResolveComponent(string name) {
-		return PrimitiveRegistry.TryResolveId(name, out var type) ? type : null;
+	private static Type? ResolveComponent(string name, PrimitiveRegistry primitives) {
+		return primitives.TryResolveId(name, out var type) ? type : null;
 	}
 
 	/// <summary>Loads entries from all JSON files in a directory in an AOT-safe manner.</summary>
-	public static LoadResult LoadDirectory(string directory, JsonSerializerOptions options) {
+	public static LoadResult LoadDirectory(string directory, JsonSerializerOptions options, DataCatalystEnvironment? env = null) {
+		env ??= DataCatalystEnvironment.Default;
 		if (options == null) {
 			throw new ArgumentNullException(nameof(options),
 				"JsonSerializerOptions must be provided for AOT compatibility.");
@@ -64,7 +65,7 @@ public static class JsonDataLoader {
 						continue;
 					}
 
-					var type = ResolveComponent(prop.Name);
+					var type = ResolveComponent(prop.Name, env.Primitives);
 					if (type == null) {
 						result.Diagnostics.Add(
 							$"Unrecognized component discriminator '{prop.Name}' in file '{file}'. Make sure the type is marked with [DataComponent] and registered.");
@@ -95,7 +96,7 @@ public static class JsonDataLoader {
 			}
 		}
 
-		foreach (var p in PluginRegistry.Plugins.OfType<IPostLoadPlugin>()) {
+		foreach (var p in env.Plugins.Plugins.OfType<IPostLoadPlugin>()) {
 			p.OnEntriesLoaded(result.Entries, result.Diagnostics);
 		}
 
@@ -103,7 +104,8 @@ public static class JsonDataLoader {
 	}
 
 	/// <summary>Loads entries from a single JSON file containing an array of objects in an AOT-safe manner.</summary>
-	public static LoadResult LoadArray(string filePath, string keyField, JsonSerializerOptions options) {
+	public static LoadResult LoadArray(string filePath, string keyField, JsonSerializerOptions options, DataCatalystEnvironment? env = null) {
+		env ??= DataCatalystEnvironment.Default;
 		if (options == null) {
 			throw new ArgumentNullException(nameof(options),
 				"JsonSerializerOptions must be provided for AOT compatibility.");
@@ -166,7 +168,7 @@ public static class JsonDataLoader {
 						continue;
 					}
 
-					var type = ResolveComponent(prop.Name);
+					var type = ResolveComponent(prop.Name, env.Primitives);
 					if (type == null) {
 						result.Diagnostics.Add(
 							$"Unrecognized component discriminator '{prop.Name}' in element '{key}'. Make sure the type is marked with [DataComponent] and registered.");
@@ -198,7 +200,7 @@ public static class JsonDataLoader {
 			result.Diagnostics.Add($"Failed to load and parse array file '{filePath}': {ex.Message}");
 		}
 
-		foreach (var p in PluginRegistry.Plugins.OfType<IPostLoadPlugin>()) {
+		foreach (var p in env.Plugins.Plugins.OfType<IPostLoadPlugin>()) {
 			p.OnEntriesLoaded(result.Entries, result.Diagnostics);
 		}
 

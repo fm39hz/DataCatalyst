@@ -10,18 +10,18 @@ using Microsoft.CodeAnalysis.Text;
 
 [Generator]
 public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
-	private static readonly DiagnosticDescriptor StructRecommendedWarning = new(
+	private static readonly DiagnosticDescriptor StructRequiredError = new(
 		id: "DC001",
-		title: "DataComponent should be a struct",
-		messageFormat: "[DataComponent] on '{0}' should be a struct for optimal AOT compatibility",
+		title: "DataComponent must be a struct",
+		messageFormat: "[DataComponent] on '{0}' is only valid on struct types",
 		category: "DataCatalyst",
-		defaultSeverity: DiagnosticSeverity.Warning,
+		defaultSeverity: DiagnosticSeverity.Error,
 		isEnabledByDefault: true);
 
 	private static readonly DiagnosticDescriptor CollisionWarning = new(
 		id: "DC002",
 		title: "Discriminator collision",
-		messageFormat: "[DataComponent] types with name '{0}' collide. Use fully-qualified namespace in JSON to distinguish.",
+		messageFormat: "[DataComponent] types with short name '{0}' collide. Resolved discriminators: '{1}'. Use these fully-qualified strings in JSON.",
 		category: "DataCatalyst",
 		defaultSeverity: DiagnosticSeverity.Warning,
 		isEnabledByDefault: true);
@@ -46,11 +46,11 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 			static (node, _) => node is TypeDeclarationSyntax,
 			static (ctx, _) => {
 				var t = (INamedTypeSymbol)ctx.TargetSymbol;
-				Location? warning = t.TypeKind != TypeKind.Structure
+				Location? error = t.TypeKind != TypeKind.Structure
 					? ctx.TargetNode.GetLocation()
 					: null;
 				var fullType = t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-				return new PrimitiveResult(fullType, fullType, warning);
+				return new PrimitiveResult(fullType, fullType, error);
 			}).Collect();
 
 		// Discover [DataPlugin] classes in the compiling assembly
@@ -69,14 +69,14 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 			.Collect();
 
 		context.RegisterSourceOutput(
-			context.CompilationProvider.Combine(plugins).Combine(primitives),
+			plugins.Combine(primitives),
 			static (spc, payload) => {
-				var ((comp, pl), pr) = payload;
+				var (pl, pr) = payload;
 
-				// Report non-struct warnings
+				// Report non-struct errors
 				foreach (var p in pr) {
 					if (p.Warning is {} w)
-						spc.ReportDiagnostic(Diagnostic.Create(StructRecommendedWarning, w));
+						spc.ReportDiagnostic(Diagnostic.Create(StructRequiredError, w));
 				}
 
 				Emit(spc, pl, pr);
@@ -146,7 +146,12 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 		// Resolve collisions: entries with colliding short keys get full namespace path
 		if (colliding.Count > 0) {
 			foreach (var d in colliding) {
-				spc.ReportDiagnostic(Diagnostic.Create(CollisionWarning, Location.None, d));
+				var resolved = prims
+					.Where(p => p.Discrim == d)
+					.Select(p => Discriminator(p.FullType))
+					.ToList();
+				var msg = string.Join(", ", resolved);
+				spc.ReportDiagnostic(Diagnostic.Create(CollisionWarning, Location.None, d, msg));
 			}
 			for (var i = 0; i < prims.Count; i++) {
 				var (ft, d) = prims[i];
@@ -168,19 +173,19 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 		if (allPlugins.Length > 0) {
 			var sorted = TopoSort(allPlugins.ToList(), spc);
 			foreach (var (ft, _, _) in sorted) {
-				sb.Append("\t\t\tglobal::DataCatalyst.Core.PluginRegistry.Register<")
+				sb.Append("\t\t\tglobal::DataCatalyst.Core.PluginRegistry.Default.Register<")
 					.Append(ft).AppendLine(">();");
 			}
 		}
 
 		if (prims.Count > 0) {
 			foreach (var (ft, _) in prims) {
-				sb.Append("\t\t\tglobal::DataCatalyst.Core.PrimitiveRegistry.Register<")
+				sb.Append("\t\t\tglobal::DataCatalyst.Core.PrimitiveRegistry.Default.Register<")
 					.Append(ft).AppendLine(">();");
 			}
 
 			sb.AppendLine();
-			sb.Append("\t\t\tglobal::DataCatalyst.Core.PrimitiveRegistry.RegisterIds(new() {\n");
+			sb.Append("\t\t\tglobal::DataCatalyst.Core.PrimitiveRegistry.Default.RegisterIds(new() {\n");
 			foreach (var (ft, d) in prims) {
 				sb.Append("\t\t\t\t{ \"").Append(d).Append("\", typeof(").Append(ft).Append(") },")
 					.Append(" // ").AppendLine(d);

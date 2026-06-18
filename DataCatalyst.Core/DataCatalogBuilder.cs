@@ -8,7 +8,9 @@ using Abstractions;
 /// <summary>Builds a flat, immutable catalog by resolving inheritance.</summary>
 public static class DataCatalogBuilder {
 	/// <summary>Resolves inheritance and returns a populated catalog.</summary>
-	public static DataCatalog Resolve(DataGraph graph, List<string>? diagnostics = null) {
+	public static DataCatalog Resolve(DataGraph graph, List<string>? diagnostics = null, DataCatalystEnvironment? env = null) {
+		env ??= DataCatalystEnvironment.Default;
+
 		var resolved = new Dictionary<string, DataEntry>();
 		var ordered = TopologicalSort(graph);
 
@@ -24,7 +26,7 @@ public static class DataCatalogBuilder {
 		var catalog = new DataCatalog(resolved);
 
 		var diag = diagnostics ?? new List<string>();
-		foreach (var p in PluginRegistry.Plugins.OfType<ICatalogPlugin>()) {
+		foreach (var p in env.Plugins.Plugins.OfType<ICatalogPlugin>()) {
 			p.OnCatalogResolved(catalog, diag);
 		}
 

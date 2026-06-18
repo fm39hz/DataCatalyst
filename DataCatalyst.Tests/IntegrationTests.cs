@@ -9,11 +9,12 @@ using Xunit;
 
 public class IntegrationTests : IDisposable {
 	private readonly string _tempDir;
+	private readonly DataCatalystEnvironment _env;
 
 	public IntegrationTests() {
 		_tempDir = Path.Combine(Path.GetTempPath(), "DataCatalystIntegrationTests_" + Guid.NewGuid().ToString("N"));
 		Directory.CreateDirectory(_tempDir);
-		PrimitiveRegistry.Clear();
+		_env = new DataCatalystEnvironment();
 	}
 
 	public void Dispose() {
@@ -21,7 +22,6 @@ public class IntegrationTests : IDisposable {
 			Directory.Delete(_tempDir, true);
 		}
 
-		PrimitiveRegistry.Clear();
 		GC.SuppressFinalize(this);
 	}
 
@@ -32,8 +32,8 @@ public class IntegrationTests : IDisposable {
 	[Fact]
 	public void EndToEnd_LoadAndResolveInheritance_FlattensCorrectly() {
 		// Arrange
-		PrimitiveRegistry.Register<GameComponent>();
-		PrimitiveRegistry.Register<OtherStruct>();
+		_env.Primitives.Register<GameComponent>();
+		_env.Primitives.Register<OtherStruct>();
 
 		// Write BaseEntity.json
 		File.WriteAllText(Path.Combine(_tempDir, "BaseEntity.json"), /*lang=json,strict*/ @"{
@@ -59,11 +59,11 @@ public class IntegrationTests : IDisposable {
 		}");
 
 		// Act
-		var loadResult = JsonDataLoader.LoadDirectory(_tempDir, CreateOptions());
+		var loadResult = JsonDataLoader.LoadDirectory(_tempDir, CreateOptions(), _env);
 		loadResult.Diagnostics.Should().BeEmpty();
 
-		var graph = DataGraphBuilder.Build(loadResult.Entries);
-		var catalog = DataCatalogBuilder.Resolve(graph);
+		var graph = DataGraphBuilder.Build(loadResult.Entries, env: _env);
+		var catalog = DataCatalogBuilder.Resolve(graph, env: _env);
 
 		// Assert
 		catalog.ContainsKey("Goblin").Should().BeTrue();
@@ -79,7 +79,7 @@ public class IntegrationTests : IDisposable {
 	[Fact]
 	public void EndToEnd_CyclicInheritance_ThrowsException() {
 		// Arrange
-		PrimitiveRegistry.Register<GameComponent>();
+		_env.Primitives.Register<GameComponent>();
 
 		File.WriteAllText(Path.Combine(_tempDir, "LoopA.json"), /*lang=json,strict*/ @"{
 			""inherits"": [ ""LoopB"" ]
@@ -90,10 +90,10 @@ public class IntegrationTests : IDisposable {
 		}");
 
 		// Act
-		var loadResult = JsonDataLoader.LoadDirectory(_tempDir, CreateOptions());
-		var graph = DataGraphBuilder.Build(loadResult.Entries);
+		var loadResult = JsonDataLoader.LoadDirectory(_tempDir, CreateOptions(), _env);
+		var graph = DataGraphBuilder.Build(loadResult.Entries, env: _env);
 
-		Action act = () => DataCatalogBuilder.Resolve(graph);
+		Action act = () => DataCatalogBuilder.Resolve(graph, env: _env);
 
 		// Assert
 		act.Should().Throw<InvalidOperationException>().WithMessage("*Cycle detected*");
@@ -102,17 +102,17 @@ public class IntegrationTests : IDisposable {
 	[Fact]
 	public void EndToEnd_SelfLoopInheritance_ThrowsException() {
 		// Arrange
-		PrimitiveRegistry.Register<GameComponent>();
+		_env.Primitives.Register<GameComponent>();
 
 		File.WriteAllText(Path.Combine(_tempDir, "SelfLoop.json"), /*lang=json,strict*/ @"{
 			""inherits"": [ ""SelfLoop"" ]
 		}");
 
 		// Act
-		var loadResult = JsonDataLoader.LoadDirectory(_tempDir, CreateOptions());
-		var graph = DataGraphBuilder.Build(loadResult.Entries);
+		var loadResult = JsonDataLoader.LoadDirectory(_tempDir, CreateOptions(), _env);
+		var graph = DataGraphBuilder.Build(loadResult.Entries, env: _env);
 
-		Action act = () => DataCatalogBuilder.Resolve(graph);
+		Action act = () => DataCatalogBuilder.Resolve(graph, env: _env);
 
 		// Assert
 		act.Should().Throw<InvalidOperationException>().WithMessage("*Cycle detected*");
@@ -121,7 +121,7 @@ public class IntegrationTests : IDisposable {
 	[Fact]
 	public void EndToEnd_DeepCyclicInheritance_ThrowsException() {
 		// Arrange
-		PrimitiveRegistry.Register<GameComponent>();
+		_env.Primitives.Register<GameComponent>();
 
 		// A -> B -> C -> B (Nested loop starting at B)
 		File.WriteAllText(Path.Combine(_tempDir, "LoopA.json"), /*lang=json,strict*/ @"{
@@ -137,10 +137,10 @@ public class IntegrationTests : IDisposable {
 		}");
 
 		// Act
-		var loadResult = JsonDataLoader.LoadDirectory(_tempDir, CreateOptions());
-		var graph = DataGraphBuilder.Build(loadResult.Entries);
+		var loadResult = JsonDataLoader.LoadDirectory(_tempDir, CreateOptions(), _env);
+		var graph = DataGraphBuilder.Build(loadResult.Entries, env: _env);
 
-		Action act = () => DataCatalogBuilder.Resolve(graph);
+		Action act = () => DataCatalogBuilder.Resolve(graph, env: _env);
 
 		// Assert
 		act.Should().Throw<InvalidOperationException>().WithMessage("*Cycle detected*");
@@ -149,7 +149,7 @@ public class IntegrationTests : IDisposable {
 	[Fact]
 	public void EndToEnd_MissingInheritanceParent_IsIgnoredWithWarnings() {
 		// Arrange
-		PrimitiveRegistry.Register<GameComponent>();
+		_env.Primitives.Register<GameComponent>();
 
 		File.WriteAllText(Path.Combine(_tempDir, "Goblin.json"), /*lang=json,strict*/ @"{
 			""inherits"": [ ""NonExistentParent"" ],
@@ -159,9 +159,9 @@ public class IntegrationTests : IDisposable {
 		}");
 
 		// Act
-		var loadResult = JsonDataLoader.LoadDirectory(_tempDir, CreateOptions());
-		var graph = DataGraphBuilder.Build(loadResult.Entries);
-		var catalog = DataCatalogBuilder.Resolve(graph);
+		var loadResult = JsonDataLoader.LoadDirectory(_tempDir, CreateOptions(), _env);
+		var graph = DataGraphBuilder.Build(loadResult.Entries, env: _env);
+		var catalog = DataCatalogBuilder.Resolve(graph, env: _env);
 
 		// Assert
 		catalog.ContainsKey("Goblin").Should().BeTrue();

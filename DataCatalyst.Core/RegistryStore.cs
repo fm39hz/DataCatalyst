@@ -1,40 +1,28 @@
 namespace DataCatalyst.Core;
 
-using System.Collections.Generic;
+using System.Collections.Concurrent;
+using System.Linq;
 
 internal sealed class RegistryStore<TKey, TValue> where TKey : notnull {
-	private readonly Dictionary<TKey, TValue> _items = [];
-	private readonly object _lock = new();
+	private readonly ConcurrentDictionary<TKey, TValue> _items = [];
 
 	public void Add(TKey key, TValue value) {
-		lock (_lock) {
-			_items[key] = value;
-		}
+		_items[key] = value;
 	}
 
 	public bool TryGet(TKey key, out TValue? value) {
-		lock (_lock) {
-			return _items.TryGetValue(key, out value);
-		}
+		return _items.TryGetValue(key, out value);
 	}
 
 	public TValue[] GetAll() {
-		lock (_lock) {
-			var result = new TValue[_items.Count];
-			_items.Values.CopyTo(result, 0);
-			return result;
-		}
+		return [.. _items.Values];
 	}
 
 	public void Remove(TKey key) {
-		lock (_lock) {
-			_items.Remove(key);
-		}
+		_items.TryRemove(key, out _);
 	}
 
 	public void Clear() {
-		lock (_lock) {
-			_items.Clear();
-		}
+		_items.Clear();
 	}
 }

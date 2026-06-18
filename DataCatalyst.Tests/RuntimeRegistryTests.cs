@@ -178,58 +178,54 @@ public class DataCatalogBuilderTests {
 }
 
 public class PrimitiveRegistryTests : IDisposable {
-	public PrimitiveRegistryTests() {
-		PrimitiveRegistry.Clear();
-	}
+	private readonly PrimitiveRegistry _registry = new();
 
 	public void Dispose() {
-		PrimitiveRegistry.Clear();
+		_registry.Clear();
 		GC.SuppressFinalize(this);
 	}
 
 	[Fact]
 	public void RegisterAndCheck() {
-		PrimitiveRegistry.Register<TestStruct>();
-		PrimitiveRegistry.IsRegistered(typeof(TestStruct)).Should().BeTrue();
+		_registry.Register<TestStruct>();
+		_registry.IsRegistered(typeof(TestStruct)).Should().BeTrue();
 	}
 
 	[Fact]
-	public void Unregistered_ReturnsFalse() => PrimitiveRegistry.IsRegistered(typeof(string)).Should().BeFalse();
+	public void Unregistered_ReturnsFalse() => new PrimitiveRegistry().IsRegistered(typeof(string)).Should().BeFalse();
 
 	[Fact]
 	public void GetAll_ReturnsRegistered() {
-		PrimitiveRegistry.Register<TestStruct>();
-		PrimitiveRegistry.GetAll().Should().Contain(typeof(TestStruct));
+		_registry.Register<TestStruct>();
+		_registry.GetAll().Should().Contain(typeof(TestStruct));
 	}
 
 	[Fact]
 	public void Clear_Works() {
-		PrimitiveRegistry.Register<TestStruct>();
-		PrimitiveRegistry.Clear();
-		PrimitiveRegistry.GetAll().Should().BeEmpty();
+		_registry.Register<TestStruct>();
+		_registry.Clear();
+		_registry.GetAll().Should().BeEmpty();
 	}
 }
 
 public class PluginRegistryTests : IDisposable {
-	public PluginRegistryTests() {
-		PluginRegistry.Clear();
-	}
+	private readonly PluginRegistry _registry = new();
 
 	public void Dispose() {
-		PluginRegistry.Clear();
+		_registry.Clear();
 		GC.SuppressFinalize(this);
 	}
 
 	[Fact]
 	public void Register_CreatesInstance() {
-		PluginRegistry.Register<TestPlugin>();
-		PluginRegistry.Plugins.Should().Contain(p => p is TestPlugin);
+		_registry.Register<TestPlugin>();
+		_registry.Plugins.Should().Contain(p => p is TestPlugin);
 	}
 
 	[Fact]
 	public void Register_InstantiatesPlugin() {
 		TestPlugin.Constructed = false;
-		PluginRegistry.Register<TestPlugin>();
+		_registry.Register<TestPlugin>();
 		TestPlugin.Constructed.Should().BeTrue();
 	}
 

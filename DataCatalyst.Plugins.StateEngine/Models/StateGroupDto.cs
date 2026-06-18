@@ -6,9 +6,17 @@ using DataCatalyst.Plugins.Transition.Models;
 
 /// <summary>Group of related states with shared configuration.</summary>
 [DataComponent]
-public sealed record StateGroup {
+public readonly record struct StateGroup {
+	/// <summary>Creates a StateGroup with default values.</summary>
+	public StateGroup() {
+		GroupId = "";
+		RequiredTrait = "";
+		DefaultState = "";
+		States = new();
+	}
+
 	/// <summary>Unique identifier for the state group.</summary>
-	public string GroupId { get; init; } = "";
+	public string GroupId { get; init; }
 
 	/// <summary>Base priority tier for all states.</summary>
 	public int PriorityTier { get; init; }
@@ -20,18 +28,18 @@ public sealed record StateGroup {
 	public int DepthPenalty { get; init; } = 1000;
 
 	/// <summary>Trait required for this group to be active.</summary>
-	public string RequiredTrait { get; init; } = "";
+	public string RequiredTrait { get; init; }
 
 	/// <summary>Fallback state when no transition matches.</summary>
-	public string DefaultState { get; init; } = "";
+	public string DefaultState { get; init; }
 
 	/// <summary>All state definitions in this group.</summary>
-	public Dictionary<string, StateDefinition> States { get; init; } = [];
+	public Dictionary<string, StateDefinition> States { get; init; }
 }
 
 /// <summary>Defines a state with optional parent and transitions.</summary>
 [DataComponent]
-public sealed record StateDefinition {
+public readonly record struct StateDefinition {
 	/// <summary>Parent state for hierarchical inheritance.</summary>
 	public string? Parent { get; init; }
 

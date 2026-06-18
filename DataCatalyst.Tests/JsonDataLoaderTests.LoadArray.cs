@@ -11,11 +11,12 @@ using Xunit;
 
 public class JsonDataLoaderLoadArrayTests : IDisposable {
 	private readonly string _tempDir;
+	private readonly DataCatalystEnvironment _env;
 
 	public JsonDataLoaderLoadArrayTests() {
 		_tempDir = Path.Combine(Path.GetTempPath(), "DataCatalystArrayTests_" + Guid.NewGuid().ToString("N"));
 		Directory.CreateDirectory(_tempDir);
-		PrimitiveRegistry.Clear();
+		_env = new DataCatalystEnvironment();
 	}
 
 	public void Dispose() {
@@ -23,7 +24,6 @@ public class JsonDataLoaderLoadArrayTests : IDisposable {
 			Directory.Delete(_tempDir, true);
 		}
 
-		PrimitiveRegistry.Clear();
 		GC.SuppressFinalize(this);
 	}
 
@@ -34,7 +34,7 @@ public class JsonDataLoaderLoadArrayTests : IDisposable {
 	[Fact]
 	public void LoadArray_Aot_Succeeds() {
 		// Arrange
-		PrimitiveRegistry.Register<GameComponent>();
+		_env.Primitives.Register<GameComponent>();
 		var filePath = Path.Combine(_tempDir, "substances.json");
 		File.WriteAllText(filePath, /*lang=json,strict*/ @"[
 			{
@@ -55,7 +55,7 @@ public class JsonDataLoaderLoadArrayTests : IDisposable {
 		var options = CreateAotOptions();
 
 		// Act
-		var result = JsonDataLoader.LoadArray(filePath, "id", options);
+		var result = JsonDataLoader.LoadArray(filePath, "id", options, _env);
 
 		// Assert
 		result.Diagnostics.Should().BeEmpty();
@@ -74,7 +74,7 @@ public class JsonDataLoaderLoadArrayTests : IDisposable {
 	[Fact]
 	public void LoadArray_Aot_SingleEntry_Succeeds() {
 		// Arrange
-		PrimitiveRegistry.Register<GameComponent>();
+		_env.Primitives.Register<GameComponent>();
 		var filePath = Path.Combine(_tempDir, "substances.json");
 		File.WriteAllText(filePath, /*lang=json,strict*/ @"[
 			{
@@ -86,7 +86,7 @@ public class JsonDataLoaderLoadArrayTests : IDisposable {
 		]");
 
 		// Act
-		var result = JsonDataLoader.LoadArray(filePath, "id", CreateAotOptions());
+		var result = JsonDataLoader.LoadArray(filePath, "id", CreateAotOptions(), _env);
 
 		// Assert
 		result.Diagnostics.Should().BeEmpty();

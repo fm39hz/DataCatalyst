@@ -59,7 +59,7 @@ public class SourceGenTests {
 		";
 
 		var generated = RunGenerator(source);
-		generated.Should().Contain("global::DataCatalyst.Core.PrimitiveRegistry.Register<global::MyGame.Health>();");
+		generated.Should().Contain("global::DataCatalyst.Core.PrimitiveRegistry.Default.Register<global::MyGame.Health>();");
 		generated.Should().Contain("public static void RegisterTo(global::DataCatalyst.Core.DataRegistry registry)");
 		generated.Should().Contain("registry.RegisterComponent<global::MyGame.Health>();");
 	}
@@ -79,8 +79,8 @@ public class SourceGenTests {
 		";
 
 		var generated = RunGenerator(source);
-		generated.Should().Contain("global::DataCatalyst.Core.PluginRegistry.Register<global::MyGame.PluginB>();");
-		generated.Should().Contain("global::DataCatalyst.Core.PluginRegistry.Register<global::MyGame.PluginA>();");
+		generated.Should().Contain("global::DataCatalyst.Core.PluginRegistry.Default.Register<global::MyGame.PluginB>();");
+		generated.Should().Contain("global::DataCatalyst.Core.PluginRegistry.Default.Register<global::MyGame.PluginA>();");
 		generated.Should().Contain("registry.RegisterPlugin<global::MyGame.PluginB>();");
 		generated.Should().Contain("registry.RegisterPlugin<global::MyGame.PluginA>();");
 

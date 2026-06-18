@@ -33,7 +33,8 @@ public class StateEnginePlugin : ICatalogPlugin {
 					}
 
 					// Validate sensor operators are parseable
-					if (t.Conditions != null) {
+					if (t.Conditions is not null) {
+						var conds = t.Conditions.Value;
 						void CheckConds(List<SensorConditionDef>? list) {
 							if (list == null) return;
 							foreach (var c in list) {
@@ -43,9 +44,9 @@ public class StateEnginePlugin : ICatalogPlugin {
 								}
 							}
 						}
-						CheckConds(t.Conditions.All);
-						CheckConds(t.Conditions.Any);
-						CheckConds(t.Conditions.None);
+						CheckConds(conds.All);
+						CheckConds(conds.Any);
+						CheckConds(conds.None);
 					}
 				}
 			}
