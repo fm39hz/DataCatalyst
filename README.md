@@ -69,7 +69,7 @@ graph TD
 
     subgraph Core Resolution
         D --> D1[Mod Patch / Duplicate Key Merge]
-        D --> D2[Deep Inheritance DAG Flatten]
+        D --> D2[Component Inheritance Merge]
         D --> D3[Cycle Detection & Verification]
     end
 ```
@@ -172,7 +172,7 @@ var loadResult = JsonDataLoader.LoadArray("Data/substances.json", "id", options)
 // 2. Build the unresolved graph (automatically merges duplicate keys/mods)
 var graph = DataGraphBuilder.Build(loadResult.Entries);
 
-// 3. Resolve composition (processes inheritance, flattens hierarchies, and checks for cycles)
+// 3. Resolve composition (copies parent components to children at struct level, detects cycles)
 var catalog = DataCatalogBuilder.Resolve(graph);
 
 // 4. Access specific entries by key — return values are typed structs
@@ -211,11 +211,11 @@ Plugins extend DataCatalyst's domain without coupling to loaders or consumer typ
 - **`[DataPlugin(DependsOn = [...])]`**: Declares plugin identity and topological ordering. SourceGen auto-discovers and registers.
 - **Hook interfaces** in `DataCatalyst.Core`: `IPostLoadPlugin`, `IGraphPlugin`, `ICatalogPlugin` — optional, implement only what you need:
 
-| Hook | Stage | Input | Use Case |
-|---|---|---|---|
-| `IPostLoadPlugin` | After load | `List<DataEntry>` | Filter/augment raw entries |
-| `IGraphPlugin` | After graph build | `DataGraph` | Cross-file validation |
-| `ICatalogPlugin` | After resolve | `DataCatalog` | Post-process, domain validation |
+| Hook              | Stage             | Input             | Use Case                        |
+| ----------------- | ----------------- | ----------------- | ------------------------------- |
+| `IPostLoadPlugin` | After load        | `List<DataEntry>` | Filter/augment raw entries      |
+| `IGraphPlugin`    | After graph build | `DataGraph`       | Cross-file validation           |
+| `ICatalogPlugin`  | After resolve     | `DataCatalog`     | Post-process, domain validation |
 
 - **`MapperRegistry`**: Consumer injects mapper implementations via interface contracts. Plugins define contracts (e.g. `IStateMapper<TState>`), consumers register real implementations:
 
