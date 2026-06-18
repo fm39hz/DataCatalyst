@@ -25,9 +25,7 @@ public class PrimitiveRegistry {
 	}
 
 	/// <summary>Resolves a JSON discriminator to a component type.</summary>
-	public bool TryResolveId(string id, out Type? type) {
-		return _ids.TryGetValue(id, out type);
-	}
+	public bool TryResolveId(string id, out Type? type) => _ids.TryGetValue(id, out type);
 
 	/// <summary>Checks if a type is a registered primitive.</summary>
 	public bool IsRegistered(Type type) => _types.Contains(type);

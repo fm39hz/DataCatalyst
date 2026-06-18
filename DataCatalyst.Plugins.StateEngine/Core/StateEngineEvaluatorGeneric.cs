@@ -6,8 +6,8 @@ using DataCatalyst.Plugins.NumericCompare.Core;
 using Models;
 
 /// <summary>Evaluates state transitions using pre-baked flat transition tables.</summary>
-public static class StateEngineEvaluator<TState, TSensor> 
-	where TState : notnull 
+public static class StateEngineEvaluator<TState, TSensor>
+	where TState : notnull
 	where TSensor : notnull {
 
 	/// <summary>Result of a state machine evaluation.</summary>
@@ -44,31 +44,31 @@ public static class StateEngineEvaluator<TState, TSensor>
 			return new Result { HasValue = false };
 		}
 
-			var bestTarget = default(TState);
-			var bestPriority = float.MinValue;
-			var hasBest = false;
+		var bestTarget = default(TState);
+		var bestPriority = float.MinValue;
+		var hasBest = false;
 
-			var transitions = currentState.Transitions;
-			for (var i = 0; i < transitions.Length; i++) {
-				var t = transitions[i];
-				var target = t.TargetState;
+		var transitions = currentState.Transitions;
+		for (var i = 0; i < transitions.Length; i++) {
+			var t = transitions[i];
+			var target = t.TargetState;
 
-				if (!viableStates.Contains(target)) {
-					continue;
-				}
+			if (!viableStates.Contains(target)) {
+				continue;
+			}
 
-				if (!PassConditions(t, currentStateId, target, readSensor)) {
-					continue;
-				}
+			if (!PassConditions(t, currentStateId, target, readSensor)) {
+				continue;
+			}
 
-				var priority = t.BasePriority;
-				var influences = t.Influences;
-				for (var j = 0; j < influences.Length; j++) {
-					var inf = influences[j];
-					priority += readSensor(inf.Signal) * inf.Weight;
-				}
+			var priority = t.BasePriority;
+			var influences = t.Influences;
+			for (var j = 0; j < influences.Length; j++) {
+				var inf = influences[j];
+				priority += readSensor(inf.Signal) * inf.Weight;
+			}
 
-				if (priority > bestPriority) {
+			if (priority > bestPriority) {
 				bestPriority = priority;
 				bestTarget = target;
 				hasBest = true;

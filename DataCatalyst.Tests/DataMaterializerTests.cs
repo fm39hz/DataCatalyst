@@ -17,11 +17,9 @@ public struct AnotherTestComponent : IComponent {
 }
 
 public class MockEntity {
-	public List<object> Components { get; } = new();
+	public List<object> Components { get; } = [];
 
-	public void Add<T>(T component) where T : notnull {
-		Components.Add(component);
-	}
+	public void Add<T>(T component) where T : notnull => Components.Add(component);
 }
 
 public class DataMaterializerTests {
@@ -73,7 +71,7 @@ public class DataMaterializerTests {
 		// Assert
 		act.Should().NotThrow();
 		entity.Components.Count.Should().Be(1);
-		
+
 		var c1 = (MaterializerTestComponent)entity.Components[0];
 		c1.Name.Should().Be("Goblin");
 		c1.Value.Should().Be(100);

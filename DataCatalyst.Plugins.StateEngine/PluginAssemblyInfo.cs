@@ -23,7 +23,9 @@ public class StateEnginePlugin : ICatalogPlugin {
 					diagnostics.Add($"StateGroup '{group.GroupId}': state '{key}' references missing parent '{state.Parent}'.");
 				}
 
-				if (state.Transitions == null) continue;
+				if (state.Transitions == null) {
+					continue;
+				}
 
 				foreach (var t in state.Transitions) {
 					// Validate target state
@@ -36,7 +38,10 @@ public class StateEnginePlugin : ICatalogPlugin {
 					if (t.Conditions is not null) {
 						var conds = t.Conditions.Value;
 						void CheckConds(List<SensorConditionDef>? list) {
-							if (list == null) return;
+							if (list == null) {
+								return;
+							}
+
 							foreach (var c in list) {
 								try { OperatorParser.Parse(c.Op); }
 								catch (ArgumentException) {

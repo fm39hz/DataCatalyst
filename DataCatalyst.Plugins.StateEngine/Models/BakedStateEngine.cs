@@ -1,12 +1,11 @@
 namespace DataCatalyst.Plugins.StateEngine.Models;
 
-using System;
 using System.Collections.Generic;
 using DataCatalyst.Plugins.NumericCompare.Contracts;
 
 /// <summary>Baked, high-performance representation of a state group for generic types.</summary>
-public sealed class BakedStateGroup<TState, TSensor> 
-	where TState : notnull 
+public sealed class BakedStateGroup<TState, TSensor>
+	where TState : notnull
 	where TSensor : notnull {
 
 	/// <summary>Unique identifier of the state group.</summary>
@@ -20,8 +19,8 @@ public sealed class BakedStateGroup<TState, TSensor>
 }
 
 /// <summary>Baked representation of a single state and its pre-flattened transitions.</summary>
-public sealed class BakedState<TState, TSensor> 
-	where TState : notnull 
+public sealed class BakedState<TState, TSensor>
+	where TState : notnull
 	where TSensor : notnull {
 
 	/// <summary>Identifier of the state.</summary>
@@ -32,8 +31,8 @@ public sealed class BakedState<TState, TSensor>
 }
 
 /// <summary>Baked transition definition with resolved priorities and typesafe keys.</summary>
-public sealed class BakedTransition<TState, TSensor> 
-	where TState : notnull 
+public sealed class BakedTransition<TState, TSensor>
+	where TState : notnull
 	where TSensor : notnull {
 
 	/// <summary>Target state identifier.</summary>
@@ -50,7 +49,7 @@ public sealed class BakedTransition<TState, TSensor>
 }
 
 /// <summary>Baked condition group containing pre-resolved sensor conditions.</summary>
-public sealed class BakedConditionGroup<TSensor> 
+public sealed class BakedConditionGroup<TSensor>
 	where TSensor : notnull {
 
 	/// <summary>All conditions must pass (AND).</summary>
@@ -64,7 +63,7 @@ public sealed class BakedConditionGroup<TSensor>
 }
 
 /// <summary>Baked, typesafe representation of a sensor condition.</summary>
-public sealed class BakedSensorCondition<TSensor> 
+public sealed class BakedSensorCondition<TSensor>
 	where TSensor : notnull {
 
 	/// <summary>The resolved typesafe sensor identifier.</summary>
@@ -81,7 +80,7 @@ public sealed class BakedSensorCondition<TSensor>
 }
 
 /// <summary>Baked, typesafe representation of a sensor influence.</summary>
-public sealed class BakedSensorInfluence<TSensor> 
+public sealed class BakedSensorInfluence<TSensor>
 	where TSensor : notnull {
 
 	/// <summary>The resolved typesafe sensor identifier.</summary>

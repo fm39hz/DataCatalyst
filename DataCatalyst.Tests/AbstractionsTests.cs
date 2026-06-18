@@ -9,9 +9,7 @@ public class AbstractionsTests : IDisposable {
 	private readonly ServiceRegistry _services = new();
 	private readonly DataViewAdapterRegistry _adapters = new();
 
-	public void Dispose() {
-		GC.SuppressFinalize(this);
-	}
+	public void Dispose() => GC.SuppressFinalize(this);
 
 	[Fact]
 	public void DataKey_Constructor_SetsId() {

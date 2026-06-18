@@ -1,7 +1,5 @@
 namespace DataCatalyst.Tests;
 
-using System;
-using System.Collections.Generic;
 using DataCatalyst.Abstractions;
 using DataCatalyst.Core;
 using FluentAssertions;

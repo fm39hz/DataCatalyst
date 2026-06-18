@@ -18,9 +18,7 @@ public sealed class LoadResult {
 
 /// <summary>Loads data entries from JSON files using component discriminators registered in PrimitiveRegistry.</summary>
 public static class JsonDataLoader {
-	private static Type? ResolveComponent(string name, PrimitiveRegistry primitives) {
-		return primitives.TryResolveId(name, out var type) ? type : null;
-	}
+	private static Type? ResolveComponent(string name, PrimitiveRegistry primitives) => primitives.TryResolveId(name, out var type) ? type : null;
 
 	/// <summary>Loads entries from all JSON files in a directory in an AOT-safe manner.</summary>
 	public static LoadResult LoadDirectory(string directory, JsonSerializerOptions options, DataCatalystEnvironment? env = null) {

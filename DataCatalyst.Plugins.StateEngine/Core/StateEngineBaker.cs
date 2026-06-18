@@ -48,7 +48,7 @@ public static class StateEngineBaker {
 					var targetStr = ResolveStateId(t.TargetState, group.GroupId);
 					var targetState = stateMapper(targetStr);
 
-						var basePriority = (float)(group.PriorityTier * group.TierScale) + t.Priority - (depth * group.DepthPenalty);
+					var basePriority = (float)(group.PriorityTier * group.TierScale) + t.Priority - (depth * group.DepthPenalty);
 
 					var bakedConditions = BakeConditions(t.Conditions, sensorMapper);
 					var bakedInfluences = BakeInfluences(t.Influences, sensorMapper);

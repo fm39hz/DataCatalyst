@@ -3,7 +3,6 @@ namespace DataCatalyst.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Abstractions;
 
 /// <summary>Builds a flat, immutable catalog by resolving inheritance.</summary>
 public static class DataCatalogBuilder {
@@ -25,7 +24,7 @@ public static class DataCatalogBuilder {
 
 		var catalog = new DataCatalog(resolved);
 
-		var diag = diagnostics ?? new List<string>();
+		var diag = diagnostics ?? [];
 		foreach (var p in env.Plugins.Plugins.OfType<ICatalogPlugin>()) {
 			p.OnCatalogResolved(catalog, diag);
 		}

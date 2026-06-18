@@ -47,7 +47,7 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 			static (node, _) => node is TypeDeclarationSyntax,
 			static (ctx, _) => {
 				var t = (INamedTypeSymbol)ctx.TargetSymbol;
-				Location? error = t.TypeKind != TypeKind.Structure
+				var error = t.TypeKind != TypeKind.Structure
 						? ctx.TargetNode.GetLocation()
 						: null;
 				var fullType = t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
@@ -59,7 +59,10 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 			static (node, _) => node is ClassDeclarationSyntax,
 			static (ctx, _) => {
 				var t = (INamedTypeSymbol)ctx.TargetSymbol;
-				if (!t.AllInterfaces.Any(i => i.ToDisplayString() == DataPluginIface)) return default((string, string, string[])?);
+				if (!t.AllInterfaces.Any(i => i.ToDisplayString() == DataPluginIface)) {
+					return default((string, string, string[])?);
+				}
+
 				var fullType = t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
 				var deps = GetDeps(t.GetAttributes());
 				return ((string FullType, string Id, string[] Deps)?)(fullType, t.Name, deps);
@@ -74,35 +77,34 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 				var (pl, pr) = payload;
 
 				foreach (var p in pr) {
-					if (p.Warning is {} w)
+					if (p.Warning is { } w) {
 						spc.ReportDiagnostic(Diagnostic.Create(StructRequiredError, w));
+					}
 				}
 
 				Emit(spc, pl, pr);
 			});
 	}
 
-	private readonly struct PrimitiveResult {
-		public readonly string? FullType;
-		public readonly string? Discrim;
-		public readonly Location? Warning;
-
-		public PrimitiveResult(string? fullType, string? discrim, Location? warning) {
-			FullType = fullType;
-			Discrim = discrim;
-			Warning = warning;
-		}
+	private readonly struct PrimitiveResult(string? fullType, string? discrim, Location? warning) {
+		public readonly string? FullType = fullType;
+		public readonly string? Discrim = discrim;
+		public readonly Location? Warning = warning;
 	}
 
 	private static string[] GetDeps(ImmutableArray<AttributeData> attrs) {
 		foreach (var a in attrs) {
-			if (a.AttributeClass == null || a.AttributeClass.ToDisplayString() != DataPluginAttr) continue;
+			if (a.AttributeClass == null || a.AttributeClass.ToDisplayString() != DataPluginAttr) {
+				continue;
+			}
+
 			foreach (var n in a.NamedArguments) {
 				if (n.Key == "DependsOn" && n.Value.Values is { Length: > 0 } vs) {
 					var list = new List<string>(vs.Length);
 					foreach (var v in vs) {
-						if (v.Value is INamedTypeSymbol dt)
+						if (v.Value is INamedTypeSymbol dt) {
 							list.Add(dt.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+						}
 					}
 					return [.. list];
 				}
@@ -125,7 +127,10 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 		var colliding = new HashSet<string>();
 
 		foreach (var p in allPrims) {
-			if (p.FullType == null) continue;
+			if (p.FullType == null) {
+				continue;
+			}
+
 			var d = p.Discrim ?? Discriminator(p.FullType);
 			if (!seenDiscrims.Add(d)) {
 				colliding.Add(d);
@@ -150,13 +155,15 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 			}
 		}
 
-		if (allPlugins.Length == 0 && prims.Count == 0) return;
+		if (allPlugins.Length == 0 && prims.Count == 0) {
+			return;
+		}
 
 		// Build AST for Init() body via SyntaxFactory
 		var initBody = new List<StatementSyntax>();
 
 		if (allPlugins.Length > 0) {
-			var sorted = TopoSort(allPlugins.ToList(), spc);
+			var sorted = TopoSort([.. allPlugins], spc);
 			foreach (var (ft, _, _) in sorted) {
 				initBody.Add(BuildRegisterCall("global::DataCatalyst.Core.PluginRegistry.Default", ft));
 			}
@@ -172,7 +179,7 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 		// Build AST for RegisterTo() body via SyntaxFactory
 		var regBody = new List<StatementSyntax>();
 		if (allPlugins.Length > 0) {
-			var sorted = TopoSort(allPlugins.ToList(), spc);
+			var sorted = TopoSort([.. allPlugins], spc);
 			foreach (var (ft, _, _) in sorted) {
 				regBody.Add(BuildGenericCall("registry", "RegisterPlugin", ft));
 			}
@@ -233,8 +240,7 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 	}
 
 	// SyntaxFactory AST — Register call: target.Register<FullType>()
-	private static StatementSyntax BuildRegisterCall(string target, string fullType) {
-		return ExpressionStatement(
+	private static StatementSyntax BuildRegisterCall(string target, string fullType) => ExpressionStatement(
 			InvocationExpression(
 				MemberAccessExpression(
 					SyntaxKind.SimpleMemberAccessExpression,
@@ -243,11 +249,9 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 						.WithTypeArgumentList(
 							TypeArgumentList(
 								SingletonSeparatedList(ParseTypeName(fullType)))))));
-	}
 
 	// SyntaxFactory AST — generic call: instance.Method<FullType>()
-	private static StatementSyntax BuildGenericCall(string instance, string method, string fullType) {
-		return ExpressionStatement(
+	private static StatementSyntax BuildGenericCall(string instance, string method, string fullType) => ExpressionStatement(
 			InvocationExpression(
 				MemberAccessExpression(
 					SyntaxKind.SimpleMemberAccessExpression,
@@ -256,7 +260,6 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 						.WithTypeArgumentList(
 							TypeArgumentList(
 								SingletonSeparatedList(ParseTypeName(fullType)))))));
-	}
 
 	// SyntaxFactory AST — RegisterIds(new() { { "discrim", typeof(T) }, ... })
 	private static StatementSyntax BuildRegisterIdsStatement(List<(string FullType, string Discrim)> prims) {
@@ -266,10 +269,10 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 				InitializerExpression(
 					SyntaxKind.ComplexElementInitializerExpression,
 					SeparatedList<ExpressionSyntax>(
-						new ExpressionSyntax[] {
+						[
 							LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(d)),
 							TypeOfExpression(ParseTypeName(ft))
-						})));
+						])));
 		}
 
 		return ExpressionStatement(
@@ -298,25 +301,33 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 		var edges = new Dictionary<string, List<string>>();
 
 		foreach (var p in plugins) {
-			if (map.ContainsKey(p.FullType)) continue;
+			if (map.ContainsKey(p.FullType)) {
+				continue;
+			}
+
 			map[p.FullType] = p;
 			indeg[p.FullType] = 0;
 			edges[p.FullType] = [];
 		}
 
-		foreach (var p in plugins) {
-			if (!map.ContainsKey(p.FullType)) continue;
-			foreach (var d in p.Deps) {
+		foreach (var (FullType, Id, Deps) in plugins) {
+			if (!map.ContainsKey(FullType)) {
+				continue;
+			}
+
+			foreach (var d in Deps) {
 				if (map.ContainsKey(d)) {
-					edges[d].Add(p.FullType);
-					indeg[p.FullType]++;
+					edges[d].Add(FullType);
+					indeg[FullType]++;
 				}
 			}
 		}
 
 		var ready = new Queue<string>();
 		foreach (var kv in map) {
-			if (indeg.TryGetValue(kv.Key, out var d) && d == 0) ready.Enqueue(kv.Key);
+			if (indeg.TryGetValue(kv.Key, out var d) && d == 0) {
+				ready.Enqueue(kv.Key);
+			}
 		}
 
 		var result = new List<(string FullType, string Id, string[] Deps)>();
@@ -325,7 +336,9 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 			result.Add(map[cur]);
 			if (edges.TryGetValue(cur, out var list)) {
 				foreach (var c in list) {
-					if (--indeg[c] == 0 && map.ContainsKey(c)) ready.Enqueue(c);
+					if (--indeg[c] == 0 && map.ContainsKey(c)) {
+						ready.Enqueue(c);
+					}
 				}
 			}
 		}
@@ -337,7 +350,9 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 		}
 
 		foreach (var p in plugins) {
-			if (!result.Any(r => r.FullType == p.FullType)) result.Add(p);
+			if (!result.Any(r => r.FullType == p.FullType)) {
+				result.Add(p);
+			}
 		}
 
 		return result;

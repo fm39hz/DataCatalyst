@@ -12,7 +12,7 @@ public readonly record struct StateGroup {
 		GroupId = "";
 		RequiredTrait = "";
 		DefaultState = "";
-		States = new();
+		States = [];
 	}
 
 	/// <summary>Unique identifier for the state group.</summary>

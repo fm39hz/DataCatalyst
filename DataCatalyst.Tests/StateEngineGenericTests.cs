@@ -2,7 +2,6 @@ namespace DataCatalyst.Tests;
 
 using System;
 using System.Collections.Generic;
-using DataCatalyst.Plugins.NumericCompare.Contracts;
 using DataCatalyst.Plugins.StateEngine.Core;
 using DataCatalyst.Plugins.StateEngine.Models;
 using DataCatalyst.Plugins.Transition.Models;
@@ -63,7 +62,7 @@ public class StateEngineGenericTests {
 		};
 
 		// Define state mapping (e.g. mapping string IDs to GameStateKind enums)
-		Func<string, GameStateKind> stateMapper = s => s switch {
+		GameStateKind stateMapper(string s) => s switch {
 			"RobotAI.Patrol" => GameStateKind.Patrol,
 			"RobotAI.AggressivePatrol" => GameStateKind.Patrol, // Map AggressivePatrol to Patrol for the test
 			"RobotAI.Refuel" => GameStateKind.Refuel,
@@ -72,7 +71,7 @@ public class StateEngineGenericTests {
 		};
 
 		// Define sensor mapping
-		Func<string, GameSensorKind> sensorMapper = s => s switch {
+		GameSensorKind sensorMapper(string s) => s switch {
 			"battery" => GameSensorKind.Battery,
 			"see_enemy" => GameSensorKind.SeeEnemy,
 			"anger" => GameSensorKind.Anger,
@@ -115,6 +114,8 @@ public class StateEngineGenericTests {
 			sensor => sensor switch {
 				GameSensorKind.Battery => 10f,
 				GameSensorKind.SeeEnemy => 1f,
+				GameSensorKind.Anger => throw new NotImplementedException(),
+				GameSensorKind.Fear => throw new NotImplementedException(),
 				_ => 0f
 			});
 
@@ -130,6 +131,8 @@ public class StateEngineGenericTests {
 			sensor => sensor switch {
 				GameSensorKind.Battery => 10f,
 				GameSensorKind.SeeEnemy => 0f,
+				GameSensorKind.Anger => throw new NotImplementedException(),
+				GameSensorKind.Fear => throw new NotImplementedException(),
 				_ => 0f
 			});
 
