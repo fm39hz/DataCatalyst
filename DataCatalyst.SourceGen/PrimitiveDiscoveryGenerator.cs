@@ -10,10 +10,10 @@ using Microsoft.CodeAnalysis.Text;
 
 [Generator]
 public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
-	private static readonly DiagnosticDescriptor StructOnlyWarning = new(
+	private static readonly DiagnosticDescriptor StructRecommendedWarning = new(
 		id: "DC001",
-		title: "DataComponent must be a struct",
-		messageFormat: "[DataComponent] on '{0}' is ignored — only struct types are supported",
+		title: "DataComponent should be a struct",
+		messageFormat: "[DataComponent] on '{0}' should be a struct for optimal AOT compatibility",
 		category: "DataCatalyst",
 		defaultSeverity: DiagnosticSeverity.Warning,
 		isEnabledByDefault: true);
@@ -39,11 +39,14 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 				var ((comp, pl), pr) = payload;
 				foreach (var p in pr) {
 					if (p.Warning is {} w) {
-						spc.ReportDiagnostic(Diagnostic.Create(StructOnlyWarning, w));
+						spc.ReportDiagnostic(Diagnostic.Create(StructRecommendedWarning, w));
 					}
 				}
-				var names = pr.Select(static p => p.Name).Where(static n => n is not null).Select(static n => n!).ToImmutableArray();
-				Emit(spc, comp, pl, names);
+				var prims = pr
+					.Where(static p => p.FullType is not null)
+					.Select(static p => (FullType: p.FullType!, ShortName: p.ShortName!))
+					.ToImmutableArray();
+				Emit(spc, comp, pl, prims);
 			});
 	}
 
@@ -80,19 +83,22 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 			return default;
 		}
 
-		if (t.TypeKind != TypeKind.Structure) {
-			return new PrimitiveResult(null, tds.GetLocation());
-		}
+		Location? warning = t.TypeKind != TypeKind.Structure ? tds.GetLocation() : null;
 
-		return new PrimitiveResult(t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat), null);
+		return new PrimitiveResult(
+			t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+			t.Name,
+			warning);
 	}
 
 	private readonly struct PrimitiveResult {
-		public readonly string? Name;
+		public readonly string? FullType;
+		public readonly string? ShortName;
 		public readonly Location? Warning;
 
-		public PrimitiveResult(string? name, Location? warning) {
-			Name = name;
+		public PrimitiveResult(string? fullType, string? shortName, Location? warning) {
+			FullType = fullType;
+			ShortName = shortName;
 			Warning = warning;
 		}
 	}
@@ -132,16 +138,16 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 
 	private static void Emit(SourceProductionContext spc, Compilation comp,
 		ImmutableArray<(string FullType, string Id, string[] Deps)> classPlugins,
-		ImmutableArray<string> primNames) {
+		ImmutableArray<(string FullType, string ShortName)> classPrims) {
 		var allPlugins = new List<(string FullType, string Id, string[] Deps)>();
-		var allPrims = new List<string>();
+		var allPrims = new List<(string FullType, string ShortName)>();
 
 		if (!classPlugins.IsDefaultOrEmpty) {
 			allPlugins.AddRange(classPlugins);
 		}
 
-		if (!primNames.IsDefaultOrEmpty) {
-			allPrims.AddRange(primNames);
+		if (!classPrims.IsDefaultOrEmpty) {
+			allPrims.AddRange(classPrims);
 		}
 
 		// Scan referenced assemblies for IDataPlugin + [DataPlugin] + [DataComponent]
@@ -173,10 +179,18 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 		}
 
 		if (allPrims.Count > 0) {
-			foreach (var ft in allPrims) {
+			foreach (var (ft, _) in allPrims) {
 				sb.Append("\t\t\tglobal::DataCatalyst.Core.PrimitiveRegistry.Register<")
 					.Append(ft).AppendLine(">();");
 			}
+
+			sb.AppendLine();
+			sb.Append("\t\t\tglobal::DataCatalyst.Core.PrimitiveRegistry.RegisterIds(new() {\n");
+			foreach (var (ft, sn) in allPrims) {
+				sb.Append("\t\t\t\t{ \"").Append(sn).Append("\", typeof(").Append(ft).Append(") },")
+					.Append(" // ").AppendLine(sn);
+			}
+			sb.Append("\t\t\t});\n");
 		}
 
 		sb.Append("\t\t}\n");
@@ -191,7 +205,7 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 		}
 
 		if (allPrims.Count > 0) {
-			foreach (var ft in allPrims) {
+			foreach (var (ft, _) in allPrims) {
 				sb.Append("\t\t\tregistry.RegisterComponent<")
 					.Append(ft).AppendLine(">();");
 			}
@@ -204,7 +218,7 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 	}
 
 	private static void ScanAssembly(IAssemblySymbol asm, List<(string, string, string[])> plugins,
-		List<string> prims) {
+		List<(string FullType, string ShortName)> prims) {
 		foreach (var type in GetAllTypes(asm.GlobalNamespace)) {
 			if (type.TypeKind != TypeKind.Class) {
 				continue;
@@ -220,16 +234,20 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 		}
 
 		foreach (var type in GetAllTypes(asm.GlobalNamespace)) {
-			if (type.TypeKind != TypeKind.Structure) {
+			if (type.TypeKind != TypeKind.Structure && type.TypeKind != TypeKind.Class) {
 				continue;
 			}
 
-			if (HasAttr(type.GetAttributes(), "DataComponentAttribute")) {
-				var ft = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-				if (!prims.Contains(ft)) {
-					prims.Add(ft);
-				}
+			if (!HasAttr(type.GetAttributes(), "DataComponentAttribute")) {
+				continue;
 			}
+
+			var ft = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+			if (prims.Any(p => p.FullType == ft)) {
+				continue;
+			}
+
+			prims.Add((ft, type.Name));
 		}
 	}
 

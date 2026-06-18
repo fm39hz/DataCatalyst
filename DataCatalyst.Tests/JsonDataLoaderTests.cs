@@ -67,42 +67,14 @@ namespace DataCatalyst.Tests {
 		}
 
 		[Fact]
-		public void LoadDirectory_AmbiguousComponent_RequiresFullyQualifiedName() {
+		public void LoadDirectory_TypeNameAsDiscriminator_ResolvesCorrectly() {
 			// Arrange
 			PrimitiveRegistry.Register<GameComponent>();
-			PrimitiveRegistry.Register<ModNamespace.GameComponent>();
 
 			var jsonPath = Path.Combine(_tempDir, "hero.json");
 			File.WriteAllText(jsonPath, /*lang=json,strict*/ @"{
 			""GameComponent"": {
-				""Value"": 123
-			}
-		}");
-
-			var options = CreateAotOptions();
-
-			// Act
-			var result = JsonDataLoader.LoadDirectory(_tempDir, options);
-
-			// Assert
-			result.Entries.Should().ContainSingle();
-			result.Entries[0].Components.Should().BeEmpty(); // Ambiguous component was skipped
-			result.Diagnostics.Should().ContainSingle().Which.Should().Contain("Ambiguous component short name");
-		}
-
-		[Fact]
-		public void LoadDirectory_AmbiguousComponentResolvedByFullName() {
-			// Arrange
-			PrimitiveRegistry.Register<GameComponent>();
-			PrimitiveRegistry.Register<ModNamespace.GameComponent>();
-
-			var jsonPath = Path.Combine(_tempDir, "hero.json");
-			File.WriteAllText(jsonPath, /*lang=json,strict*/ @"{
-			""DataCatalyst.Tests.GameComponent"": {
 				""Value"": 456
-			},
-			""ModNamespace.GameComponent"": {
-				""Name"": ""ModHero""
 			}
 		}");
 
@@ -114,9 +86,7 @@ namespace DataCatalyst.Tests {
 			// Assert
 			result.Diagnostics.Should().BeEmpty();
 			result.Entries.Should().ContainSingle();
-			var entry = result.Entries[0];
-			entry.Get<GameComponent>().Value.Should().Be(456);
-			entry.Get<ModNamespace.GameComponent>().Name.Should().Be("ModHero");
+			result.Entries[0].Get<GameComponent>().Value.Should().Be(456);
 		}
 
 		[Fact]
@@ -174,10 +144,9 @@ namespace DataCatalyst.Tests {
 		}
 
 		[Fact]
-		public void LoadDirectory_WithInstanceRegistry_Succeeds() {
+		public void LoadDirectory_WithTypeNameDiscriminator_Succeeds() {
 			// Arrange
-			var registry = new DataRegistry();
-			registry.RegisterComponent<GameComponent>();
+			PrimitiveRegistry.Register<GameComponent>();
 
 			var jsonPath = Path.Combine(_tempDir, "hero.json");
 			File.WriteAllText(jsonPath, /*lang=json,strict*/ @"{
@@ -189,7 +158,7 @@ namespace DataCatalyst.Tests {
 			var options = CreateAotOptions();
 
 			// Act
-			var result = JsonDataLoader.LoadDirectory(_tempDir, registry, options);
+			var result = JsonDataLoader.LoadDirectory(_tempDir, options);
 
 			// Assert
 			result.Diagnostics.Should().BeEmpty();

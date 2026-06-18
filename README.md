@@ -56,9 +56,10 @@ DataCatalyst is divided into small, focused modules to keep the core generic and
 
 ```mermaid
 graph TD
-    A[Raw JSON Files] -->|JsonDataLoader.LoadDirectory| B[DataEntry list]
+    A[Raw JSON Files] -->|JsonDataLoader.LoadDirectory| B[LoadResult]
     B -->|DataGraphBuilder.Build| C[DataGraph unresolved]
     C -->|DataCatalogBuilder.Resolve| D[DataCatalog resolved, immutable]
+    D -->|DataMaterializer&lt;T&gt;.Materialize| E[Game Entities]
 
     subgraph Core Resolution
         D --> D1[1. Topological Plugin Init]
@@ -169,18 +170,23 @@ var graph = DataGraphBuilder.Build(loadResult.Entries);
 // 3. Resolve composition (processes inheritance, flattens hierarchies, and checks for cycles)
 var catalog = DataCatalogBuilder.Resolve(graph);
 
-// 4. Bind resolved components to custom DataKey<T> structures
-var substances = catalog.Bind<DataKey<SubstanceData>, SubstanceData>(c => new DataKey<SubstanceData>(c.Name));
+// 4. Access specific entries by key — return values are typed structs
+var goblinHealth = catalog.Get<Health>("Goblin");  // 50/50 (overridden)
+var goblinStats = catalog.Get<CombatStats>("Goblin"); // 10/5 (inherited from BaseMonster)
 
-// 5. Or access entries directly from catalog dictionary
-if (catalog.Entries.TryGetValue("Goblin", out var goblin))
+// 5. Or batch-materialize to game entities using typed delegates
+var materializer = new DataMaterializer<Entity>();
+materializer.Register<Health>((entity, hp) => entity.SetHealth(hp.Current, hp.Max));
+materializer.Register<CombatStats>((entity, s) => entity.SetCombat(s.AttackPower, s.Defense));
+
+foreach (var (key, entry) in catalog.Entries)
 {
-    var health = goblin.Get<Health>();
-    Console.WriteLine($"Goblin Health: {health.Current}/{health.Max}"); // Outputs: 50/50
-
-    var stats = goblin.Get<CombatStats>();
-    Console.WriteLine($"Goblin Attack: {stats.AttackPower}");          // Outputs: 10 (inherited!)
+    var entity = new Entity();
+    materializer.Materialize(entry, entity);
 }
+
+// 6. Or bind resolved components to typed dictionaries using DataKey<T>
+var substances = catalog.Bind<DataKey<SubstanceData>, SubstanceData>(c => new DataKey<SubstanceData>(c.Name));
 ```
 
 ---
@@ -191,7 +197,9 @@ DataCatalyst is engineered for **Native AOT (Ahead-of-Time) compilation** and st
 high-performance game runtimes such as Godot 4 .NET, Unity, or custom engines):
 
 - **Zero Runtime Reflection**: The Roslyn source generator (`DataCatalyst.SourceGen`) scans your assemblies at compile
-  time and registers component types inside static `[ModuleInitializer]` methods.
+  time and registers component types inside a single static `[ModuleInitializer]` method.
+- **Compile-Time Discriminator Mapping**: JSON property names are resolved against a source-generated dictionary using
+  the type's short name as the discriminator — no runtime `Type.Name` dictionary building at load time.
 - **Explicit Type Resolution**: No runtime JSON type-name scanning. Components are resolved against statically
   registered types.
 - **Trim-Safe Serialization**: `JsonDataLoader` accepts `JsonSerializerOptions` to integrate seamlessly with

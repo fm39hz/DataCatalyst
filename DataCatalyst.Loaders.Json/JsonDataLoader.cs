@@ -15,24 +15,14 @@ public sealed class LoadResult {
 	public List<string> Diagnostics { get; } = [];
 }
 
-/// <summary>Loads data entries from JSON files.</summary>
+/// <summary>Loads data entries from JSON files using component discriminators registered in PrimitiveRegistry.</summary>
 public static class JsonDataLoader {
-	/// <summary>Loads entries from all JSON files in a directory in an AOT-safe manner.</summary>
-	public static LoadResult LoadDirectory(string directory, JsonSerializerOptions options) {
-		var registry = new DataRegistry();
-		foreach (var t in PrimitiveRegistry.GetAll()) {
-			registry.RegisterComponent(t);
-		}
-
-		return LoadDirectory(directory, registry, options);
+	private static Type? ResolveComponent(string name) {
+		return PrimitiveRegistry.TryResolveId(name, out var type) ? type : null;
 	}
 
-	/// <summary>Loads entries from all JSON files in a directory using a custom registry in an AOT-safe manner.</summary>
-	public static LoadResult LoadDirectory(string directory, DataRegistry registry, JsonSerializerOptions options) {
-		if (registry == null) {
-			throw new ArgumentNullException(nameof(registry));
-		}
-
+	/// <summary>Loads entries from all JSON files in a directory in an AOT-safe manner.</summary>
+	public static LoadResult LoadDirectory(string directory, JsonSerializerOptions options) {
 		if (options == null) {
 			throw new ArgumentNullException(nameof(options),
 				"JsonSerializerOptions must be provided for AOT compatibility.");
@@ -42,22 +32,6 @@ public static class JsonDataLoader {
 		if (!Directory.Exists(directory)) {
 			result.Diagnostics.Add($"Directory '{directory}' does not exist.");
 			return result;
-		}
-
-		var knownPrimitives = registry.GetComponents();
-		var shortNames = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
-		var fullNames = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
-		var duplicates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-		foreach (var t in knownPrimitives) {
-			var shortName = t.Name;
-			var fullName = t.FullName ?? t.Name;
-
-			fullNames[fullName] = t;
-
-			if (!shortNames.TryAdd(shortName, t)) {
-				duplicates.Add(shortName);
-			}
 		}
 
 		var files = Directory.GetFiles(directory, "*.json", SearchOption.AllDirectories);
@@ -89,23 +63,10 @@ public static class JsonDataLoader {
 						continue;
 					}
 
-					Type? type;
-					if (prop.Name.Contains('.')) {
-						fullNames.TryGetValue(prop.Name, out type);
-					}
-					else {
-						if (duplicates.Contains(prop.Name)) {
-							result.Diagnostics.Add(
-								$"Ambiguous component short name '{prop.Name}' in file '{file}'. Use fully-qualified name.");
-							continue;
-						}
-
-						shortNames.TryGetValue(prop.Name, out type);
-					}
-
+					var type = ResolveComponent(prop.Name);
 					if (type == null) {
 						result.Diagnostics.Add(
-							$"Unrecognized component type '{prop.Name}' in file '{file}'. Make sure it is marked with [DataComponent] and registered.");
+							$"Unrecognized component discriminator '{prop.Name}' in file '{file}'. Make sure the type is marked with [DataComponent] and registered.");
 						continue;
 					}
 
@@ -138,20 +99,6 @@ public static class JsonDataLoader {
 
 	/// <summary>Loads entries from a single JSON file containing an array of objects in an AOT-safe manner.</summary>
 	public static LoadResult LoadArray(string filePath, string keyField, JsonSerializerOptions options) {
-		var registry = new DataRegistry();
-		foreach (var t in PrimitiveRegistry.GetAll()) {
-			registry.RegisterComponent(t);
-		}
-
-		return LoadArray(filePath, keyField, registry, options);
-	}
-
-	/// <summary>Loads entries from a single JSON file containing an array of objects using a custom registry in an AOT-safe manner.</summary>
-	public static LoadResult LoadArray(string filePath, string keyField, DataRegistry registry, JsonSerializerOptions options) {
-		if (registry == null) {
-			throw new ArgumentNullException(nameof(registry));
-		}
-
 		if (options == null) {
 			throw new ArgumentNullException(nameof(options),
 				"JsonSerializerOptions must be provided for AOT compatibility.");
@@ -165,22 +112,6 @@ public static class JsonDataLoader {
 		if (!File.Exists(filePath)) {
 			result.Diagnostics.Add($"File '{filePath}' does not exist.");
 			return result;
-		}
-
-		var knownPrimitives = registry.GetComponents();
-		var shortNames = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
-		var fullNames = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
-		var duplicates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-		foreach (var t in knownPrimitives) {
-			var shortName = t.Name;
-			var fullName = t.FullName ?? t.Name;
-
-			fullNames[fullName] = t;
-
-			if (!shortNames.TryAdd(shortName, t)) {
-				duplicates.Add(shortName);
-			}
 		}
 
 		try {
@@ -230,23 +161,10 @@ public static class JsonDataLoader {
 						continue;
 					}
 
-					Type? type;
-					if (prop.Name.Contains('.')) {
-						fullNames.TryGetValue(prop.Name, out type);
-					}
-					else {
-						if (duplicates.Contains(prop.Name)) {
-							result.Diagnostics.Add(
-								$"Ambiguous component short name '{prop.Name}' in element '{key}'. Use fully-qualified name.");
-							continue;
-						}
-
-						shortNames.TryGetValue(prop.Name, out type);
-					}
-
+					var type = ResolveComponent(prop.Name);
 					if (type == null) {
 						result.Diagnostics.Add(
-							$"Unrecognized component type '{prop.Name}' in element '{key}'. Make sure it is marked with [DataComponent] and registered.");
+							$"Unrecognized component discriminator '{prop.Name}' in element '{key}'. Make sure the type is marked with [DataComponent] and registered.");
 						continue;
 					}
 
