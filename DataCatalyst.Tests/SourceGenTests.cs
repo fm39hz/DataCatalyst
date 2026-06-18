@@ -11,7 +11,6 @@ public class SourceGenTests {
 
 		var assemblyPath = Path.GetDirectoryName(typeof(object).Assembly.Location)!;
 
-		// Reference assemblies needed for compilation.
 		var references = new List<MetadataReference> {
 			MetadataReference.CreateFromFile(Path.Combine(assemblyPath, "System.Private.CoreLib.dll")),
 			MetadataReference.CreateFromFile(Path.Combine(assemblyPath, "System.Runtime.dll")),
@@ -28,22 +27,23 @@ public class SourceGenTests {
 			references,
 			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
-		// Assert no syntax or semantic errors in the test code setup
 		var compileDiagnostics = compilation.GetDiagnostics();
 		var errors = compileDiagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
 		errors.Should()
 			.BeEmpty(
 				$"The input source code failed to compile: {string.Join(Environment.NewLine, errors.Select(e => e.GetMessage()))}");
 
-		var generator = new PrimitiveDiscoveryGenerator();
-		GeneratorDriver driver = CSharpGeneratorDriver.Create(generator);
+		GeneratorDriver driver = CSharpGeneratorDriver.Create(
+			new ComponentGenerator(),
+			new PluginGenerator());
 
 		driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out _, out _);
 
 		var runResult = driver.GetRunResult();
 		runResult.GeneratedTrees.Should().NotBeEmpty("The generator should have generated source code.");
 
-		return runResult.GeneratedTrees[0].ToString();
+		return string.Join("\n//=== Next file ===\n",
+			runResult.GeneratedTrees.Select(t => t.ToString()));
 	}
 
 	[Fact]
@@ -93,5 +93,3 @@ public class SourceGenTests {
 		indexB.Should().BeLessThan(indexA, "PluginB (dependency) must be registered before PluginA (dependent).");
 	}
 }
-
-// namespace DataCatalyst.Tests
