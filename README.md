@@ -160,8 +160,8 @@ var options = new JsonSerializerOptions
     TypeInfoResolver = new DefaultJsonTypeInfoResolver()
 };
 
-// 1. Load directory raw entries
-var loadResult = JsonDataLoader.LoadDirectory("Data/", options);
+// 1. Load raw entries (supports both directory loading and single-file array catalogs)
+var loadResult = JsonDataLoader.LoadArray("Data/substances.json", "id", options);
 
 // 2. Build the unresolved graph (automatically merges duplicate keys/mods)
 var graph = DataGraphBuilder.Build(loadResult.Entries);
@@ -169,8 +169,11 @@ var graph = DataGraphBuilder.Build(loadResult.Entries);
 // 3. Resolve composition (processes inheritance, flattens hierarchies, and checks for cycles)
 var catalog = DataCatalogBuilder.Resolve(graph);
 
-// 4. Access resolved entries
-if (catalog.TryGetEntry("Goblin", out var goblin))
+// 4. Bind resolved components to custom DataKey<T> structures
+var substances = catalog.Bind<DataKey<SubstanceData>, SubstanceData>(c => new DataKey<SubstanceData>(c.Name));
+
+// 5. Or access entries directly from catalog dictionary
+if (catalog.Entries.TryGetValue("Goblin", out var goblin))
 {
     var health = goblin.Get<Health>();
     Console.WriteLine($"Goblin Health: {health.Current}/{health.Max}"); // Outputs: 50/50
@@ -216,12 +219,21 @@ inputs completely from data:
 - **Dynamic Influences**: Priorities can be dynamically modified by multiplying sensor values by configured weights.
 
 ```csharp
-// Evaluate state transitions based on an active entity's state group and sensor readings
-var result = StateEngineEvaluator.Evaluate(
-    currentStateId: "Locomotion.Idle",
-    group: catalog.Get<StateGroup>("Locomotion"),
+// 1. Bake the raw StateGroup at startup to flatten hierarchy, pre-calculate priorities,
+// and map string identifiers to generic GameStateKind and GameSensorKind enums.
+var bakedGroup = StateEngineBaker.Bake<GameStateKind, GameSensorKind>(
+    catalog.Get<StateGroup>("Locomotion"),
+    stateStr => MapStringToStateEnum(stateStr),
+    sensorStr => MapStringToSensorEnum(sensorStr)
+);
+
+// 2. Evaluate transitions dynamically in the physics/update loop with ZERO heap allocations
+// and ZERO string comparisons.
+var result = StateEngineEvaluator<GameStateKind, GameSensorKind>.Evaluate(
+    currentStateId: GameStateKind.Idle,
+    group: bakedGroup,
     viableStates: activeViableStates,
-    readSensor: signal => entity.GetSensorValue(signal)
+    readSensor: sensorEnum => entity.GetSensorValue(sensorEnum)
 );
 
 if (result.HasValue)
