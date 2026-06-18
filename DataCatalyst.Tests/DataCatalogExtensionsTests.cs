@@ -16,11 +16,13 @@ public class DataCatalogExtensionsRelaxedTests {
 	[Fact]
 	public void Bind_WithDataKey_Succeeds() {
 		// Arrange
-		var entry1 = new DataEntry("H2O");
-		entry1.Set(new TestComponent { Name = "H2O", Value = 18 });
+		var entry1 = new DataEntry("H2O", new() {
+			[typeof(TestComponent)] = new TestComponent { Name = "H2O", Value = 18 }
+		});
 
-		var entry2 = new DataEntry("O2");
-		entry2.Set(new TestComponent { Name = "O2", Value = 32 });
+		var entry2 = new DataEntry("O2", new() {
+			[typeof(TestComponent)] = new TestComponent { Name = "O2", Value = 32 }
+		});
 
 		var graph = DataGraphBuilder.Build([entry1, entry2]);
 		var catalog = DataCatalogBuilder.Resolve(graph);
@@ -37,8 +39,9 @@ public class DataCatalogExtensionsRelaxedTests {
 	[Fact]
 	public void Bind_WithStringKey_Succeeds() {
 		// Arrange
-		var entry1 = new DataEntry("H2O");
-		entry1.Set(new TestComponent { Name = "H2O", Value = 18 });
+		var entry1 = new DataEntry("H2O", new() {
+			[typeof(TestComponent)] = new TestComponent { Name = "H2O", Value = 18 }
+		});
 
 		var graph = DataGraphBuilder.Build([entry1]);
 		var catalog = DataCatalogBuilder.Resolve(graph);

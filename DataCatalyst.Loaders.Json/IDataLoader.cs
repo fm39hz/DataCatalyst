@@ -1,10 +1,9 @@
 namespace DataCatalyst.Loaders;
 
-using System.Collections.Generic;
 using Core;
 
 /// <summary>Loads data entries from an external source.</summary>
 public interface IDataLoader {
 	/// <summary>Loads entries from the given source path.</summary>
-	public List<DataEntry> LoadDirectory(string path);
+	public LoadResult LoadDirectory(string path);
 }

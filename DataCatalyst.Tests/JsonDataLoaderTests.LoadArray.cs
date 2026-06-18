@@ -72,7 +72,7 @@ public class JsonDataLoaderLoadArrayTests : IDisposable {
 	}
 
 	[Fact]
-	public void LoadArrayReflection_Succeeds() {
+	public void LoadArray_Aot_SingleEntry_Succeeds() {
 		// Arrange
 		PrimitiveRegistry.Register<GameComponent>();
 		var filePath = Path.Combine(_tempDir, "substances.json");
@@ -86,9 +86,7 @@ public class JsonDataLoaderLoadArrayTests : IDisposable {
 		]");
 
 		// Act
-#pragma warning disable CS0618 // Type or member is obsolete
-		var result = JsonDataLoader.LoadArrayReflection(filePath, "id");
-#pragma warning restore CS0618
+		var result = JsonDataLoader.LoadArray(filePath, "id", CreateAotOptions());
 
 		// Assert
 		result.Diagnostics.Should().BeEmpty();

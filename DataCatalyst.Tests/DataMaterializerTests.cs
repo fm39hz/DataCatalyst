@@ -27,9 +27,10 @@ public class DataMaterializerTests {
 	[Fact]
 	public void Materializer_AppliesRegisteredComponents_ToMockTarget() {
 		// Arrange
-		var entry = new DataEntry("Goblin");
-		entry.Set(new MaterializerTestComponent { Name = "Goblin", Value = 100 });
-		entry.Set(new AnotherTestComponent { Ratio = 1.5f });
+		var entry = new DataEntry("Goblin", new() {
+			[typeof(MaterializerTestComponent)] = new MaterializerTestComponent { Name = "Goblin", Value = 100 },
+			[typeof(AnotherTestComponent)] = new AnotherTestComponent { Ratio = 1.5f }
+		});
 
 		var entity = new MockEntity();
 
@@ -54,8 +55,9 @@ public class DataMaterializerTests {
 	[Fact]
 	public void Materializer_SkipsMissingComponents_WithoutThrowing() {
 		// Arrange
-		var entry = new DataEntry("Goblin");
-		entry.Set(new MaterializerTestComponent { Name = "Goblin", Value = 100 });
+		var entry = new DataEntry("Goblin", new() {
+			[typeof(MaterializerTestComponent)] = new MaterializerTestComponent { Name = "Goblin", Value = 100 }
+		});
 		// AnotherTestComponent is missing from the entry
 
 		var entity = new MockEntity();

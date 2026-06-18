@@ -16,8 +16,9 @@ public class DataEntryTests {
 
 	[Fact]
 	public void SetAndGet_Roundtrips() {
-		var entry = new DataEntry("test");
-		entry.Set(new TestStruct { X = 42 });
+		var entry = new DataEntry("test", new() {
+			[typeof(TestStruct)] = new TestStruct { X = 42 }
+		});
 		entry.Get<TestStruct>().X.Should().Be(42);
 	}
 
@@ -29,17 +30,18 @@ public class DataEntryTests {
 
 	[Fact]
 	public void TryGet_Present_ReturnsTrue() {
-		var entry = new DataEntry("x");
-		entry.Set(new TestStruct { X = 1 });
+		var entry = new DataEntry("x", new() {
+			[typeof(TestStruct)] = new TestStruct { X = 1 }
+		});
 		entry.TryGet<TestStruct>(out var v).Should().BeTrue();
 		v.X.Should().Be(1);
 	}
 
 	[Fact]
 	public void Has_ChecksType() {
-		var entry = new DataEntry("x");
-		entry.Has<TestStruct>().Should().BeFalse();
-		entry.Set(new TestStruct());
+		var entry = new DataEntry("x", new() {
+			[typeof(TestStruct)] = new TestStruct()
+		});
 		entry.Has<TestStruct>().Should().BeTrue();
 	}
 
@@ -76,8 +78,9 @@ public class DataGraphBuilderTests {
 public class DataCatalogBuilderTests {
 	[Fact]
 	public void Resolve_SingleEntry() {
-		var e = new DataEntry("x");
-		e.Set(new TestStruct { X = 1 });
+		var e = new DataEntry("x", new() {
+			[typeof(TestStruct)] = new TestStruct { X = 1 }
+		});
 		var graph = DataGraphBuilder.Build([e]);
 		var catalog = DataCatalogBuilder.Resolve(graph);
 		catalog.Get<TestStruct>("x").X.Should().Be(1);
@@ -85,11 +88,13 @@ public class DataCatalogBuilderTests {
 
 	[Fact]
 	public void Inheritance_MergesParentComponents() {
-		var parent = new DataEntry("parent");
-		parent.Set(new TestStruct { X = 10 });
+		var parent = new DataEntry("parent", new() {
+			[typeof(TestStruct)] = new TestStruct { X = 10 }
+		});
 
-		var child = new DataEntry("child", inherits: ["parent"]);
-		child.Set(new OtherStruct { Y = 20 });
+		var child = new DataEntry("child", new() {
+			[typeof(OtherStruct)] = new OtherStruct { Y = 20 }
+		}, inherits: ["parent"]);
 
 		var graph = DataGraphBuilder.Build([parent, child]);
 		var catalog = DataCatalogBuilder.Resolve(graph);
@@ -100,11 +105,13 @@ public class DataCatalogBuilderTests {
 
 	[Fact]
 	public void ChildOverridesParent() {
-		var parent = new DataEntry("parent");
-		parent.Set(new TestStruct { X = 10 });
+		var parent = new DataEntry("parent", new() {
+			[typeof(TestStruct)] = new TestStruct { X = 10 }
+		});
 
-		var child = new DataEntry("child", inherits: ["parent"]);
-		child.Set(new TestStruct { X = 99 });
+		var child = new DataEntry("child", new() {
+			[typeof(TestStruct)] = new TestStruct { X = 99 }
+		}, inherits: ["parent"]);
 
 		var graph = DataGraphBuilder.Build([parent, child]);
 		var catalog = DataCatalogBuilder.Resolve(graph);
@@ -114,10 +121,12 @@ public class DataCatalogBuilderTests {
 
 	[Fact]
 	public void DeepChain_FlattensAll() {
-		var a = new DataEntry("a");
-		a.Set(new TestStruct { X = 1 });
-		var b = new DataEntry("b", inherits: ["a"]);
-		b.Set(new OtherStruct { Y = 2 });
+		var a = new DataEntry("a", new() {
+			[typeof(TestStruct)] = new TestStruct { X = 1 }
+		});
+		var b = new DataEntry("b", new() {
+			[typeof(OtherStruct)] = new OtherStruct { Y = 2 }
+		}, inherits: ["a"]);
 		var c = new DataEntry("c", inherits: ["b"]);
 
 		var graph = DataGraphBuilder.Build([a, b, c]);
@@ -139,8 +148,9 @@ public class DataCatalogBuilderTests {
 
 	[Fact]
 	public void MissingParent_Ignores() {
-		var child = new DataEntry("child", inherits: ["missing"]);
-		child.Set(new TestStruct { X = 5 });
+		var child = new DataEntry("child", new() {
+			[typeof(TestStruct)] = new TestStruct { X = 5 }
+		}, inherits: ["missing"]);
 		var graph = DataGraphBuilder.Build([child]);
 		var catalog = DataCatalogBuilder.Resolve(graph);
 
@@ -149,8 +159,9 @@ public class DataCatalogBuilderTests {
 
 	[Fact]
 	public void TryGet_FromCatalog() {
-		var e = new DataEntry("x");
-		e.Set(new TestStruct { X = 7 });
+		var e = new DataEntry("x", new() {
+			[typeof(TestStruct)] = new TestStruct { X = 7 }
+		});
 		var catalog = DataCatalogBuilder.Resolve(DataGraphBuilder.Build([e]));
 		catalog.TryGet<TestStruct>("x", out var v).Should().BeTrue();
 		v.X.Should().Be(7);
@@ -222,13 +233,6 @@ public class PluginRegistryTests : IDisposable {
 		TestPlugin.Constructed.Should().BeTrue();
 	}
 
-	[Fact]
-	public void RegisterByTypeName_InstantiatesPlugin() {
-		TestPlugin.Constructed = false;
-		var typeName = typeof(TestPlugin).AssemblyQualifiedName ?? typeof(TestPlugin).FullName!;
-		PluginRegistry.RegisterByTypeName(typeName);
-		TestPlugin.Constructed.Should().BeTrue();
-	}
 }
 
 public struct TestStruct : IComponent {
@@ -265,10 +269,12 @@ public class DataCatalogExtensionsTests {
 
 	[Fact]
 	public void Bind_MapsEnumCorrectly() {
-		var e1 = new DataEntry("A");
-		e1.Set(new BindTestStruct { Kind = BindTestKind.A, Value = 10 });
-		var e2 = new DataEntry("B");
-		e2.Set(new BindTestStruct { Kind = BindTestKind.B, Value = 20 });
+		var e1 = new DataEntry("A", new() {
+			[typeof(BindTestStruct)] = new BindTestStruct { Kind = BindTestKind.A, Value = 10 }
+		});
+		var e2 = new DataEntry("B", new() {
+			[typeof(BindTestStruct)] = new BindTestStruct { Kind = BindTestKind.B, Value = 20 }
+		});
 
 		var graph = DataGraphBuilder.Build([e1, e2]);
 		var catalog = DataCatalogBuilder.Resolve(graph);

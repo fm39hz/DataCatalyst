@@ -145,15 +145,17 @@ namespace DataCatalyst.Tests {
 			var entries = new List<DataEntry>();
 
 			// Base entry
-			var baseEntry = new DataEntry("enemy");
-			baseEntry.Set(new GameComponent { Value = 10 });
+			var baseEntry = new DataEntry("enemy", new() {
+				[typeof(GameComponent)] = new GameComponent { Value = 10 }
+			});
 			baseEntry.SourceFile = "Base/enemy.json";
 			entries.Add(baseEntry);
 
 			// Mod entry overriding base entry component and adding another component
-			var modEntry = new DataEntry("enemy");
-			modEntry.Set(new GameComponent { Value = 25 }); // Overrides base value
-			modEntry.Set(new OtherStruct { Y = 99 });       // Adds new component
+			var modEntry = new DataEntry("enemy", new() {
+				[typeof(GameComponent)] = new GameComponent { Value = 25 },
+				[typeof(OtherStruct)] = new OtherStruct { Y = 99 }
+			});
 			modEntry.SourceFile = "Mod/enemy.json";
 			entries.Add(modEntry);
 

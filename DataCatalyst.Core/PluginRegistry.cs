@@ -11,18 +11,6 @@ public static class PluginRegistry {
 	public static void Register<T>() where T : IDataPlugin, new() =>
 		_plugins.Add(typeof(T).FullName ?? typeof(T).Name, new T());
 
-	/// <summary>Registers a plugin by fully qualified type name.</summary>
-	public static void RegisterByTypeName(string typeName) {
-		var type = System.Type.GetType(typeName);
-		if (type == null) {
-			return;
-		}
-
-		if (System.Activator.CreateInstance(type) is IDataPlugin plugin) {
-			_plugins.Add(type.FullName ?? type.Name, plugin);
-		}
-	}
-
 	/// <summary>All registered plugin instances.</summary>
 	public static IReadOnlyList<IDataPlugin> Plugins => _plugins.GetAll();
 

@@ -7,8 +7,8 @@ using System.Collections.Generic;
 public static class PrimitiveRegistry {
 	private static readonly HashSet<Type> _types = [];
 
-	/// <summary>Registers a type as a known primitive.</summary>
-	public static void Register<T>() {
+	/// <summary>Registers a struct type as a known primitive.</summary>
+	public static void Register<T>() where T : struct {
 		lock (_types) {
 			_types.Add(typeof(T));
 		}
