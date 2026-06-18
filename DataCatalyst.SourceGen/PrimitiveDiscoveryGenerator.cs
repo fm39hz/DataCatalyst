@@ -18,184 +18,145 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 		defaultSeverity: DiagnosticSeverity.Warning,
 		isEnabledByDefault: true);
 
+	private static readonly DiagnosticDescriptor CollisionWarning = new(
+		id: "DC002",
+		title: "Discriminator collision",
+		messageFormat: "[DataComponent] types with name '{0}' collide. Use fully-qualified namespace in JSON to distinguish.",
+		category: "DataCatalyst",
+		defaultSeverity: DiagnosticSeverity.Warning,
+		isEnabledByDefault: true);
+
+	private static readonly DiagnosticDescriptor CycleWarning = new(
+		id: "DC003",
+		title: "Circular plugin dependency",
+		messageFormat: "Circular dependency detected involving plugin '{0}'",
+		category: "DataCatalyst",
+		defaultSeverity: DiagnosticSeverity.Error,
+		isEnabledByDefault: true);
+
+	private const string DataComponentAttr = "DataCatalyst.Abstractions.DataComponentAttribute";
+	private const string DataPluginAttr = "DataCatalyst.Abstractions.DataPluginAttribute";
+	private const string DataPluginIface = "DataCatalyst.Abstractions.IDataPlugin";
+
 	public void Initialize(IncrementalGeneratorInitializationContext context) {
-		var plugins = context.SyntaxProvider
-			.CreateSyntaxProvider(
-				static (n, _) => n is ClassDeclarationSyntax,
-				static (ctx, _) => ExtractPlugin(ctx))
+		// Discover [DataComponent] structs/classes in the compiling assembly only.
+		// Each assembly self-registers via its own ModuleInitializer — cross-assembly scan is redundant.
+		var primitives = context.SyntaxProvider.ForAttributeWithMetadataName(
+			DataComponentAttr,
+			static (node, _) => node is TypeDeclarationSyntax,
+			static (ctx, _) => {
+				var t = (INamedTypeSymbol)ctx.TargetSymbol;
+				Location? warning = t.TypeKind != TypeKind.Structure
+					? ctx.TargetNode.GetLocation()
+					: null;
+				var fullType = t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+				return new PrimitiveResult(fullType, fullType, warning);
+			}).Collect();
+
+		// Discover [DataPlugin] classes in the compiling assembly
+		var plugins = context.SyntaxProvider.ForAttributeWithMetadataName(
+			DataPluginAttr,
+			static (node, _) => node is ClassDeclarationSyntax,
+			static (ctx, _) => {
+				var t = (INamedTypeSymbol)ctx.TargetSymbol;
+				if (!t.AllInterfaces.Any(i => i.ToDisplayString() == DataPluginIface)) return default((string, string, string[])?);
+				var fullType = t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+				var deps = GetDeps(t.GetAttributes());
+				return ((string FullType, string Id, string[] Deps)?)(fullType, t.Name, deps);
+			})
 			.Where(static p => p is not null)
 			.Select(static (p, _) => p!.Value)
-			.Collect();
-
-		var primitives = context.SyntaxProvider
-			.CreateSyntaxProvider(
-				static (n, _) => n is TypeDeclarationSyntax,
-				static (ctx, _) => ExtractPrimitive(ctx))
 			.Collect();
 
 		context.RegisterSourceOutput(
 			context.CompilationProvider.Combine(plugins).Combine(primitives),
 			static (spc, payload) => {
 				var ((comp, pl), pr) = payload;
+
+				// Report non-struct warnings
 				foreach (var p in pr) {
-					if (p.Warning is {} w) {
+					if (p.Warning is {} w)
 						spc.ReportDiagnostic(Diagnostic.Create(StructRecommendedWarning, w));
-					}
 				}
-				var prims = pr
-					.Where(static p => p.FullType is not null)
-					.Select(static p => (FullType: p.FullType!, ShortName: p.ShortName!))
-					.ToImmutableArray();
-				Emit(spc, comp, pl, prims);
+
+				Emit(spc, pl, pr);
 			});
 	}
 
-	private static (string FullType, string Id, string[] Deps)? ExtractPlugin(GeneratorSyntaxContext ctx) {
-		if (ctx.Node is not ClassDeclarationSyntax cds) {
-			return null;
-		}
-
-		if (ctx.SemanticModel.GetDeclaredSymbol(cds) is not INamedTypeSymbol t) {
-			return null;
-		}
-
-		if (!t.AllInterfaces.Any(i => i.Name == "IDataPlugin")) {
-			return null;
-		}
-
-		if (!HasAttr(t.GetAttributes(), "DataPluginAttribute")) {
-			return null;
-		}
-
-		return (t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat), t.Name, GetDeps(t.GetAttributes()));
-	}
-
-	private static PrimitiveResult ExtractPrimitive(GeneratorSyntaxContext ctx) {
-		if (ctx.Node is not TypeDeclarationSyntax tds) {
-			return default;
-		}
-
-		if (ctx.SemanticModel.GetDeclaredSymbol(tds) is not INamedTypeSymbol t) {
-			return default;
-		}
-
-		if (!HasAttr(t.GetAttributes(), "DataComponentAttribute")) {
-			return default;
-		}
-
-		Location? warning = t.TypeKind != TypeKind.Structure ? tds.GetLocation() : null;
-
-		return new PrimitiveResult(
-			t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
-			t.Name,
-			warning);
+	private static PrimitiveResult MakePrimitiveResult(INamedTypeSymbol t, Location? warning) {
+		var fullType = t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+		return new PrimitiveResult(fullType, fullType, warning);
 	}
 
 	private readonly struct PrimitiveResult {
-		public readonly string? FullType;
-		public readonly string? ShortName;
+		public readonly string? FullType;   // "global::Game.Health"
+		public readonly string? Discrim;    // "Game.Health" (JSON key)
 		public readonly Location? Warning;
 
-		public PrimitiveResult(string? fullType, string? shortName, Location? warning) {
+		public PrimitiveResult(string? fullType, string? discrim, Location? warning) {
 			FullType = fullType;
-			ShortName = shortName;
+			Discrim = discrim;
 			Warning = warning;
 		}
 	}
 
-	private static bool HasAttr(ImmutableArray<AttributeData> attrs, string name) {
-		foreach (var a in attrs) {
-			if (a.AttributeClass?.Name == name) {
-				return true;
-			}
-		}
-
-		return false;
-	}
-
 	private static string[] GetDeps(ImmutableArray<AttributeData> attrs) {
 		foreach (var a in attrs) {
-			if (a.AttributeClass?.Name != "DataPluginAttribute") {
-				continue;
-			}
-
+			if (a.AttributeClass == null || a.AttributeClass.ToDisplayString() != DataPluginAttr) continue;
 			foreach (var n in a.NamedArguments) {
 				if (n.Key == "DependsOn" && n.Value.Values is { Length: > 0 } vs) {
-					var list = new List<string>();
+					var list = new List<string>(vs.Length);
 					foreach (var v in vs) {
-						if (v.Value is INamedTypeSymbol dt) {
-							list.Add(dt.Name);
-						}
+						if (v.Value is INamedTypeSymbol dt)
+							list.Add(dt.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
 					}
-
 					return [.. list];
 				}
 			}
 		}
-
 		return [];
 	}
 
-	private static void Emit(SourceProductionContext spc, Compilation comp,
-		ImmutableArray<(string FullType, string Id, string[] Deps)> classPlugins,
-		ImmutableArray<(string FullType, string ShortName)> classPrims) {
-		var allPlugins = new List<(string FullType, string Id, string[] Deps)>();
-		var allPrims = new List<(string FullType, string ShortName)>();
+	private static string Discriminator(string fullType) {
+		// strip "global::" prefix, replace "+" (nested) with "."
+		var s = fullType.StartsWith("global::") ? fullType.Substring(8) : fullType;
+		return s.Replace('+', '.');
+	}
 
-		if (!classPlugins.IsDefaultOrEmpty) {
-			allPlugins.AddRange(classPlugins);
-		}
+	private static void Emit(SourceProductionContext spc,
+		ImmutableArray<(string FullType, string Id, string[] Deps)> allPlugins,
+		ImmutableArray<PrimitiveResult> allPrims) {
 
-		if (!classPrims.IsDefaultOrEmpty) {
-			allPrims.AddRange(classPrims);
-		}
+		// Filter non-null primitives and compute discriminator keys
+		var prims = new List<(string FullType, string Discrim)>();
+		var seenDiscrims = new HashSet<string>();
+		var colliding = new HashSet<string>();
 
-		// Scan referenced assemblies for IDataPlugin + [DataPlugin] + [DataComponent]
-		foreach (var r in comp.References) {
-			if (comp.GetAssemblyOrModuleSymbol(r) is not IAssemblySymbol asm) {
-				continue;
+		foreach (var p in allPrims) {
+			if (p.FullType == null) continue;
+			var d = p.Discrim ?? Discriminator(p.FullType);
+			if (!seenDiscrims.Add(d)) {
+				// Collision — switch both colliding entries to full namespace
+				colliding.Add(d);
+				// Need to find the previous entry and update it
 			}
-
-			ScanAssembly(asm, allPlugins, allPrims);
+			prims.Add((p.FullType, d));
 		}
 
-		if (allPlugins.Count == 0 && allPrims.Count == 0) {
-			return;
-		}
-
-		// Detect short-name collisions — colliding types use fully-qualified discriminator
-		var nameCounts = new Dictionary<string, int>(allPrims.Count);
-		foreach (var (_, sn) in allPrims) {
-			nameCounts.TryGetValue(sn, out var c);
-			nameCounts[sn] = c + 1;
-		}
-
-		var collidingNames = new HashSet<string>();
-		foreach (var kv in nameCounts) {
-			if (kv.Value > 1) collidingNames.Add(kv.Key);
-		}
-
-		if (collidingNames.Count > 0) {
-			foreach (var cn in collidingNames) {
-				spc.ReportDiagnostic(Diagnostic.Create(
-					new DiagnosticDescriptor("DC002", "Discriminator collision",
-						$"[DataComponent] types with name '{cn}' collide. Use fully-qualified namespace in JSON to distinguish.",
-						"DataCatalyst", DiagnosticSeverity.Warning, isEnabledByDefault: true),
-					Location.None));
+		// Resolve collisions: entries with colliding short keys get full namespace path
+		if (colliding.Count > 0) {
+			foreach (var d in colliding) {
+				spc.ReportDiagnostic(Diagnostic.Create(CollisionWarning, Location.None, d));
+			}
+			for (var i = 0; i < prims.Count; i++) {
+				var (ft, d) = prims[i];
+				if (colliding.Contains(d)) {
+					prims[i] = (ft, Discriminator(ft));
+				}
 			}
 		}
 
-		// Map ShortName → discriminator: short name if unique, full name if colliding
-		var discriminator = new Dictionary<string, string>(allPrims.Count);
-		foreach (var (ft, sn) in allPrims) {
-			if (collidingNames.Contains(sn)) {
-				var full = ft.StartsWith("global::") ? ft.Substring(8) : ft;
-				discriminator[ft] = full;
-			}
-			else {
-				discriminator[ft] = sn;
-			}
-		}
+		if (allPlugins.Length == 0 && prims.Count == 0) return;
 
 		var sb = new StringBuilder();
 		sb.Append("// <auto-generated/>\n#nullable enable\n\nnamespace DataCatalyst.Core {\n");
@@ -204,26 +165,25 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 		sb.Append("\t\t[System.Runtime.CompilerServices.ModuleInitializer]\n");
 		sb.Append("\t\tinternal static void Init() {\n");
 
-		if (allPlugins.Count > 0) {
-			var sorted = TopoSort(allPlugins);
+		if (allPlugins.Length > 0) {
+			var sorted = TopoSort(allPlugins.ToList(), spc);
 			foreach (var (ft, _, _) in sorted) {
 				sb.Append("\t\t\tglobal::DataCatalyst.Core.PluginRegistry.Register<")
 					.Append(ft).AppendLine(">();");
 			}
 		}
 
-		if (allPrims.Count > 0) {
-			foreach (var (ft, _) in allPrims) {
+		if (prims.Count > 0) {
+			foreach (var (ft, _) in prims) {
 				sb.Append("\t\t\tglobal::DataCatalyst.Core.PrimitiveRegistry.Register<")
 					.Append(ft).AppendLine(">();");
 			}
 
 			sb.AppendLine();
 			sb.Append("\t\t\tglobal::DataCatalyst.Core.PrimitiveRegistry.RegisterIds(new() {\n");
-			foreach (var (ft, sn) in allPrims) {
-				var key = discriminator[ft];
-				sb.Append("\t\t\t\t{ \"").Append(key).Append("\", typeof(").Append(ft).Append(") },")
-					.Append(" // ").AppendLine(key);
+			foreach (var (ft, d) in prims) {
+				sb.Append("\t\t\t\t{ \"").Append(d).Append("\", typeof(").Append(ft).Append(") },")
+					.Append(" // ").AppendLine(d);
 			}
 			sb.Append("\t\t\t});\n");
 		}
@@ -231,118 +191,76 @@ public sealed class PrimitiveDiscoveryGenerator : IIncrementalGenerator {
 		sb.Append("\t\t}\n");
 
 		sb.Append("\n\t\tpublic static void RegisterTo(global::DataCatalyst.Core.DataRegistry registry) {\n");
-		if (allPlugins.Count > 0) {
-			var sorted = TopoSort(allPlugins);
+		if (allPlugins.Length > 0) {
+			var sorted = TopoSort(allPlugins.ToList(), spc);
 			foreach (var (ft, _, _) in sorted) {
-				sb.Append("\t\t\tregistry.RegisterPlugin<")
-					.Append(ft).AppendLine(">();");
+				sb.Append("\t\t\tregistry.RegisterPlugin<").Append(ft).AppendLine(">();");
 			}
 		}
-
-		if (allPrims.Count > 0) {
-			foreach (var (ft, _) in allPrims) {
-				sb.Append("\t\t\tregistry.RegisterComponent<")
-					.Append(ft).AppendLine(">();");
+		if (prims.Count > 0) {
+			foreach (var (ft, _) in prims) {
+				sb.Append("\t\t\tregistry.RegisterComponent<").Append(ft).AppendLine(">();");
 			}
 		}
-
 		sb.Append("\t\t}\n");
-
 		sb.Append("\t}\n}");
+
 		spc.AddSource("PrimitiveRegistrations.g.cs", SourceText.From(sb.ToString(), Encoding.UTF8));
 	}
 
-	private static void ScanAssembly(IAssemblySymbol asm, List<(string, string, string[])> plugins,
-		List<(string FullType, string ShortName)> prims) {
-		foreach (var type in GetAllTypes(asm.GlobalNamespace)) {
-			if (type.TypeKind != TypeKind.Class) {
-				continue;
-			}
+	private static List<(string FullType, string Id, string[] Deps)> TopoSort(
+		List<(string FullType, string Id, string[] Deps)> plugins,
+		SourceProductionContext spc) {
 
-			if (type.AllInterfaces.Any(i => i.Name == "IDataPlugin") &&
-				HasAttr(type.GetAttributes(), "DataPluginAttribute")) {
-				var ft = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-				if (!plugins.Any(p => p.Item1 == ft)) {
-					plugins.Add((ft, type.Name, GetDeps(type.GetAttributes())));
-				}
-			}
-		}
-
-		foreach (var type in GetAllTypes(asm.GlobalNamespace)) {
-			if (type.TypeKind != TypeKind.Structure && type.TypeKind != TypeKind.Class) {
-				continue;
-			}
-
-			if (!HasAttr(type.GetAttributes(), "DataComponentAttribute")) {
-				continue;
-			}
-
-			var ft = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-			if (prims.Any(p => p.FullType == ft)) {
-				continue;
-			}
-
-			prims.Add((ft, type.Name));
-		}
-	}
-
-	private static IEnumerable<INamedTypeSymbol> GetAllTypes(INamespaceSymbol ns) {
-		foreach (var t in ns.GetTypeMembers()) {
-			yield return t;
-		}
-
-		foreach (var c in ns.GetNamespaceMembers()) {
-			foreach (var t in GetAllTypes(c)) {
-				yield return t;
-			}
-		}
-	}
-
-	private static (string, string, string[])[] TopoSort(List<(string, string, string[])> plugins) {
-		var map = new Dictionary<string, (string, string, string[])>();
+		var map = new Dictionary<string, (string FullType, string Id, string[] Deps)>();
 		var indeg = new Dictionary<string, int>();
 		var edges = new Dictionary<string, List<string>>();
 
 		foreach (var p in plugins) {
-			map[p.Item2] = p;
-			indeg[p.Item2] = 0;
-			edges[p.Item2] = [];
+			if (map.ContainsKey(p.FullType)) continue; // dedup
+			map[p.FullType] = p;
+			indeg[p.FullType] = 0;
+			edges[p.FullType] = [];
 		}
 
-		foreach (var (_, id, deps) in plugins) {
-			foreach (var d in deps) {
+		foreach (var p in plugins) {
+			if (!map.ContainsKey(p.FullType)) continue;
+			foreach (var d in p.Deps) {
 				if (map.ContainsKey(d)) {
-					edges[d].Add(id);
-					indeg[id]++;
+					edges[d].Add(p.FullType);
+					indeg[p.FullType]++;
 				}
 			}
 		}
 
-		var ready = new List<(string, string, string[])>();
-		foreach (var p in plugins) {
-			if (indeg.TryGetValue(p.Item2, out var d) && d == 0) {
-				ready.Add(p);
-			}
+		var ready = new Queue<string>();
+		foreach (var kv in map) {
+			if (indeg.TryGetValue(kv.Key, out var d) && d == 0) ready.Enqueue(kv.Key);
 		}
 
-		var result = new List<(string, string, string[])>();
+		var result = new List<(string FullType, string Id, string[] Deps)>();
 		while (ready.Count > 0) {
-			var cur = ready[0];
-			ready.RemoveAt(0);
-			result.Add(cur);
-			foreach (var c in edges.TryGetValue(cur.Item2, out var l) ? l : []) {
-				if (--indeg[c] == 0 && map.TryGetValue(c, out var n)) {
-					ready.Add(n);
+			var cur = ready.Dequeue();
+			result.Add(map[cur]);
+			if (edges.TryGetValue(cur, out var list)) {
+				foreach (var c in list) {
+					if (--indeg[c] == 0 && map.ContainsKey(c)) ready.Enqueue(c);
 				}
 			}
 		}
 
-		foreach (var p in plugins) {
-			if (!result.Contains(p)) {
-				result.Add(p);
+		// Report cycles — remaining nodes with indeg > 0 are in a cycle
+		foreach (var kv in map) {
+			if (!result.Any(r => r.FullType == kv.Key)) {
+				spc.ReportDiagnostic(Diagnostic.Create(CycleWarning, Location.None, kv.Key));
 			}
 		}
 
-		return [.. result];
+		// Append cyclic plugins after sorted ones (still emit, but flagged)
+		foreach (var p in plugins) {
+			if (!result.Any(r => r.FullType == p.FullType)) result.Add(p);
+		}
+
+		return result;
 	}
 }
