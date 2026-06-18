@@ -1,7 +1,8 @@
-namespace DataCatalyst.Core;
+namespace DataCatalyst.Plugins.Materializer;
 
 using System;
 using System.Collections.Generic;
+using DataCatalyst.Core;
 
 /// <summary>Interface for AOT-safe component materialization from DataEntry to a generic target.</summary>
 public interface IComponentMaterializer<TTarget> {

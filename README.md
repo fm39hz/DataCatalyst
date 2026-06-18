@@ -49,7 +49,8 @@ DataCatalyst is divided into small, focused modules to keep the core generic and
 └── DataCatalyst.Plugins.*      - Composable infrastructure plugins
     ├── NumericCompare          - Operator parser and threshold evaluation contract
     ├── Transition              - Transition and sensor condition data models
-    └── StateEngine            - Generic data-driven state machine evaluator
+    ├── StateEngine            - Generic data-driven state machine evaluator
+    └── Materializer           - Generic DataEntry-to-target materialization API
 ```
 
 ### 🔁 Data Flow Pipeline
@@ -59,7 +60,6 @@ graph TD
     A[Raw JSON Files] -->|JsonDataLoader.LoadDirectory| B[LoadResult]
     B -->|DataGraphBuilder.Build| C[DataGraph unresolved]
     C -->|DataCatalogBuilder.Resolve| D[DataCatalog resolved, immutable]
-    D -->|DataMaterializer&lt;T&gt;.Materialize| E[Game Entities]
 
     subgraph Core Resolution
         D --> D1[1. Topological Plugin Init]
@@ -174,18 +174,7 @@ var catalog = DataCatalogBuilder.Resolve(graph);
 var goblinHealth = catalog.Get<Health>("Goblin");  // 50/50 (overridden)
 var goblinStats = catalog.Get<CombatStats>("Goblin"); // 10/5 (inherited from BaseMonster)
 
-// 5. Or batch-materialize to game entities using typed delegates
-var materializer = new DataMaterializer<Entity>();
-materializer.Register<Health>((entity, hp) => entity.SetHealth(hp.Current, hp.Max));
-materializer.Register<CombatStats>((entity, s) => entity.SetCombat(s.AttackPower, s.Defense));
-
-foreach (var (key, entry) in catalog.Entries)
-{
-    var entity = new Entity();
-    materializer.Materialize(entry, entity);
-}
-
-// 6. Or bind resolved components to typed dictionaries using DataKey<T>
+// 5. Or bind resolved components to typed dictionaries using DataKey<T>
 var substances = catalog.Bind<DataKey<SubstanceData>, SubstanceData>(c => new DataKey<SubstanceData>(c.Name));
 ```
 
@@ -210,6 +199,26 @@ high-performance game runtimes such as Godot 4 .NET, Unity, or custom engines):
 ## 📦 Bundled Infrastructure Plugins
 
 DataCatalyst includes pure data-driven plugins for common game patterns:
+
+### 🧩 Materializer Plugin
+
+Provides a generic `DataEntry`-to-target materialization API decoupled from any ECS framework:
+
+- **`DataMaterializer<TTarget>`**: Registry and dispatcher for component materializers targeting any consumer type.
+- **`ComponentMaterializer<TComponent, TTarget>`**: Wraps an `Action<TTarget, TComponent>` to extract a typed component from a `DataEntry` and apply it to a target.
+- **Native AOT-safe**: Pure generic delegates, zero reflection, consumer-defined bindings.
+
+```csharp
+var materializer = new DataMaterializer<Entity>();
+materializer.Register<Health>((entity, hp) => entity.SetHealth(hp.Current, hp.Max));
+materializer.Register<CombatStats>((entity, s) => entity.SetCombat(s.AttackPower, s.Defense));
+
+foreach (var (key, entry) in catalog.Entries)
+{
+    var entity = new Entity();
+    materializer.Materialize(entry, entity);
+}
+```
 
 ### 🎮 StateEngine & Transition Plugins
 

@@ -3,6 +3,7 @@ namespace DataCatalyst.Tests;
 using System;
 using System.Collections.Generic;
 using DataCatalyst.Core;
+using DataCatalyst.Plugins.Materializer;
 using FluentAssertions;
 using Xunit;
 

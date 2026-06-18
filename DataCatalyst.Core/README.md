@@ -11,7 +11,6 @@ JSON files
   ↳ JsonDataLoader.LoadDirectory() ──> LoadResult (entries + diagnostics)
       ↳ DataGraphBuilder.Build() ──> DataGraph (unresolved map, merges mod patches)
           ↳ DataCatalogBuilder.Resolve() ──> DataCatalog (resolved, flattened, immutable)
-              ↳ DataMaterializer.Materialize() ──> consumer entities (via registered delegates)
 ```
 
 During resolution, the engine processes:
@@ -36,7 +35,6 @@ During resolution, the engine processes:
 | `DataCatalog`             | The resolved, immutable, read-only dictionary of composition entries.         |
 | `DataCatalogBuilder`      | Resolves a `DataGraph` into a finalized `DataCatalog`.                        |
 | `DataCatalogExtensions`   | Extension methods (`Bind<TKey,TValue>`) for batch lookups.                    |
-| `DataMaterializer<T>`     | Registry and dispatcher for materializing components to game entities.        |
 | `DataViewAdapterRegistry` | Registers observers/view adapters for engine-specific bridges.                |
 | `ServiceRegistry`         | Lightweight, generic service locator.                                         |
 | `DataOverride`            | Record model for runtime overlay applications (planned integration).          |

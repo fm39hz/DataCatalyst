@@ -19,7 +19,11 @@ public static class StateEngineEvaluator<TState, TSensor>
 		public bool HasValue;
 	}
 
-	/// <summary>Evaluates transitions on a baked group and returns the best target state, with zero allocations.</summary>
+	/// <summary>
+	/// Evaluates transitions on a baked group and returns the best target state, with zero allocations.
+	/// The <paramref name="viableStates"/> set is read-only — reuse the same set across evaluations
+	/// (via Clear + Add) to minimize allocation.
+	/// </summary>
 	public static Result Evaluate(
 		TState currentStateId,
 		BakedStateGroup<TState, TSensor> group,
@@ -40,31 +44,31 @@ public static class StateEngineEvaluator<TState, TSensor>
 			return new Result { HasValue = false };
 		}
 
-		var bestTarget = default(TState);
-		var bestPriority = int.MinValue;
-		var hasBest = false;
+			var bestTarget = default(TState);
+			var bestPriority = float.MinValue;
+			var hasBest = false;
 
-		var transitions = currentState.Transitions;
-		for (var i = 0; i < transitions.Length; i++) {
-			var t = transitions[i];
-			var target = t.TargetState;
+			var transitions = currentState.Transitions;
+			for (var i = 0; i < transitions.Length; i++) {
+				var t = transitions[i];
+				var target = t.TargetState;
 
-			if (!viableStates.Contains(target)) {
-				continue;
-			}
+				if (!viableStates.Contains(target)) {
+					continue;
+				}
 
-			if (!PassConditions(t, currentStateId, target, readSensor)) {
-				continue;
-			}
+				if (!PassConditions(t, currentStateId, target, readSensor)) {
+					continue;
+				}
 
-			var priority = t.BasePriority;
-			var influences = t.Influences;
-			for (var j = 0; j < influences.Length; j++) {
-				var inf = influences[j];
-				priority += (int)(readSensor(inf.Signal) * inf.Weight);
-			}
+				var priority = t.BasePriority;
+				var influences = t.Influences;
+				for (var j = 0; j < influences.Length; j++) {
+					var inf = influences[j];
+					priority += readSensor(inf.Signal) * inf.Weight;
+				}
 
-			if (priority > bestPriority) {
+				if (priority > bestPriority) {
 				bestPriority = priority;
 				bestTarget = target;
 				hasBest = true;
@@ -82,11 +86,11 @@ public static class StateEngineEvaluator<TState, TSensor>
 		TState targetId,
 		Func<TSensor, float> readSensor) {
 
-		var conds = t.Conditions;
-		if (conds == null) {
-			return false;
+		if (t.Conditions == null) {
+			return true;
 		}
 
+		var conds = t.Conditions;
 		var atTarget = EqualityComparer<TState>.Default.Equals(currentId, targetId);
 
 		var all = conds.All;
@@ -127,7 +131,7 @@ public static class StateEngineEvaluator<TState, TSensor>
 		bool atTarget) {
 
 		var value = readSensor(c.Signal);
-		var threshold = atTarget && c.ExitValue != 0f ? c.ExitValue : c.Value;
+		var threshold = atTarget && c.ExitValue.HasValue ? c.ExitValue.Value : c.Value;
 		return OperatorParser.Evaluate(value, c.Op, threshold);
 	}
 }

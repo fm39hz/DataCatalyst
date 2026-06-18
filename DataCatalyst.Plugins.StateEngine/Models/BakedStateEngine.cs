@@ -40,7 +40,7 @@ public sealed class BakedTransition<TState, TSensor>
 	public TState TargetState { get; init; } = default!;
 
 	/// <summary>Pre-calculated base priority (incorporating parent hierarchy and depth penalty).</summary>
-	public int BasePriority { get; init; }
+	public float BasePriority { get; init; }
 
 	/// <summary>Pre-parsed evaluation conditions.</summary>
 	public BakedConditionGroup<TSensor>? Conditions { get; init; }
@@ -76,8 +76,8 @@ public sealed class BakedSensorCondition<TSensor>
 	/// <summary>Threshold value for triggering.</summary>
 	public float Value { get; init; }
 
-	/// <summary>Threshold when already at target state.</summary>
-	public float ExitValue { get; init; }
+	/// <summary>Threshold when already at target state (null = reuse entry threshold).</summary>
+	public float? ExitValue { get; init; }
 }
 
 /// <summary>Baked, typesafe representation of a sensor influence.</summary>

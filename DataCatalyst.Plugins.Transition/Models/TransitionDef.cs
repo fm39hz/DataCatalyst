@@ -44,8 +44,8 @@ public sealed record SensorConditionDef {
 	/// <summary>Threshold value for triggering.</summary>
 	public float Value { get; init; }
 
-	/// <summary>Threshold when already at target state.</summary>
-	public float ExitValue { get; init; }
+	/// <summary>Threshold when already at target state (null = reuse entry threshold).</summary>
+	public float? ExitValue { get; init; }
 }
 
 /// <summary>Modifies transition priority based on sensor input.</summary>

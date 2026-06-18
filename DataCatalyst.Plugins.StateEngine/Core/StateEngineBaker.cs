@@ -51,7 +51,7 @@ public static class StateEngineBaker {
 					var targetStr = ResolveStateId(t.TargetState, group.GroupId);
 					var targetState = stateMapper(targetStr);
 
-					var basePriority = (group.PriorityTier * group.TierScale) + t.Priority - (depth * group.DepthPenalty);
+						var basePriority = (float)(group.PriorityTier * group.TierScale) + t.Priority - (depth * group.DepthPenalty);
 
 					var bakedConditions = BakeConditions(t.Conditions, sensorMapper);
 					var bakedInfluences = BakeInfluences(t.Influences, sensorMapper);
@@ -66,6 +66,8 @@ public static class StateEngineBaker {
 					bakedTransitionsList.Add(bakedTransition);
 				}
 			}
+
+			bakedTransitionsList.Sort(static (a, b) => b.BasePriority.CompareTo(a.BasePriority));
 
 			var bakedState = new BakedState<TState, TSensor> {
 				StateId = stateId,
@@ -89,7 +91,8 @@ public static class StateEngineBaker {
 		var current = name;
 		while (current != null && allStates.TryGetValue(current, out var def)) {
 			if (!visited.Add(current)) {
-				break; // Cycle check
+				throw new InvalidOperationException(
+					$"Cycle detected in state hierarchy: '{current}' appears more than once.");
 			}
 
 			result.Add(def);
