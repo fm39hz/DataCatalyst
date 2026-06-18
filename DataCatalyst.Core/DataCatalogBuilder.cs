@@ -2,11 +2,13 @@ namespace DataCatalyst.Core;
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using Abstractions;
 
 /// <summary>Builds a flat, immutable catalog by resolving inheritance.</summary>
 public static class DataCatalogBuilder {
 	/// <summary>Resolves inheritance and returns a populated catalog.</summary>
-	public static DataCatalog Resolve(DataGraph graph) {
+	public static DataCatalog Resolve(DataGraph graph, List<string>? diagnostics = null) {
 		var resolved = new Dictionary<string, DataEntry>();
 		var ordered = TopologicalSort(graph);
 
@@ -18,7 +20,14 @@ public static class DataCatalogBuilder {
 			ResolveEntry(entry, graph, resolved, []);
 		}
 
-		return new DataCatalog(resolved);
+		var catalog = new DataCatalog(resolved);
+
+		var diag = diagnostics ?? new List<string>();
+		foreach (var p in PluginRegistry.Plugins.OfType<ICatalogPlugin>()) {
+			p.OnCatalogResolved(catalog, diag);
+		}
+
+		return catalog;
 	}
 
 	private static void ResolveEntry(

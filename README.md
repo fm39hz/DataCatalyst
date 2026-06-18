@@ -61,11 +61,16 @@ graph TD
     B -->|DataGraphBuilder.Build| C[DataGraph unresolved]
     C -->|DataCatalogBuilder.Resolve| D[DataCatalog resolved, immutable]
 
+    subgraph Plugin Hooks
+        B --> P1[IPostLoadPlugin.OnEntriesLoaded]
+        C --> P2[IGraphPlugin.OnGraphBuilt]
+        D --> P3[ICatalogPlugin.OnCatalogResolved]
+    end
+
     subgraph Core Resolution
-        D --> D1[1. Topological Plugin Init]
-        D --> D2[2. Mod Patch / Duplicate Key Merge]
-        D --> D3[3. Deep Inheritance DAG Flatten]
-        D --> D4[4. Cycle Detection & Verification]
+        D --> D1[Mod Patch / Duplicate Key Merge]
+        D --> D2[Deep Inheritance DAG Flatten]
+        D --> D3[Cycle Detection & Verification]
     end
 ```
 
@@ -196,6 +201,29 @@ high-performance game runtimes such as Godot 4 .NET, Unity, or custom engines):
 
 ---
 
+## 🔌 Plugin Architecture
+
+Plugins extend DataCatalyst's domain without coupling to loaders or consumer types:
+
+- **`[DataPlugin(DependsOn = [...])]`**: Declares plugin identity and topological ordering. SourceGen auto-discovers and registers.
+- **Hook interfaces** in `DataCatalyst.Core`: `IPostLoadPlugin`, `IGraphPlugin`, `ICatalogPlugin` — optional, implement only what you need:
+
+| Hook | Stage | Input | Use Case |
+|---|---|---|---|
+| `IPostLoadPlugin` | After load | `List<DataEntry>` | Filter/augment raw entries |
+| `IGraphPlugin` | After graph build | `DataGraph` | Cross-file validation |
+| `ICatalogPlugin` | After resolve | `DataCatalog` | Post-process, domain validation |
+
+- **`MapperRegistry`**: Consumer injects mapper implementations via interface contracts. Plugins define contracts (e.g. `IStateMapper<TState>`), consumers register real implementations:
+
+```csharp
+class MyMapper : IStateMapper<GameState>, ISensorMapper<GameSensor> { ... }
+MapperRegistry.Register<IStateMapper<GameState>>(new MyMapper());
+MapperRegistry.Register<ISensorMapper<GameSensor>>(new MyMapper());
+```
+
+---
+
 ## 📦 Bundled Infrastructure Plugins
 
 DataCatalyst includes pure data-driven plugins for common game patterns:
@@ -236,21 +264,34 @@ inputs completely from data:
 - **Dynamic Influences**: Priorities can be dynamically modified by multiplying sensor values by configured weights.
 
 ```csharp
-// 1. Bake the raw StateGroup at startup to flatten hierarchy, pre-calculate priorities,
-// and map string identifiers to generic GameStateKind and GameSensorKind enums.
-var bakedGroup = StateEngineBaker.Bake<GameStateKind, GameSensorKind>(
+// 0. Define mapper (once) and register for DI
+class StateMapper : IStateMapper<GameState>, ISensorMapper<GameSensor> {
+    GameState IStateMapper<GameState>.MapState(string key, string groupId)
+        => Enum.Parse<GameState>(key.Split('.').Last());
+    GameSensor ISensorMapper<GameSensor>.MapSensor(string signal)
+        => Enum.Parse<GameSensor>(signal);
+}
+
+MapperRegistry.Register<IStateMapper<GameState>>(new StateMapper());
+MapperRegistry.Register<ISensorMapper<GameSensor>>(new StateMapper());
+
+// 1. Bake the raw StateGroup at startup — mappers resolved from registry
+// (or pass lambdas directly for ad-hoc usage).
+var stateMapper = MapperRegistry.Get<IStateMapper<GameState>>()!;
+var sensorMapper = MapperRegistry.Get<ISensorMapper<GameSensor>>()!;
+var bakedGroup = StateEngineBaker.Bake<GameState, GameSensor>(
     catalog.Get<StateGroup>("Locomotion"),
-    stateStr => MapStringToStateEnum(stateStr),
-    sensorStr => MapStringToSensorEnum(sensorStr)
+    stateMapper.MapState,
+    sensorMapper.MapSensor
 );
 
 // 2. Evaluate transitions dynamically in the physics/update loop with ZERO heap allocations
 // and ZERO string comparisons.
-var result = StateEngineEvaluator<GameStateKind, GameSensorKind>.Evaluate(
-    currentStateId: GameStateKind.Idle,
+var result = StateEngineEvaluator<GameState, GameSensor>.Evaluate(
+    currentStateId: GameState.Idle,
     group: bakedGroup,
     viableStates: activeViableStates,
-    readSensor: sensorEnum => entity.GetSensorValue(sensorEnum)
+    readSensor: sensor => entity.GetSensorValue(sensor)
 );
 
 if (result.HasValue)

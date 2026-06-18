@@ -1,6 +1,8 @@
 namespace DataCatalyst.Core;
 
 using System.Collections.Generic;
+using System.Linq;
+using Abstractions;
 
 /// <summary>Builds data graphs from entry collections.</summary>
 public static class DataGraphBuilder {
@@ -22,6 +24,11 @@ public static class DataGraphBuilder {
 			else {
 				graph.Entries[entry.Key] = entry;
 			}
+		}
+
+		var diag = diagnostics ?? new List<string>();
+		foreach (var p in PluginRegistry.Plugins.OfType<IGraphPlugin>()) {
+			p.OnGraphBuilt(graph, diag);
 		}
 
 		return graph;

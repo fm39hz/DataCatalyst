@@ -3,6 +3,7 @@ namespace DataCatalyst.Loaders;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using Core;
 
@@ -92,6 +93,10 @@ public static class JsonDataLoader {
 			catch (Exception ex) {
 				result.Diagnostics.Add($"Failed to load file '{file}': {ex.Message}");
 			}
+		}
+
+		foreach (var p in PluginRegistry.Plugins.OfType<IPostLoadPlugin>()) {
+			p.OnEntriesLoaded(result.Entries, result.Diagnostics);
 		}
 
 		return result;
@@ -191,6 +196,10 @@ public static class JsonDataLoader {
 		}
 		catch (Exception ex) {
 			result.Diagnostics.Add($"Failed to load and parse array file '{filePath}': {ex.Message}");
+		}
+
+		foreach (var p in PluginRegistry.Plugins.OfType<IPostLoadPlugin>()) {
+			p.OnEntriesLoaded(result.Entries, result.Diagnostics);
 		}
 
 		return result;
