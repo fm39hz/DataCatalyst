@@ -194,6 +194,9 @@ high-performance game runtimes such as Godot 4 .NET, Unity, or custom engines):
   time and registers component types inside a single static `[ModuleInitializer]` method.
 - **Compile-Time Discriminator Mapping**: JSON property names are resolved against a source-generated dictionary using
   the type's short name as the discriminator — no runtime `Type.Name` dictionary building at load time.
+- **Collision Handling**: If two types share the same short name (e.g. `Game.Health` and `UI.Health`), the source
+  generator emits a warning (DC002) and falls back to the fully-qualified namespace as the JSON discriminator.
+  JSON keys become `"Game.Health"` and `"UI.Health"` respectively, ensuring unambiguous resolution.
 - **Explicit Type Resolution**: No runtime JSON type-name scanning. Components are resolved against statically
   registered types.
 - **Trim-Safe Serialization**: `JsonDataLoader` accepts `JsonSerializerOptions` to integrate seamlessly with
