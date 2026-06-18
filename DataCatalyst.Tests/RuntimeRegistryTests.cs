@@ -239,6 +239,11 @@ public struct OtherStruct : IComponent {
 	public int Y { get; set; }
 }
 
+/// <summary>
+/// Marker interface for data components — consumer-defined.
+/// Not referenced by DataCatalyst.Core; used by the game project
+/// to denote structs that can be stored in a DataEntry.
+/// </summary>
 public interface IComponent {
 }
 
