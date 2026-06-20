@@ -4,306 +4,299 @@
 [![CI Status](https://img.shields.io/github/actions/workflow/status/fm39hz/DataCatalyst/ci.yml?branch=master&style=flat-square)](https://github.com/fm39hz/DataCatalyst/actions)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
 
-**DataCatalyst** is a foundational, compile-time composition framework for C# and .NET. It enforces a strict separation of concerns in data-driven games architecture.
+**DataCatalyst** is a compile-time composition framework for C#/.NET. It enforces strict separation of concerns in data-driven game architecture: code is infrastructure, data is content, and SourceGen bridges them at compile time with zero reflection.
 
 ---
 
-## 💡 Philosophy & Core Vision
+## 💡 What & Why
 
-> **Code itself has no content.** Game logic, behaviors, content, etc... values should never be hardcoded.
-> Game Designers should not a guys playing with some table, but the one who is parameterized everything to modeling the world, or in this case, the game.
+> **Code itself has no content.** Game logic, behaviors, values should never be hardcoded.
+> Designers parameterize everything to model the world — not play with tables.
 
-DataCatalyst is:
-
-- 🚫 **NOT** a serializer.
-- 🚫 **NOT** a data-tuning library
-
-It is a **pure infrastructure layer** that is completely mechanics-agnostic. How the resolved composition is utilized is
-entirely up to the consumer.
-
-### 🔌 Modding & Patch Composition
-
-DataCatalyst is designed from the ground up for modularity and mod compatibility. It behaves similarly to **SMAPI's
-ContentPatcher**:
-
-- **Base Content**: Base game data is defined as a series of JSON files representing entities, items, or states.
-- **Mod Patches**: Mods can supply their own JSON files. If a mod file declares an entry with the same key (e.g.,
-  `Entities.Goblin`), DataCatalyst automatically **merges** the components.
-- **Component-Level Overrides**: Mod components overwrite existing base components or append new ones deterministically
-  based on the loading order.
-- **No C# Recompilation**: Designers and modders can alter composition, override values, and inject data without
-  changing a single line of C# code.
-
----
-
-## 🏗️ Project Architecture
-
-DataCatalyst is divided into small, focused modules to keep the core generic and lightweight:
-
-```
-├── DataCatalyst.Abstractions   - [DataComponent], [DataPlugin], DataKey<T>, and contracts
-├── DataCatalyst.Core           - Registry stores, Graph and Catalog builders, composition engine
-├── DataCatalyst.SourceGen      - Roslyn Incremental Generator for static AOT/Trim registration
-├── DataCatalyst.Loaders.Json   - AOT-safe JSON file loader
-└── DataCatalyst.Plugins.*      - Composable infrastructure plugins
-    ├── NumericCompare          - Operator parser and threshold evaluation contract
-    ├── Transition              - Transition and sensor condition data models
-    ├── StateEngine            - Generic data-driven state machine evaluator
-    └── Materializer           - Generic DataEntry-to-target materialization API
-```
-
-### 🔁 Data Flow Pipeline
+DataCatalyst is not a serializer, not a tuning library. It is a **pure infrastructure layer** — mechanics-agnostic, format-agnostic, ECS-agnostic. The pipeline:
 
 ```mermaid
-graph TD
-    A[Raw JSON Files] -->|JsonDataLoader.LoadDirectory| B[LoadResult]
-    B -->|DataGraphBuilder.Build| C[DataGraph unresolved]
-    C -->|DataCatalogBuilder.Resolve| D[DataCatalog resolved, immutable]
+graph LR
+    A[JSON / YAML / DB] --> B[Load]
+    B --> C[Graph]
+    C --> D[Catalog]
+    D --> E[typed access]
 
-    subgraph Plugin Hooks
-        B --> P1[IPostLoadPlugin.OnEntriesLoaded]
-        C --> P2[IGraphPlugin.OnGraphBuilt]
-        D --> P3[ICatalogPlugin.OnCatalogResolved]
-    end
-
-    subgraph Core Resolution
-        D --> D1[Mod Patch / Duplicate Key Merge]
-        D --> D2[Component Inheritance Merge]
-        D --> D3[Cycle Detection & Verification]
-    end
+    C -->|merge| C
+    D -->|resolve| D
 ```
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Quick Start
 
-### 1. Installation
-
-Add the core packages to your projects. For central package versioning, add them to your `Directory.Build.props` or
-reference them directly:
+### 1. Install
 
 ```bash
-# Compile-time Source Generator
+# Source Generator (auto-registers [DataComponent] / [DataPlugin])
 dotnet add package DataCatalyst
 
-# Runtime engine & default JSON loader (transitively pulls Abstractions and Core)
+# Runtime engine + JSON loader
 dotnet add package DataCatalyst.Loaders.Json
-
-# Optional StateEngine plugin (transitively pulls NumericCompare and Transition)
-dotnet add package DataCatalyst.Plugins.StateEngine
 ```
 
-### 2. Define Components (C#)
+SourceGen packages must be referenced as analyzers (the `DataCatalyst` package does this automatically).
 
-Mark any plain struct as a component using the `[DataComponent]` attribute. The Source Generator will automatically
-discover it.
+### 2. Define Components
 
 ```csharp
 using DataCatalyst.Abstractions;
 
-namespace MyGame.Components;
+[DataComponent]
+public struct Health { public float Current; public float Max; }
 
 [DataComponent]
-public struct Health
-{
-    public float Current { get; init; }
-    public float Max { get; init; }
-}
-
-[DataComponent]
-public struct CombatStats
-{
-    public float AttackPower { get; init; }
-    public float Defense { get; init; }
-}
+public struct CombatStats { public float AttackPower; public float Defense; }
 ```
 
-### 3. Compose Entries (JSON)
+SourceGen auto-registers them — zero manual `PrimitiveRegistry` code.
 
-Compose your entities in JSON files. They can inherit from parents and override specific components.
+### 3. Compose in JSON
 
 `Data/BaseMonster.json`:
 
 ```json
 {
-	"Health": {
-		"Current": 100,
-		"Max": 100
-	},
-	"CombatStats": {
-		"AttackPower": 10,
-		"Defense": 5
-	}
+	"Health": { "Current": 100, "Max": 100 },
+	"CombatStats": { "AttackPower": 10, "Defense": 5 }
 }
 ```
 
-`Data/Goblin.json` (inherits from `BaseMonster` and overrides `Health` max, inheriting `CombatStats` automatically):
+`Data/Goblin.json`:
 
 ```json
 {
 	"inherits": ["BaseMonster"],
-	"Health": {
-		"Current": 50,
-		"Max": 50
-	}
+	"Health": { "Current": 50, "Max": 50 }
 }
 ```
 
-### 4. Load and Resolve
-
-Run the resolution pipeline at startup to build your resolved, immutable data catalog:
+### 4. Load, Resolve, Access
 
 ```csharp
 using System.Text.Json;
-using System.Text.Json.Serialization.Metadata;
 using DataCatalyst.Core;
 using DataCatalyst.Loaders;
 
-// Configure JSON serialization options for Native AOT (e.g. using source-generated contexts)
-var options = new JsonSerializerOptions
-{
-    TypeInfoResolver = new DefaultJsonTypeInfoResolver()
-};
+var options = new JsonSerializerOptions { TypeInfoResolver = new DefaultJsonTypeInfoResolver() };
 
-// 1. Load raw entries (supports both directory loading and single-file array catalogs)
-var loadResult = JsonDataLoader.LoadArray("Data/substances.json", "id", options);
+var result   = JsonDataLoader.LoadDirectory("Data", options);
+var graph    = DataGraphBuilder.Build(result.Entries);
+var catalog  = DataCatalogBuilder.Resolve(graph);
 
-// 2. Build the unresolved graph (automatically merges duplicate keys/mods)
-var graph = DataGraphBuilder.Build(loadResult.Entries);
+var goblinHealth = catalog.Get<Health>("Goblin");       // 50/50
+var goblinStats  = catalog.Get<CombatStats>("Goblin");   // 10/5
+```
 
-// 3. Resolve composition (copies parent components to children at struct level, detects cycles)
-var catalog = DataCatalogBuilder.Resolve(graph);
+---
 
-// 4. Access specific entries by key — return values are typed structs
-var goblinHealth = catalog.Get<Health>("Goblin");  // 50/50 (overridden)
-var goblinStats = catalog.Get<CombatStats>("Goblin"); // 10/5 (inherited from BaseMonster)
+## 🧱 Concepts
 
-// 5. Or bind resolved components to typed dictionaries using DataKey<T>
-var substances = catalog.Bind<DataKey<SubstanceData>, SubstanceData>(c => new DataKey<SubstanceData>(c.Name));
+### Core
+
+The pipeline engine. Three stages, no domain knowledge:
+
+```mermaid
+graph LR
+    A[Load] --> B[Graph]
+    B --> C[Catalog]
+    B -.->|merge| B
+    C -.->|resolve| C
+```
+
+Three hook interfaces at each stage:
+
+| Hook              | Stage         | Input                      | Use case                        |
+| ----------------- | ------------- | -------------------------- | ------------------------------- |
+| `IPostLoadPlugin` | After load    | `IReadOnlyList<DataEntry>` | Filter, augment raw entries     |
+| `IGraphPlugin`    | After build   | `DataGraph`                | Cross-file validation           |
+| `ICatalogPlugin`  | After resolve | `DataCatalog`              | Post-process, domain validation |
+
+### Extensions
+
+Domain concepts shared across plugins — no pipeline hooks, no `[DataPlugin]`. Pure infrastructure types that plugins depend on.
+
+| Namespace                                 | Types                                                                            |
+| ----------------------------------------- | -------------------------------------------------------------------------------- |
+| `DataCatalyst.Extensions.Compare`         | `CompareOp`, `OperatorParser`                                                    |
+| `DataCatalyst.Extensions.Composition`     | `TransitionDef`, `ConditionGroupDef`, `SensorConditionDef`, `SensorInfluenceDef` |
+| `DataCatalyst.Extensions.Materialization` | `DataMaterializer<T>`, `IComponentMaterializer<T>`                               |
+
+```mermaid
+graph LR
+    Core[Core]
+    Ext[Extensions]
+    Plugins[Plugins]
+
+    Ext -->|depends on| Core
+    Plugins -->|depends on| Ext
+    Plugins -.->|no coupling| Core
+```
+
+### Plugins
+
+Implement pipeline hooks. Auto-discovered by SourceGen via `[DataPlugin]`.
+
+| Plugin            | Hook             | What it does                            | SourceGen                                  |
+| ----------------- | ---------------- | --------------------------------------- | ------------------------------------------ |
+| **StateEngine**   | `ICatalogPlugin` | FSM validation + bake/evaluate pipeline | `[DataStateEnum]` → auto-generates mappers |
+| **ConceptDomain** | `ICatalogPlugin` | Concept-scoped `GetConcept<T>()`        | `[DataConcept]` → auto-registers tags      |
+
+### Loaders
+
+Format-specific entry points. Produce `LoadResult`. Default: JSON. Custom loaders implement `IFormatReader<T>`.
+
+### SourceGen
+
+Compile-time scanners emitting `[ModuleInitializer]` code. Zero runtime reflection.
+
+| Generator                                      | Scans                                 | Generates                                    |
+| ---------------------------------------------- | ------------------------------------- | -------------------------------------------- |
+| `DataCatalyst`                                 | `[DataComponent]` structs             | `PrimitiveRegistry` registrations            |
+| `DataCatalyst`                                 | `[DataPlugin]` classes                | `PluginRegistry` (topo-sorted)               |
+| `DataCatalyst.Plugins.StateEngine.SourceGen`   | `[DataStateEnum]`, `[DataSensorEnum]` | `IStateMapper<T>` / `ISensorMapper<T>` impls |
+| `DataCatalyst.Plugins.ConceptDomain.SourceGen` | `[DataConcept("name")]`               | `ConceptRegistry` registrations              |
+
+---
+
+## 📦 All Packages
+
+```bash
+dotnet add package DataCatalyst                           # SourceGen (auto-analyzer)
+dotnet add package DataCatalyst.Loaders.Json               # JSON loader
+dotnet add package DataCatalyst.Extensions                 # Compare, Composition, Materialization
+
+dotnet add package DataCatalyst.Plugins.StateEngine         # FSM plugin
+dotnet add package DataCatalyst.Plugins.StateEngine.SourceGen  # FSM SourceGen (analyzer)
+
+dotnet add package DataCatalyst.Plugins.ConceptDomain          # Concept plugin
+dotnet add package DataCatalyst.Plugins.ConceptDomain.SourceGen # Concept SourceGen (analyzer)
+```
+
+SourceGen packages must be referenced as analyzers:
+
+```xml
+<PackageReference Include="..." OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+```
+
+---
+
+## 🔌 Plugin: StateEngine
+
+Hierarchical, priority-based FSM evaluator — completely data-driven.
+
+```csharp
+using DataCatalyst.Plugins.StateEngine.Contracts;
+
+// SourceGen auto-generates IStateMapper + ISensorMapper from these:
+[DataStateEnum]
+public enum GameState { Idle, Run, Jump, Patrol, Attack }
+
+[DataSensorEnum]
+public enum GameSensor { Speed, IsGrounded, Health, Alert }
+
+using DataCatalyst.Plugins.StateEngine.Core;
+
+// Bake at startup (mappers resolved from MapperRegistry.Default)
+var baked = StateEngineBaker.Bake<GameState, GameSensor>(
+    catalog.Get<StateGroup>("Locomotion"));
+
+// Evaluate per frame — zero allocation
+var result = StateEngineEvaluator<GameState, GameSensor>.Evaluate(
+    currentStateId: GameState.Idle,
+    group: baked,
+    viableStates: activeStates,
+    readSensor: sensor => entity.GetSensorValue(sensor));
+
+if (result.HasValue) entity.TransitionTo(result.TargetStateId);
+```
+
+### Features
+
+- **Hierarchical states** — parent fallback with configurable depth penalty
+- **Hysteresis** — separate `Value` / `ExitValue` thresholds prevent flickering
+- **Dynamic priorities** — sensor influences modify base priority at runtime
+- **Zero alloc evaluation** — pre-baked transition tables, no string comparisons
+
+---
+
+## 🔌 Plugin: ConceptDomain
+
+Type-safe scoped access to entry groups without magic strings.
+
+```csharp
+using DataCatalyst.Plugins.ConceptDomain;
+
+[DataConcept("Item")]
+public readonly record struct ItemTag;
+
+[DataConcept("Enemy")]
+public readonly record struct EnemyTag;
+
+// Data-driven entry mapping:
+plugin.LoadConcepts("concepts.json");
+// { "Item": ["Sword", "Shield"], "Enemy": ["Goblin"] }
+
+// Or manual:
+plugin.RegisterEntries("Item", "Sword", "Shield");
+
+var items   = catalog.GetConcept<ItemTag>();
+var enemies = catalog.GetConcept<EnemyTag>();
+
+var swordHealth  = items.Get<Health>("Sword");
+var goblinHealth = enemies.Get<Health>("Goblin");
 ```
 
 ---
 
 ## ⚡ Native AOT & Trim Safety
 
-DataCatalyst is engineered for **Native AOT (Ahead-of-Time) compilation** and strict trimming (essential for modern
-high-performance game runtimes such as Godot 4 .NET, Unity, or custom engines):
-
-- **Zero Runtime Reflection**: The Roslyn source generator (`DataCatalyst.SourceGen`) scans your assemblies at compile
-  time and registers component types inside a single static `[ModuleInitializer]` method.
-- **Compile-Time Discriminator Mapping**: JSON property names are resolved against a source-generated dictionary using
-  the type's short name as the discriminator — no runtime `Type.Name` dictionary building at load time.
-- **Collision Handling**: If two types share the same short name (e.g. `Game.Health` and `UI.Health`), the source
-  generator emits a warning (DC002) and falls back to the fully-qualified namespace as the JSON discriminator.
-  JSON keys become `"Game.Health"` and `"UI.Health"` respectively, ensuring unambiguous resolution.
-- **Explicit Type Resolution**: No runtime JSON type-name scanning. Components are resolved against statically
-  registered types.
-- **Trim-Safe Serialization**: `JsonDataLoader` accepts `JsonSerializerOptions` to integrate seamlessly with
-  `System.Text.Json` source-generated serialization contexts.
+- **Zero runtime reflection** — SourceGen registers types via `[ModuleInitializer]`
+- **Compile-time discriminator mapping** — JSON keys resolved against source-generated dictionary
+- **Collision handling** — DC002 warning + fully-qualified namespace fallback
+- **Trim-safe serialization** — `JsonDataLoader` accepts `JsonSerializerOptions` for source-generated contexts
 
 ---
 
-## 🔌 Plugin Architecture
+## 🏗️ Project Layout
 
-Plugins extend DataCatalyst's domain without coupling to loaders or consumer types:
+```
+DataCatalyst.Abstractions/                 Zero-dep contracts
+DataCatalyst.Core/                         Pipeline engine
+DataCatalyst.Extensions/                   Domain concepts
+  └─ Compare/ Composition/ Materialization/
+DataCatalyst.Loaders.Json/                 AOT-safe JSON loader
+DataCatalyst.SourceGen/                    Core generators
 
-- **`[DataPlugin(DependsOn = [...])]`**: Declares plugin identity and topological ordering. SourceGen auto-discovers and registers.
-- **Hook interfaces** in `DataCatalyst.Core`: `IPostLoadPlugin`, `IGraphPlugin`, `ICatalogPlugin` — optional, implement only what you need:
-
-| Hook              | Stage             | Input             | Use Case                        |
-| ----------------- | ----------------- | ----------------- | ------------------------------- |
-| `IPostLoadPlugin` | After load        | `List<DataEntry>` | Filter/augment raw entries      |
-| `IGraphPlugin`    | After graph build | `DataGraph`       | Cross-file validation           |
-| `ICatalogPlugin`  | After resolve     | `DataCatalog`     | Post-process, domain validation |
-
-- **`MapperRegistry`**: Consumer injects mapper implementations via interface contracts. Plugins define contracts (e.g. `IStateMapper<TState>`), consumers register real implementations:
-
-```csharp
-class MyMapper : IStateMapper<GameState>, ISensorMapper<GameSensor> { ... }
-MapperRegistry.Register<IStateMapper<GameState>>(new MyMapper());
-MapperRegistry.Register<ISensorMapper<GameSensor>>(new MyMapper());
+DataCatalyst.Plugins.StateEngine/          FSM plugin
+DataCatalyst.Plugins.StateEngine.SourceGen/
+DataCatalyst.Plugins.ConceptDomain/        Concept plugin
+DataCatalyst.Plugins.ConceptDomain.SourceGen/
 ```
 
----
+### Dependency Graph
 
-## 📦 Bundled Infrastructure Plugins
+```mermaid
+graph BT
+    Core[DataCatalyst.Core]
+    Ext[DataCatalyst.Extensions]
+    Plugins[DataCatalyst.Plugins.*]
+    Loaders[DataCatalyst.Loaders.*]
+    SG[DataCatalyst.SourceGen]
 
-DataCatalyst includes pure data-driven plugins for common game patterns:
-
-### 🧩 Materializer Plugin
-
-Provides a generic `DataEntry`-to-target materialization API decoupled from any ECS framework:
-
-- **`DataMaterializer<TTarget>`**: Registry and dispatcher for component materializers targeting any consumer type.
-- **`ComponentMaterializer<TComponent, TTarget>`**: Wraps an `Action<TTarget, TComponent>` to extract a typed component from a `DataEntry` and apply it to a target.
-- **Native AOT-safe**: Pure generic delegates, zero reflection, consumer-defined bindings.
-
-```csharp
-var materializer = new DataMaterializer<Entity>();
-materializer.Register<Health>((entity, hp) => entity.SetHealth(hp.Current, hp.Max));
-materializer.Register<CombatStats>((entity, s) => entity.SetCombat(s.AttackPower, s.Defense));
-
-foreach (var (key, entry) in catalog.Entries)
-{
-    var entity = new Entity();
-    materializer.Materialize(entry, entity);
-}
-```
-
-### 🎮 StateEngine & Transition Plugins
-
-Provides a generic, priority-based hierarchical state machine evaluator. It calculates transitions based on sensor
-inputs completely from data:
-
-- **Transitions**: Priority-based edges from a source state to a target state.
-- **Conditions**: Supports `All` (AND), `Any` (OR), and `None` (NOT) condition groups.
-- **Hysteresis**: Supports separate entry `Value` and `ExitValue` parameters on conditions to prevent rapid flickering
-  between states.
-- **Hierarchical States**: State definitions can specify a `Parent`. If child transition conditions are not met, the
-  evaluator automatically falls back to parent transitions.
-- **Depth Penalty**: A penalty applied to parent transition priorities so that more specific child transitions win when
-  competing.
-- **Dynamic Influences**: Priorities can be dynamically modified by multiplying sensor values by configured weights.
-
-```csharp
-// 0. Define mapper (once) and register for DI
-class StateMapper : IStateMapper<GameState>, ISensorMapper<GameSensor> {
-    GameState IStateMapper<GameState>.MapState(string key, string groupId)
-        => Enum.Parse<GameState>(key.Split('.').Last());
-    GameSensor ISensorMapper<GameSensor>.MapSensor(string signal)
-        => Enum.Parse<GameSensor>(signal);
-}
-
-MapperRegistry.Register<IStateMapper<GameState>>(new StateMapper());
-MapperRegistry.Register<ISensorMapper<GameSensor>>(new StateMapper());
-
-// 1. Bake the raw StateGroup at startup — mappers resolved from registry
-// (or pass lambdas directly for ad-hoc usage).
-var stateMapper = MapperRegistry.Get<IStateMapper<GameState>>()!;
-var sensorMapper = MapperRegistry.Get<ISensorMapper<GameSensor>>()!;
-var bakedGroup = StateEngineBaker.Bake<GameState, GameSensor>(
-    catalog.Get<StateGroup>("Locomotion"),
-    stateMapper.MapState,
-    sensorMapper.MapSensor
-);
-
-// 2. Evaluate transitions dynamically in the physics/update loop with ZERO heap allocations
-// and ZERO string comparisons.
-var result = StateEngineEvaluator<GameState, GameSensor>.Evaluate(
-    currentStateId: GameState.Idle,
-    group: bakedGroup,
-    viableStates: activeViableStates,
-    readSensor: sensor => entity.GetSensorValue(sensor)
-);
-
-if (result.HasValue)
-{
-    entity.TransitionTo(result.TargetStateId);
-}
+    Ext --> Core
+    Plugins --> Ext
+    Plugins --> SG
+    Loaders --> Core
 ```
 
 ---
 
 ## ⚖️ License
 
-Distributed under the MIT License. See [LICENSE](LICENSE) for more information.
+Distributed under the MIT License. See [LICENSE](LICENSE).

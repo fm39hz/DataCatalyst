@@ -15,7 +15,7 @@ JSON files
 
 During resolution, the engine processes:
 
-1. **Component Resolution**: JSON property names are matched to component types via their short type name (the type-system-derived discriminator). No runtime `Type.Name` dictionary building — the mapping is compiled at build time by the source generator using `nameof()` constants.
+1. **Component Resolution**: JSON property names are matched to component types via their short type name (the type-system-derived discriminator). No runtime `Type.Name` dictionary building - the mapping is compiled at build time by the source generator using `nameof()` constants.
 2. **Mod Patches**: Automatically merges duplicate keys based on load order (the ContentPatcher pattern).
 3. **Component Inheritance**: Copies parent components to children at struct level (not field-level merge).
 4. **Value Overrides**: Allows children to override parent components.
