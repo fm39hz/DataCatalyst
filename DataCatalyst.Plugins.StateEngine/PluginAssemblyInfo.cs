@@ -9,7 +9,7 @@ using DataCatalyst.Extensions.Compare;
 using DataCatalyst.Extensions.Composition;
 
 /// <summary>Validates state machine data at catalog resolution time.</summary>
-[DataPlugin(Order = 100)]
+[DataPlugin]
 public sealed class StateEnginePlugin : ICatalogPlugin {
 	/// <inheritdoc/>
 	public bool IsEnabled => true;

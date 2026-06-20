@@ -3,17 +3,18 @@ namespace DataCatalyst.Tests;
 using System.Collections.Generic;
 using DataCatalyst.Core;
 using DataCatalyst.Extensions.Composition;
+using DataCatalyst.Plugins.GameConcept;
 using DataCatalyst.Plugins.StateEngine.Contracts;
 using DataCatalyst.Plugins.StateEngine.Core;
 using DataCatalyst.Plugins.StateEngine.Models;
 using FluentAssertions;
 using Xunit;
 
-// SourceGen auto-generates mappers for these enums via [StateEnum] and [SensorEnum]
-[StateEnum]
+// SourceGen auto-generates mappers for these enums via [DataConcept(Kind = State)] and [DataConcept(Kind = Sensor)]
+[DataConcept("PlayerState", Kind = ConceptKind.State)]
 public enum PlayerState { Idle, Run, Jump, Attack, Patrol }
 
-[SensorEnum]
+[DataConcept("PlayerSensor", Kind = ConceptKind.Sensor)]
 public enum PlayerSensor { Speed, IsGrounded, Health, Alert }
 
 public class StateEngineSourceGenTests {

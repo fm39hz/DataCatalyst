@@ -1,3 +1,3 @@
-namespace DataCatalyst.Plugins.ConceptDomain;
+namespace DataCatalyst.Plugins.GameConcept;
 
 internal static class PluginAssemblyInfo { }

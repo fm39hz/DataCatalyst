@@ -15,8 +15,8 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 public sealed class StateMachineGenerator : IIncrementalGenerator {
 	private static readonly DiagnosticDescriptor EnumRequiredError = new(
 		id: "DC020",
-		title: "StateEnum/SensorEnum must be an enum",
-		messageFormat: "[StateEnum] and [SensorEnum] on '{0}' are only valid on enum types",
+		title: "DataConcept with Kind=State/Sensor must be an enum",
+		messageFormat: "[DataConcept(Kind=State)] and [DataConcept(Kind=Sensor)] on '{0}' are only valid on enum types",
 		category: "DataCatalyst.StateEngine",
 		defaultSeverity: DiagnosticSeverity.Error,
 		isEnabledByDefault: true);
@@ -24,47 +24,68 @@ public sealed class StateMachineGenerator : IIncrementalGenerator {
 	private static readonly DiagnosticDescriptor EmptyEnumWarning = new(
 		id: "DC021",
 		title: "Enum has no members",
-		messageFormat: "[StateEnum] or [SensorEnum] on '{0}' enum has no members. Mapper will have no valid mappings.",
+		messageFormat: "[DataConcept(Kind=State)] or [DataConcept(Kind=Sensor)] on '{0}' enum has no members. Mapper will have no valid mappings.",
 		category: "DataCatalyst.StateEngine",
 		defaultSeverity: DiagnosticSeverity.Warning,
 		isEnabledByDefault: true);
 
-	private const string StateEnumAttr = "DataCatalyst.Plugins.StateEngine.Contracts.StateEnumAttribute";
-	private const string SensorEnumAttr = "DataCatalyst.Plugins.StateEngine.Contracts.SensorEnumAttribute";
+	private const string DataConceptAttr = "DataCatalyst.Plugins.GameConcept.DataConceptAttribute";
 
 	public void Initialize(IncrementalGeneratorInitializationContext context) {
-		var stateEnums = context.SyntaxProvider.ForAttributeWithMetadataName(
-			StateEnumAttr,
+		var enums = context.SyntaxProvider.ForAttributeWithMetadataName(
+			DataConceptAttr,
 			static (node, _) => node is EnumDeclarationSyntax,
-			static (ctx, _) => BuildResult(ctx)).Collect();
+			static (ctx, _) => {
+				var t = (INamedTypeSymbol)ctx.TargetSymbol;
+				var isValid = t.TypeKind == TypeKind.Enum;
+				var members = t.GetMembers().OfType<IFieldSymbol>()
+					.Where(f => f.ConstantValue != null && !f.Name.StartsWith("value__"))
+					.Select(f => f.Name)
+					.ToArray();
+				var fullType = t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+				var shortName = GetShortName(fullType);
 
-		var sensorEnums = context.SyntaxProvider.ForAttributeWithMetadataName(
-			SensorEnumAttr,
-			static (node, _) => node is EnumDeclarationSyntax,
-			static (ctx, _) => BuildResult(ctx)).Collect();
+				// Extract Kind from attribute
+				var kind = 0; // Default
+				var attrClass = ctx.SemanticModel.Compilation.GetTypeByMetadataName(DataConceptAttr);
+				if (attrClass != null) {
+					foreach (var a in t.GetAttributes()) {
+						if (!SymbolEqualityComparer.Default.Equals(a.AttributeClass, attrClass)) continue;
+						foreach (var n in a.NamedArguments) {
+							if (n.Key == "Kind" && n.Value.Value is int kindVal) {
+								kind = kindVal;
+							}
+						}
+						break;
+					}
+				}
 
-		context.RegisterSourceOutput(stateEnums.Combine(sensorEnums),
-			static (spc, combined) => Emit(spc, combined.Left, combined.Right));
+				return new EnumResult(fullType, shortName, isValid, ctx.TargetNode.GetLocation(), members, kind);
+			}).Collect();
+
+		context.RegisterSourceOutput(enums,
+			static (spc, results) => {
+				var states = results.Where(r => r.Kind == 1).ToImmutableArray(); // State = 1
+				var sensors = results.Where(r => r.Kind == 2).ToImmutableArray(); // Sensor = 2
+
+				foreach (var r in results) {
+					if (!r.IsValid)
+						spc.ReportDiagnostic(Diagnostic.Create(EnumRequiredError, r.Location, r.FullType));
+					else if (r.Members.Length == 0)
+						spc.ReportDiagnostic(Diagnostic.Create(EmptyEnumWarning, r.Location, r.FullType));
+				}
+
+				Emit(spc, states, sensors);
+			});
 	}
 
-	private static EnumResult BuildResult(GeneratorAttributeSyntaxContext ctx) {
-		var t = (INamedTypeSymbol)ctx.TargetSymbol;
-		var isValid = t.TypeKind == TypeKind.Enum;
-		var members = t.GetMembers().OfType<IFieldSymbol>()
-			.Where(f => f.ConstantValue != null && !f.Name.StartsWith("value__"))
-			.Select(f => f.Name)
-			.ToArray();
-		var fullType = t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-		var shortName = GetShortName(fullType);
-		return new EnumResult(fullType, shortName, isValid, ctx.TargetNode.GetLocation(), members);
-	}
-
-	private readonly struct EnumResult(string fullType, string simpleName, bool isValid, Location location, string[] members) {
+	private readonly struct EnumResult(string fullType, string simpleName, bool isValid, Location location, string[] members, int kind) {
 		public readonly string FullType = fullType;
 		public readonly string SimpleName = simpleName;
 		public readonly bool IsValid = isValid;
 		public readonly Location Location = location;
 		public readonly string[] Members = members;
+		public readonly int Kind = kind;
 	}
 
 	private static void Emit(SourceProductionContext spc,

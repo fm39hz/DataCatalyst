@@ -32,20 +32,12 @@ public sealed class PluginRegistry {
 		_plugins[key] = plugin;
 	}
 
-	/// <summary>All registered plugin instances, sorted by execution order.</summary>
-	public IReadOnlyList<IPlugin> Plugins {
-		get {
-			// Sort by Order attribute, then by registration order
-			return [.. _plugins.Values.OrderBy(p => GetOrder(p))];
-		}
-	}
+	/// <summary>All registered plugin instances, sorted by topological dependencies.</summary>
+	public IReadOnlyList<IPlugin> Plugins => TopoSort(_plugins.Values);
 
-	/// <summary>Enabled plugins in execution order.</summary>
-	public IReadOnlyList<IPlugin> EnabledPlugins {
-		get {
-			return [.. _plugins.Values.Where(p => p.IsEnabled).OrderBy(GetOrder)];
-		}
-	}
+	/// <summary>Enabled plugins in topological order.</summary>
+	public IReadOnlyList<IPlugin> EnabledPlugins =>
+		TopoSort(_plugins.Values.Where(p => p.IsEnabled));
 
 	/// <summary>Initializes all plugins (calls OnLoad).</summary>
 	public void LoadAll() {
@@ -75,11 +67,52 @@ public sealed class PluginRegistry {
 	public T? Get<T>() where T : class, IPlugin =>
 		_plugins.Values.OfType<T>().FirstOrDefault();
 
-	private static int GetOrder(IPlugin plugin) {
-		var attr = plugin.GetType().GetCustomAttributes(typeof(DataPluginAttribute), inherit: true);
-		if (attr.Length > 0 && attr[0] is DataPluginAttribute dpa) {
-			return dpa.Order;
+	private static IReadOnlyList<IPlugin> TopoSort(IEnumerable<IPlugin> plugins) {
+		var list = plugins.ToList();
+		var map = new Dictionary<Type, IPlugin>();
+		var indeg = new Dictionary<Type, int>();
+		var edges = new Dictionary<Type, List<Type>>();
+
+		foreach (var p in list) {
+			map[p.GetType()] = p;
+			indeg[p.GetType()] = 0;
+			edges[p.GetType()] = [];
 		}
-		return int.MaxValue;
+
+		foreach (var p in list) {
+			var deps = GetDependsOn(p.GetType());
+			if (deps == null) continue;
+			foreach (var dep in deps) {
+				if (map.ContainsKey(dep)) {
+					edges[dep].Add(p.GetType());
+					indeg[p.GetType()]++;
+				}
+			}
+		}
+
+		var ready = new List<Type>(indeg.Where(kv => kv.Value == 0).Select(kv => kv.Key));
+		ready.Sort((a, b) => string.Compare(a.FullName, b.FullName, StringComparison.Ordinal));
+		var result = new List<IPlugin>();
+
+		while (ready.Count > 0) {
+			var cur = ready[0];
+			ready.RemoveAt(0);
+			result.Add(map[cur]);
+			foreach (var next in edges[cur]) {
+				if (--indeg[next] == 0) {
+					ready.Add(next);
+					ready.Sort((a, b) => string.Compare(a.FullName, b.FullName, StringComparison.Ordinal));
+				}
+			}
+		}
+
+		return result;
+	}
+
+	private static Type[]? GetDependsOn(Type type) {
+		var attr = type.GetCustomAttributes(typeof(DataPluginAttribute), inherit: true);
+		return attr.Length > 0 && attr[0] is DataPluginAttribute dpa
+			? dpa.DependsOn
+			: null;
 	}
 }

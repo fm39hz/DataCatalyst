@@ -1,4 +1,4 @@
-namespace DataCatalyst.Plugins.ConceptDomain;
+namespace DataCatalyst.Plugins.GameConcept;
 
 using System.Collections.Generic;
 using DataCatalyst.Core;

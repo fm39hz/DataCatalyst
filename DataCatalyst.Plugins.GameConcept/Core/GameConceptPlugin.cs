@@ -1,4 +1,4 @@
-namespace DataCatalyst.Plugins.ConceptDomain;
+namespace DataCatalyst.Plugins.GameConcept;
 
 using System;
 using System.Collections.Generic;
@@ -12,8 +12,8 @@ using DataCatalyst.Core;
 /// Self-contained: manages its own concept definitions, no core modifications.
 /// Reads from ConceptRegistry.Default (auto-populated by SourceGen) and supports manual registration.
 /// </summary>
-[DataPlugin(Order = 200)]
-public sealed class ConceptDomainPlugin : ICatalogPlugin {
+[DataPlugin]
+public sealed class GameConceptPlugin : ICatalogPlugin {
 	private readonly Dictionary<string, HashSet<string>> _conceptEntries = [];
 	private readonly Dictionary<Type, object> _conceptCatalogs = [];
 	private DataCatalog? _catalog;

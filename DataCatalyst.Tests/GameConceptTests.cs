@@ -4,7 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using DataCatalyst.Core;
 using DataCatalyst.Loaders;
-using DataCatalyst.Plugins.ConceptDomain;
+using DataCatalyst.Plugins.GameConcept;
 using FluentAssertions;
 using Xunit;
 
@@ -23,12 +23,12 @@ public readonly record struct TestItemConcept;
 public readonly record struct TestEnemyConcept;
 public readonly record struct TestMoneyConcept;
 
-public class ConceptDomainTests : IDisposable {
+public class GameConceptTests : IDisposable {
 	private readonly string _tempDir;
 	private readonly DataCatalystEnvironment _env;
 
-	public ConceptDomainTests() {
-		_tempDir = Path.Combine(Path.GetTempPath(), "ConceptDomainTests_" + Guid.NewGuid().ToString("N"));
+	public GameConceptTests() {
+		_tempDir = Path.Combine(Path.GetTempPath(), "GameConceptTests_" + Guid.NewGuid().ToString("N"));
 		Directory.CreateDirectory(_tempDir);
 		_env = new DataCatalystEnvironment();
 		_env.Primitives.Register<GameComponent>();
@@ -94,7 +94,7 @@ public class ConceptDomainTests : IDisposable {
 	}
 
 	[Fact]
-	public void ConceptDomainPlugin_OnCatalogResolved_BuildsConceptCatalogs() {
+	public void GameConceptPlugin_OnCatalogResolved_BuildsConceptCatalogs() {
 		// Arrange
 		File.WriteAllText(Path.Combine(_tempDir, "Sword.json"), /*lang=json,strict*/ @"{
 			""GameComponent"": { ""Value"": 100 }
@@ -107,7 +107,7 @@ public class ConceptDomainTests : IDisposable {
 		var graph = DataGraphBuilder.Build(loadResult.Entries, env: _env);
 		var catalog = DataCatalogBuilder.Resolve(graph, env: _env);
 
-		var plugin = new ConceptDomainPlugin();
+		var plugin = new GameConceptPlugin();
 		plugin.Registry.Register<TestItemConcept>("Item");
 		plugin.RegisterEntries<TestItemConcept>("Sword", "Shield");
 
@@ -123,7 +123,7 @@ public class ConceptDomainTests : IDisposable {
 	}
 
 	[Fact]
-	public void ConceptDomainPlugin_OnCatalogResolved_DiagnosesMissingEntries() {
+	public void GameConceptPlugin_OnCatalogResolved_DiagnosesMissingEntries() {
 		// Arrange
 		File.WriteAllText(Path.Combine(_tempDir, "Sword.json"), /*lang=json,strict*/ @"{
 			""GameComponent"": { ""Value"": 100 }
@@ -133,7 +133,7 @@ public class ConceptDomainTests : IDisposable {
 		var graph = DataGraphBuilder.Build(loadResult.Entries, env: _env);
 		var catalog = DataCatalogBuilder.Resolve(graph, env: _env);
 
-		var plugin = new ConceptDomainPlugin();
+		var plugin = new GameConceptPlugin();
 		plugin.Registry.Register<TestItemConcept>("Item");
 		plugin.RegisterEntries<TestItemConcept>("Sword", "NonExistent");
 
@@ -147,13 +147,13 @@ public class ConceptDomainTests : IDisposable {
 	}
 
 	[Fact]
-	public void ConceptDomainPlugin_OnCatalogResolved_DiagnosesUnregisteredConcepts() {
+	public void GameConceptPlugin_OnCatalogResolved_DiagnosesUnregisteredConcepts() {
 		// Arrange
 		var loadResult = JsonDataLoader.LoadDirectory(_tempDir, CreateOptions(), _env);
 		var graph = DataGraphBuilder.Build(loadResult.Entries, env: _env);
 		var catalog = DataCatalogBuilder.Resolve(graph, env: _env);
 
-		var plugin = new ConceptDomainPlugin();
+		var plugin = new GameConceptPlugin();
 		plugin.Registry.Register<TestItemConcept>("Item");
 
 		var diags = new List<string>();
@@ -166,7 +166,7 @@ public class ConceptDomainTests : IDisposable {
 	}
 
 	[Fact]
-	public void ConceptDomainPlugin_LoadConcepts_LoadsFromFile() {
+	public void GameConceptPlugin_LoadConcepts_LoadsFromFile() {
 		// Arrange
 		File.WriteAllText(Path.Combine(_tempDir, "Sword.json"), /*lang=json,strict*/ @"{
 			""GameComponent"": { ""Value"": 100 }
@@ -188,7 +188,7 @@ public class ConceptDomainTests : IDisposable {
 		var graph = DataGraphBuilder.Build(loadResult.Entries, env: _env);
 		var catalog = DataCatalogBuilder.Resolve(graph, env: _env);
 
-		var plugin = new ConceptDomainPlugin();
+		var plugin = new GameConceptPlugin();
 		plugin.Registry.Register<TestItemConcept>("Item");
 		plugin.Registry.Register<TestEnemyConcept>("Enemy");
 		plugin.LoadConcepts(conceptsFile);
@@ -204,8 +204,8 @@ public class ConceptDomainTests : IDisposable {
 	}
 
 	[Fact]
-	public void ConceptDomainPlugin_GetConcept_ThrowsForUnregisteredConcept() {
-		var plugin = new ConceptDomainPlugin();
+	public void GameConceptPlugin_GetConcept_ThrowsForUnregisteredConcept() {
+		var plugin = new GameConceptPlugin();
 
 		Action act = () => plugin.GetConcept<TestMoneyConcept>();
 		act.Should().Throw<InvalidOperationException>()
