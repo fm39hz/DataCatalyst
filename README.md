@@ -11,9 +11,11 @@
 ## 💡 What & Why
 
 > **Code itself has no content.** Game logic, behaviors, values should never be hardcoded.
-> Designers parameterize everything to model the world — not play with tables.
+> Designers parameterize everything to model the world - not play with tables.
 
-DataCatalyst is not a serializer, not a tuning library. It is a **pure infrastructure layer** — mechanics-agnostic, format-agnostic, ECS-agnostic. The pipeline:
+DataCatalyst is not a serializer, not a tuning library. It is a **pure infrastructure layer** - mechanics-agnostic, format-agnostic, engine-agnostic.
+
+- The pipeline:
 
 ```mermaid
 graph LR
@@ -54,7 +56,7 @@ public struct Health { public float Current; public float Max; }
 public struct CombatStats { public float AttackPower; public float Defense; }
 ```
 
-SourceGen auto-registers them — zero manual `PrimitiveRegistry` code.
+SourceGen auto-registers them - zero manual `PrimitiveRegistry` code.
 
 ### 3. Compose in JSON
 
@@ -119,7 +121,7 @@ Three hook interfaces at each stage:
 
 ### Extensions
 
-Domain concepts shared across plugins — no pipeline hooks, no `[DataPlugin]`. Pure infrastructure types that plugins depend on.
+Domain concepts shared across plugins. Pure infrastructure types that plugins depend on.
 
 | Namespace                                 | Types                                                                            |
 | ----------------------------------------- | -------------------------------------------------------------------------------- |
@@ -188,7 +190,7 @@ SourceGen packages must be referenced as analyzers:
 
 ## 🔌 Plugin: StateEngine
 
-Hierarchical, priority-based FSM evaluator — completely data-driven.
+Hierarchical, priority-based FSM evaluator - completely data-driven.
 
 ```csharp
 using DataCatalyst.Plugins.StateEngine.Contracts;
@@ -206,7 +208,7 @@ using DataCatalyst.Plugins.StateEngine.Core;
 var baked = StateEngineBaker.Bake<GameState, GameSensor>(
     catalog.Get<StateGroup>("Locomotion"));
 
-// Evaluate per frame — zero allocation
+// Evaluate per frame -  zero allocation
 var result = StateEngineEvaluator<GameState, GameSensor>.Evaluate(
     currentStateId: GameState.Idle,
     group: baked,
@@ -218,10 +220,10 @@ if (result.HasValue) entity.TransitionTo(result.TargetStateId);
 
 ### Features
 
-- **Hierarchical states** — parent fallback with configurable depth penalty
-- **Hysteresis** — separate `Value` / `ExitValue` thresholds prevent flickering
-- **Dynamic priorities** — sensor influences modify base priority at runtime
-- **Zero alloc evaluation** — pre-baked transition tables, no string comparisons
+- **Hierarchical states** - parent fallback with configurable depth penalty
+- **Hysteresis** - separate `Value` / `ExitValue` thresholds prevent flickering
+- **Dynamic priorities** - sensor influences modify base priority at runtime
+- **Zero alloc evaluation** - pre-baked transition tables, no string comparisons
 
 ---
 
@@ -256,10 +258,10 @@ var goblinHealth = enemies.Get<Health>("Goblin");
 
 ## ⚡ Native AOT & Trim Safety
 
-- **Zero runtime reflection** — SourceGen registers types via `[ModuleInitializer]`
-- **Compile-time discriminator mapping** — JSON keys resolved against source-generated dictionary
-- **Collision handling** — DC002 warning + fully-qualified namespace fallback
-- **Trim-safe serialization** — `JsonDataLoader` accepts `JsonSerializerOptions` for source-generated contexts
+- **Zero runtime reflection** - SourceGen registers types via `[ModuleInitializer]`
+- **Compile-time discriminator mapping** - JSON keys resolved against source-generated dictionary
+- **Collision handling** - DC002 warning + fully-qualified namespace fallback
+- **Trim-safe serialization** - `JsonDataLoader` accepts `JsonSerializerOptions` for source-generated contexts
 
 ---
 
