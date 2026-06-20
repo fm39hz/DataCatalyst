@@ -46,7 +46,7 @@ public struct Health { public float Current; public float Max; }
 public struct CombatStats { public float AttackPower; public float Defense; }
 ```
 
-SourceGen auto-registers them — no manual `PrimitiveRegistry` code.
+SourceGen auto-registers them - no manual `PrimitiveRegistry` code.
 
 ### 3. Compose in JSON
 
@@ -144,12 +144,25 @@ graph LR
 
 | Type                    | Description                                                                        |
 | ----------------------- | ---------------------------------------------------------------------------------- |
-| `DataEntry`             | One entry — `Key`, `Inherits`, `Components` (typed structs), `SourceFile`, `Layer` |
-| `DataGraph`             | Unresolved dependency graph — `Dictionary<string, DataEntry>`                      |
-| `DataCatalog`           | Resolved immutable catalog — `Get<T>(key)`, `TryGet<T>(key)`, `ContainsKey(key)`   |
-| `DataCatalogExtensions` | `Bind<TKey, TComponent>(selector)` — extract one component type into a dictionary  |
-| `DataGraphBuilder`      | Static `Build(entries, diagnostics?, env?)` — layer-aware merge                    |
-| `DataCatalogBuilder`    | Static `Resolve(graph, diagnostics?, env?)` — inheritance flattening               |
+| `DataEntry`             | One entry - `Key`, `Inherits`, `Components` (typed structs), `SourceFile`, `Layer` |
+| `DataGraph`             | Unresolved dependency graph - `Dictionary<string, DataEntry>`                      |
+| `DataCatalog`           | Resolved immutable catalog - `Get<T>(key)`, `TryGet<T>(key)`, `ContainsKey(key)`   |
+| `DataCatalogExtensions` | `Bind<TKey, TComponent>(selector)` - extract one component type into a dictionary  |
+| `DataGraphBuilder`      | Static `Build(entries, diagnostics?, env?)` - layer-aware merge                    |
+| `DataCatalogBuilder`    | Static `Resolve(graph, diagnostics?, env?)` - inheritance flattening               |
+
+```csharp
+// Single entry - type-safe key
+var goblinHp = catalog.Get<Health>(Keys.Goblin);
+
+// Bulk - all entries with Health, keyed by entry key
+var allHealth = catalog.Bind<string, Health>(h => h.Key);
+var goblinHp = allHealth[Keys.Goblin];
+
+// Bulk - all entries with CombatStats, keyed by DataKey<Monster>
+var monsterStats = catalog.Bind<DataKey<Monster>, CombatStats>(
+    c => new DataKey<Monster>(c.Key));
+```
 
 ### Registries
 
@@ -189,10 +202,10 @@ var pass = OperatorParser.Evaluate(5f, op, 3f); // true
 
 Input schema for the StateEngine plugin. All types are `[DataComponent]`:
 
-- `TransitionDef` — target state, priority, conditions, influences
-- `ConditionGroupDef` — All (AND), Any (OR), None (NOT) gates
-- `SensorConditionDef` — signal, operator, thresholds
-- `SensorInfluenceDef` — signal, weight
+- `TransitionDef` - target state, priority, conditions, influences
+- `ConditionGroupDef` - All (AND), Any (OR), None (NOT) gates
+- `SensorConditionDef` - signal, operator, thresholds
+- `SensorInfluenceDef` - signal, weight
 
 ### Materialization
 
@@ -218,7 +231,7 @@ foreach (var (key, entry) in catalog.Entries)
 
 ### StateEngine
 
-Hierarchical, priority-based FSM — completely data-driven.
+Hierarchical, priority-based FSM - completely data-driven.
 
 ```csharp
 using DataCatalyst.Plugins.StateEngine.Contracts;
@@ -261,7 +274,7 @@ SourceGen auto-generates `IStateMapper<AIState>` + `ISensorMapper<AISensor>`.
 ```csharp
 using DataCatalyst.Plugins.StateEngine.Core;
 
-// Bake at startup — mappers resolved from MapperRegistry.Default
+// Bake at startup - mappers resolved from MapperRegistry.Default
 var baked = StateEngineBaker.Bake<AIState, AISensor>(
     catalog.Get<StateGroup>(Keys.Locomotion));
 
@@ -283,7 +296,7 @@ Features: hierarchical states with parent fallback, hysteresis (`Value` / `ExitV
 
 ### GameConcept
 
-Game designers think in domains: "my game has **weapons**, **currency**, **skills**, **combat**." GameConcept lets you declare these as typed, data-driven groupings — not as ECS entity IDs, not as tag components, not as Godot groups.
+Game designers think in domains: "my game has **weapons**, **currency**, **skills**, **combat**." GameConcept lets you declare these as typed, data-driven groupings - not as ECS entity IDs, not as tag components, not as Godot groups.
 
 ```csharp
 using DataCatalyst.Plugins.GameConcept;
