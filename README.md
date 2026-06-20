@@ -4,23 +4,22 @@
 [![CI Status](https://img.shields.io/github/actions/workflow/status/fm39hz/DataCatalyst/ci.yml?branch=master&style=flat-square)](https://github.com/fm39hz/DataCatalyst/actions)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
 
-**DataCatalyst** is a foundational, compile-time composition framework for C# and .NET. It enforces a strict separation
-of concerns: **Code defines mechanism, Data defines content.**
+**DataCatalyst** is a foundational, compile-time composition framework for C# and .NET. It enforces a strict separation of concerns in data-driven games architecture.
 
 ---
 
 ## 💡 Philosophy & Core Vision
 
-> **Code itself has no content.** Game logic, behaviors, and content values should never be hardcoded.
+> **Code itself has no content.** Game logic, behaviors, content, etc... values should never be hardcoded.
+> Game Designers should not a guys playing with some table, but the one who is parameterized everything to modeling the world, or in this case, the game.
 
 DataCatalyst is:
 
 - 🚫 **NOT** a serializer.
-- 🚫 **NOT** a behavior engine.
-- 🚫 **NOT** a Domain-Specific Language (DSL).
+- 🚫 **NOT** a data-tuning library
 
 It is a **pure infrastructure layer** that is completely mechanics-agnostic. How the resolved composition is utilized is
-entirely up to the consumer (e.g., your game engine or ECS runtime).
+entirely up to the consumer.
 
 ### 🔌 Modding & Patch Composition
 
