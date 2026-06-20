@@ -12,11 +12,17 @@ using DataCatalyst.Core;
 /// Self-contained: manages its own concept definitions, no core modifications.
 /// Reads from ConceptRegistry.Default (auto-populated by SourceGen) and supports manual registration.
 /// </summary>
-[DataPlugin]
+[DataPlugin(Order = 200)]
 public sealed class ConceptDomainPlugin : ICatalogPlugin {
 	private readonly Dictionary<string, HashSet<string>> _conceptEntries = [];
 	private readonly Dictionary<Type, object> _conceptCatalogs = [];
 	private DataCatalog? _catalog;
+
+	/// <inheritdoc/>
+	public bool IsEnabled => true;
+
+	/// <inheritdoc/>
+	public void OnLoad() { }
 
 	/// <summary>The concept registry (defaults to ConceptRegistry.Default).</summary>
 	public ConceptRegistry Registry => ConceptRegistry.Default;

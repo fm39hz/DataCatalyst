@@ -70,26 +70,17 @@ public class SourceGenTests {
 			using System;
 			using DataCatalyst.Abstractions;
 			namespace MyGame {
-				[DataPlugin(DependsOn = new[] { typeof(PluginB) })]
-				public class PluginA : IDataPlugin { }
+				public class PluginA : IPlugin { public bool IsEnabled => true; public void OnLoad() { } }
 
-				[DataPlugin]
-				public class PluginB : IDataPlugin { }
+				public class PluginB : IPlugin { public bool IsEnabled => true; public void OnLoad() { } }
 			}
 		";
 
 		var generated = RunGenerator(source);
-		generated.Should().Contain("global::DataCatalyst.Core.PluginRegistry.Default.Register<global::MyGame.PluginB>();");
 		generated.Should().Contain("global::DataCatalyst.Core.PluginRegistry.Default.Register<global::MyGame.PluginA>();");
-		generated.Should().Contain("registry.RegisterPlugin<global::MyGame.PluginB>();");
+		generated.Should().Contain("global::DataCatalyst.Core.PluginRegistry.Default.Register<global::MyGame.PluginB>();");
 		generated.Should().Contain("registry.RegisterPlugin<global::MyGame.PluginA>();");
-
-		// Verify topological order in RegisterTo: PluginB must be registered before PluginA
-		var indexA = generated.IndexOf("registry.RegisterPlugin<global::MyGame.PluginA>()");
-		var indexB = generated.IndexOf("registry.RegisterPlugin<global::MyGame.PluginB>()");
-
-		indexA.Should().BeGreaterThan(-1, "PluginA registration should be present in generated code.");
-		indexB.Should().BeGreaterThan(-1, "PluginB registration should be present in generated code.");
-		indexB.Should().BeLessThan(indexA, "PluginB (dependency) must be registered before PluginA (dependent).");
+		generated.Should().Contain("registry.RegisterPlugin<global::MyGame.PluginB>();");
+		generated.Should().Contain("LoadAll");
 	}
 }

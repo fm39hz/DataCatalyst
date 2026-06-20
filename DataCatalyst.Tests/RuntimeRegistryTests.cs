@@ -247,7 +247,9 @@ public struct OtherStruct : IComponent {
 public interface IComponent {
 }
 
-public class TestPlugin : IDataPlugin {
+	public class TestPlugin : IPlugin {
+		public bool IsEnabled => true;
+		public void OnLoad() { }
 	public static bool Constructed { get; set; }
 
 	public TestPlugin() {

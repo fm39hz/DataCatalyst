@@ -13,40 +13,25 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 [Generator]
 public sealed class PluginGenerator : IIncrementalGenerator {
-	private static readonly DiagnosticDescriptor CycleError = new(
-		id: "DC003",
-		title: "Circular plugin dependency",
-		messageFormat: "Circular dependency detected involving plugin '{0}'",
-		category: "DataCatalyst",
-		defaultSeverity: DiagnosticSeverity.Error,
-		isEnabledByDefault: true);
-
-	private static readonly DiagnosticDescriptor UnknownDepWarning = new(
-		id: "DC004",
-		title: "Unknown plugin dependency",
-		messageFormat: "Plugin '{0}' depends on '{1}' which is not a [DataPlugin] in this assembly",
-		category: "DataCatalyst",
-		defaultSeverity: DiagnosticSeverity.Warning,
-		isEnabledByDefault: true);
-
-	private const string DataPluginAttr = "DataCatalyst.Abstractions.DataPluginAttribute";
-	private const string DataPluginIface = "DataCatalyst.Abstractions.IDataPlugin";
+	private const string PluginIface = "DataCatalyst.Abstractions.IPlugin";
 
 	public void Initialize(IncrementalGeneratorInitializationContext context) {
-		var plugins = context.SyntaxProvider.ForAttributeWithMetadataName(
-			DataPluginAttr,
-			static (node, _) => node is ClassDeclarationSyntax,
-			static (ctx, _) => {
-				var t = (INamedTypeSymbol)ctx.TargetSymbol;
-				var comp = ctx.SemanticModel.Compilation;
-				var iface = comp.GetTypeByMetadataName(DataPluginIface);
-				if (iface == null || !t.AllInterfaces.Contains(iface, SymbolEqualityComparer.Default)) {
-					return default(PluginInfo?);
-				}
+		// Scan all classes that implement IPlugin
+		var plugins = context.SyntaxProvider.CreateSyntaxProvider(
+			predicate: static (node, _) => node is ClassDeclarationSyntax,
+			transform: static (ctx, _) => {
+				var t = ctx.SemanticModel.GetDeclaredSymbol(ctx.Node) as INamedTypeSymbol;
+				if (t == null) return default(PluginInfo?);
 
-				var attrClass = comp.GetTypeByMetadataName(DataPluginAttr);
-				var deps = GetDeps(t.GetAttributes(), attrClass);
-				return new PluginInfo(t, deps);
+				var iface = ctx.SemanticModel.Compilation.GetTypeByMetadataName(PluginIface);
+				if (iface == null || !t.AllInterfaces.Contains(iface, SymbolEqualityComparer.Default))
+					return default(PluginInfo?);
+
+				// Check if it's abstract
+				if (t.IsAbstract) return default(PluginInfo?);
+
+				return new PluginInfo(
+					t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
 			})
 			.Where(static p => p is not null)
 			.Select(static (p, _) => p!.Value)
@@ -54,67 +39,32 @@ public sealed class PluginGenerator : IIncrementalGenerator {
 
 		context.RegisterSourceOutput(plugins,
 			static (spc, pl) => {
-				if (pl.Length == 0) {
-					return;
-				}
-
+				if (pl.Length == 0) return;
 				Emit(spc, pl);
 			});
 	}
 
-	private readonly struct PluginInfo(INamedTypeSymbol type, string[] deps) {
-		public readonly INamedTypeSymbol Type = type;
-		public readonly string FullType = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-		public readonly string[] Deps = deps;
-	}
-
-	private static string[] GetDeps(ImmutableArray<AttributeData> attrs, INamedTypeSymbol? attrClass) {
-		if (attrClass == null) {
-			return [];
-		}
-
-		foreach (var a in attrs) {
-			if (!SymbolEqualityComparer.Default.Equals(a.AttributeClass, attrClass)) {
-				continue;
-			}
-
-			// Named argument: DependsOn
-			foreach (var n in a.NamedArguments) {
-				if (n.Key == "DependsOn" && n.Value.Values is { Length: > 0 } vs) {
-					return [.. vs
-						.Select(v => v.Value)
-						.OfType<INamedTypeSymbol>()
-						.Select(s => s.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat))];
-				}
-			}
-
-			// Positional constructor argument (also supports future constructor-based extension)
-			if (a.ConstructorArguments.Length > 0) {
-				var arg = a.ConstructorArguments[0];
-				if (arg.Kind == TypedConstantKind.Array && arg.Values.Length > 0) {
-					return [.. arg.Values
-						.Select(v => v.Value)
-						.OfType<INamedTypeSymbol>()
-						.Select(s => s.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat))];
-				}
-			}
-		}
-		return [];
+	private readonly struct PluginInfo(string fullType) {
+		public readonly string FullType = fullType;
 	}
 
 	private static void Emit(SourceProductionContext spc, ImmutableArray<PluginInfo> allPlugins) {
-		var sorted = TopoSort([.. allPlugins], spc);
-		if (sorted == null) {
-			return; // Cycle detected → abort emit, error diagnostic already reported
-		}
-
 		var initBody = new List<StatementSyntax>();
 		var regBody = new List<StatementSyntax>();
 
-		foreach (var p in sorted) {
+		foreach (var p in allPlugins) {
 			initBody.Add(BuildRegisterCall("global::DataCatalyst.Core.PluginRegistry.Default", p.FullType));
 			regBody.Add(BuildGenericCall("registry", "RegisterPlugin", p.FullType));
 		}
+
+		// Add LoadAll call
+		initBody.Add(
+			ExpressionStatement(
+				InvocationExpression(
+					MemberAccessExpression(
+						SyntaxKind.SimpleMemberAccessExpression,
+						ParseExpression("global::DataCatalyst.Core.PluginRegistry.Default"),
+						IdentifierName("LoadAll")))));
 
 		var cu = CompilationUnit()
 			.WithLeadingTrivia(Comment("// <auto-generated/>\n#nullable enable"))
@@ -179,68 +129,4 @@ public sealed class PluginGenerator : IIncrementalGenerator {
 						.WithTypeArgumentList(
 							TypeArgumentList(
 								SingletonSeparatedList(ParseTypeName(fullType)))))));
-
-	// Deterministic Kahn topological sort using sorted ready set
-	private static List<PluginInfo>? TopoSort(List<PluginInfo> plugins, SourceProductionContext spc) {
-		var map = new Dictionary<string, PluginInfo>();
-		var indeg = new Dictionary<string, int>();
-		var edges = new Dictionary<string, List<string>>();
-		var allTypes = new HashSet<string>();
-
-		foreach (var p in plugins) {
-			if (map.ContainsKey(p.FullType)) {
-				continue;
-			}
-
-			map[p.FullType] = p;
-			allTypes.Add(p.FullType);
-			indeg[p.FullType] = 0;
-			edges[p.FullType] = [];
-		}
-
-		foreach (var p in plugins) {
-			foreach (var d in p.Deps) {
-				if (allTypes.Contains(d)) {
-					edges[d].Add(p.FullType);
-					indeg[p.FullType]++;
-				}
-				else {
-					spc.ReportDiagnostic(Diagnostic.Create(
-						UnknownDepWarning, Location.None, p.FullType, d));
-				}
-			}
-		}
-
-		// Use sorted list for deterministic ordering between builds
-		var ready = allTypes.Where(t => indeg[t] == 0).ToList();
-		ready.Sort();
-
-		var result = new List<PluginInfo>();
-		while (ready.Count > 0) {
-			var cur = ready[0];
-			ready.RemoveAt(0);
-			result.Add(map[cur]);
-			if (edges.TryGetValue(cur, out var list)) {
-				foreach (var c in list) {
-					if (--indeg[c] == 0) {
-						ready.Add(c);
-						ready.Sort();
-					}
-				}
-			}
-		}
-
-		// Hard-fail on cycles: error diagnostic + abort emit
-		var processed = new HashSet<string>(result.Select(p => p.FullType));
-		if (processed.Count != allTypes.Count) {
-			foreach (var t in allTypes) {
-				if (!processed.Contains(t)) {
-					spc.ReportDiagnostic(Diagnostic.Create(CycleError, Location.None, t));
-				}
-			}
-			return null;
-		}
-
-		return result;
-	}
 }

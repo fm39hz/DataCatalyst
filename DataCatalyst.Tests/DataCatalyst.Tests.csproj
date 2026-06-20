@@ -16,6 +16,9 @@
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp"/>
 	</ItemGroup>
 	<ItemGroup>
+		<AdditionalFiles Include="Data/Test/*.json"/>
+	</ItemGroup>
+	<ItemGroup>
 		<ProjectReference Include="..\DataCatalyst.Abstractions\DataCatalyst.Abstractions.csproj"/>
 		<ProjectReference Include="..\DataCatalyst.Core\DataCatalyst.Core.csproj"/>
 		<ProjectReference Include="..\DataCatalyst.Loaders.Json\DataCatalyst.Loaders.Json.csproj"/>

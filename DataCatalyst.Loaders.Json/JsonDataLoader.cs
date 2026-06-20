@@ -94,7 +94,7 @@ public static class JsonDataLoader {
 			}
 		}
 
-		foreach (var p in env.Plugins.Plugins.OfType<IPostLoadPlugin>()) {
+		foreach (var p in env.Plugins.EnabledPlugins.OfType<IPostLoadPlugin>()) {
 			p.OnEntriesLoaded(result.Entries, result.Diagnostics);
 		}
 
@@ -198,7 +198,7 @@ public static class JsonDataLoader {
 			result.Diagnostics.Add($"Failed to load and parse array file '{filePath}': {ex.Message}");
 		}
 
-		foreach (var p in env.Plugins.Plugins.OfType<IPostLoadPlugin>()) {
+		foreach (var p in env.Plugins.EnabledPlugins.OfType<IPostLoadPlugin>()) {
 			p.OnEntriesLoaded(result.Entries, result.Diagnostics);
 		}
 

@@ -1,0 +1,5 @@
+{
+	"concept": "Enemy",
+	"Health": { "Current": 50, "Max": 50 },
+	"CombatStats": { "AttackPower": 5 }
+}

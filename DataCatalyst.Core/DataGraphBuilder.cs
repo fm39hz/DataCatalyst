@@ -55,9 +55,9 @@ public static class DataGraphBuilder {
 			}
 		}
 
-		foreach (var p in env.Plugins.Plugins.OfType<IGraphPlugin>()) {
-			p.OnGraphBuilt(graph, diag);
-		}
+			foreach (var p in env.Plugins.EnabledPlugins.OfType<IGraphPlugin>()) {
+				p.OnGraphBuilt(graph, diag);
+			}
 
 		return graph;
 	}

@@ -24,7 +24,7 @@
 		<None Include="..\README.md" Pack="true" PackagePath="\" Visible="false"/>
 	</ItemGroup>
 
-	<ItemGroup Condition="Exists('build\DataCatalyst.targets')">
+	<ItemGroup>
 		<None Include="build\DataCatalyst.targets" Pack="true" PackagePath="build\DataCatalyst.targets" Visible="false"/>
 		<None Include="build\DataCatalyst.targets" Pack="true" PackagePath="buildTransitive\DataCatalyst.targets" Visible="false"/>
 	</ItemGroup>

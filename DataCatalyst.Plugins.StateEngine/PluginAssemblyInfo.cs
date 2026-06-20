@@ -9,8 +9,14 @@ using DataCatalyst.Extensions.Compare;
 using DataCatalyst.Extensions.Composition;
 
 /// <summary>Validates state machine data at catalog resolution time.</summary>
-[DataPlugin]
-public class StateEnginePlugin : ICatalogPlugin {
+[DataPlugin(Order = 100)]
+public sealed class StateEnginePlugin : ICatalogPlugin {
+	/// <inheritdoc/>
+	public bool IsEnabled => true;
+
+	/// <inheritdoc/>
+	public void OnLoad() { }
+
 	void ICatalogPlugin.OnCatalogResolved(DataCatalog catalog, List<string> diagnostics) {
 		foreach (var entry in catalog.Entries.Values) {
 			if (!(entry.Components.TryGetValue(typeof(Models.StateGroup), out var raw) && raw is Models.StateGroup group)) {
@@ -57,6 +63,4 @@ public class StateEnginePlugin : ICatalogPlugin {
 			}
 		}
 	}
-
 }
-

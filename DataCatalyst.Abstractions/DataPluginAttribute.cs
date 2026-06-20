@@ -2,9 +2,12 @@ namespace DataCatalyst.Abstractions;
 
 using System;
 
-/// <summary>Marks a class as a data plugin with optional dependencies.</summary>
+/// <summary>
+/// Optional: marks a class as a plugin. Not required — SourceGen auto-discovers any class that implements IPlugin.
+/// Use this to specify ordering via Order or for documentation purposes.
+/// </summary>
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
 public sealed class DataPluginAttribute : Attribute {
-	/// <summary>Plugin types this plugin depends on.</summary>
-	public Type[]? DependsOn { get; set; }
+	/// <summary>Plugin execution order. Lower values execute first.</summary>
+	public int Order { get; set; }
 }

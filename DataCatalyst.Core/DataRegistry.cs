@@ -7,7 +7,7 @@ using Abstractions;
 /// <summary>Instance-based registry for components and plugins.</summary>
 public sealed class DataRegistry {
 	private readonly HashSet<Type> _components = [];
-	private readonly List<IDataPlugin> _plugins = [];
+	private readonly List<IPlugin> _plugins = [];
 
 	/// <summary>Registers a component type.</summary>
 	public void RegisterComponent<T>() where T : struct {
@@ -35,14 +35,14 @@ public sealed class DataRegistry {
 	}
 
 	/// <summary>Registers and instantiates a plugin type.</summary>
-	public void RegisterPlugin<T>() where T : IDataPlugin, new() {
+	public void RegisterPlugin<T>() where T : IPlugin, new() {
 		lock (_plugins) {
 			_plugins.Add(new T());
 		}
 	}
 
 	/// <summary>Registers a plugin instance.</summary>
-	public void RegisterPlugin(IDataPlugin plugin) {
+	public void RegisterPlugin(IPlugin plugin) {
 #if NET6_0_OR_GREATER
 		ArgumentNullException.ThrowIfNull(plugin);
 #else
@@ -63,7 +63,7 @@ public sealed class DataRegistry {
 	}
 
 	/// <summary>Gets all registered plugin instances.</summary>
-	public IReadOnlyList<IDataPlugin> GetPlugins() {
+	public IReadOnlyList<IPlugin> GetPlugins() {
 		lock (_plugins) {
 			return [.. _plugins];
 		}

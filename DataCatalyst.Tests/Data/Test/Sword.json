@@ -1,0 +1,5 @@
+{
+	"concept": "Item",
+	"Health": { "Current": 100, "Max": 100 },
+	"CombatStats": { "AttackPower": 15 }
+}

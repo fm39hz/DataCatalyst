@@ -25,9 +25,9 @@ public static class DataCatalogBuilder {
 		var catalog = new DataCatalog(resolved);
 
 		var diag = diagnostics ?? [];
-		foreach (var p in env.Plugins.Plugins.OfType<ICatalogPlugin>()) {
-			p.OnCatalogResolved(catalog, diag);
-		}
+			foreach (var p in env.Plugins.EnabledPlugins.OfType<ICatalogPlugin>()) {
+				p.OnCatalogResolved(catalog, diag);
+			}
 
 		return catalog;
 	}
