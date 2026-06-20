@@ -1,11 +1,10 @@
 namespace DataCatalyst.Tests;
 
-using DataCatalyst.Plugins.NumericCompare.Core;
+using DataCatalyst.Extensions.Compare;
+using DataCatalyst.Extensions.Composition;
 using FluentAssertions;
-using Plugins.NumericCompare.Contracts;
 using Plugins.StateEngine.Core;
 using Plugins.StateEngine.Models;
-using Plugins.Transition.Models;
 using Xunit;
 
 public class StateEngineTests {

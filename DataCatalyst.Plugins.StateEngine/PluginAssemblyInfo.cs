@@ -5,11 +5,11 @@ using System.Collections.Generic;
 using System.Linq;
 using Abstractions;
 using DataCatalyst.Core;
-using DataCatalyst.Plugins.NumericCompare.Core;
-using DataCatalyst.Plugins.Transition.Models;
+using DataCatalyst.Extensions.Compare;
+using DataCatalyst.Extensions.Composition;
 
 /// <summary>Validates state machine data at catalog resolution time.</summary>
-[DataPlugin(DependsOn = [typeof(NumericCompare.NumericComparePlugin), typeof(Transition.TransitionPlugin)])]
+[DataPlugin]
 public class StateEnginePlugin : ICatalogPlugin {
 	void ICatalogPlugin.OnCatalogResolved(DataCatalog catalog, List<string> diagnostics) {
 		foreach (var entry in catalog.Entries.Values) {

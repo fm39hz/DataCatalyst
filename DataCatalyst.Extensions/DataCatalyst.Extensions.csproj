@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFrameworks>netstandard2.1;net8.0</TargetFrameworks>
+		<Description>Domain concepts and shared infrastructure for DataCatalyst. Compare operators, composition models, materialization — used by plugins without pipeline coupling.</Description>
+		<PackageTags>data-catalyst;extensions</PackageTags>
+		<Nullable>enable</Nullable>
+		<PackageId>DataCatalyst.Extensions</PackageId>
+	</PropertyGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\DataCatalyst.Abstractions\DataCatalyst.Abstractions.csproj"/>
+		<ProjectReference Include="..\DataCatalyst.Core\DataCatalyst.Core.csproj"/>
+	</ItemGroup>
+</Project>

@@ -2,7 +2,7 @@ namespace DataCatalyst.Plugins.StateEngine.Models;
 
 using System.Collections.Generic;
 using Abstractions;
-using DataCatalyst.Plugins.Transition.Models;
+using DataCatalyst.Extensions.Composition;
 
 /// <summary>Group of related states with shared configuration.</summary>
 [DataComponent]

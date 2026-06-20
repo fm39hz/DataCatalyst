@@ -2,7 +2,7 @@ namespace DataCatalyst.Plugins.StateEngine.Core;
 
 using System;
 using System.Collections.Generic;
-using DataCatalyst.Plugins.NumericCompare.Core;
+using DataCatalyst.Extensions.Compare;
 using Models;
 
 /// <summary>Evaluates state transitions using pre-baked flat transition tables.</summary>

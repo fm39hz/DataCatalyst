@@ -5,7 +5,7 @@ using DataCatalyst.Core;
 using DataCatalyst.Plugins.StateEngine.Contracts;
 using DataCatalyst.Plugins.StateEngine.Core;
 using DataCatalyst.Plugins.StateEngine.Models;
-using DataCatalyst.Plugins.Transition.Models;
+using DataCatalyst.Extensions.Composition;
 using FluentAssertions;
 using Xunit;
 

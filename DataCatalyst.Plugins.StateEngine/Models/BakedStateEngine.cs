@@ -1,7 +1,7 @@
 namespace DataCatalyst.Plugins.StateEngine.Models;
 
 using System.Collections.Generic;
-using DataCatalyst.Plugins.NumericCompare.Contracts;
+using DataCatalyst.Extensions.Compare;
 
 /// <summary>Baked, high-performance representation of a state group for generic types.</summary>
 public sealed class BakedStateGroup<TState, TSensor>

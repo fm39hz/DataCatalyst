@@ -21,13 +21,11 @@
 		<ProjectReference Include="..\DataCatalyst.Loaders.Json\DataCatalyst.Loaders.Json.csproj"/>
 
 		<ProjectReference Include="..\DataCatalyst.SourceGen\DataCatalyst.SourceGen.csproj"/>
-		<ProjectReference Include="..\DataCatalyst.Plugins.NumericCompare\DataCatalyst.Plugins.NumericCompare.csproj"/>
-		<ProjectReference Include="..\DataCatalyst.Plugins.Transition\DataCatalyst.Plugins.Transition.csproj"/>
+		<ProjectReference Include="..\DataCatalyst.Extensions\DataCatalyst.Extensions.csproj"/>
 		<ProjectReference Include="..\DataCatalyst.Plugins.StateEngine\DataCatalyst.Plugins.StateEngine.csproj"/>
 		<ProjectReference Include="..\DataCatalyst.Plugins.StateEngine.SourceGen\DataCatalyst.Plugins.StateEngine.SourceGen.csproj"
 			OutputItemType="Analyzer"
 			ReferenceOutputAssembly="false"/>
-		<ProjectReference Include="..\DataCatalyst.Plugins.Materializer\DataCatalyst.Plugins.Materializer.csproj"/>
 		<ProjectReference Include="..\DataCatalyst.Plugins.ConceptDomain\DataCatalyst.Plugins.ConceptDomain.csproj"/>
 		<ProjectReference Include="..\DataCatalyst.Plugins.ConceptDomain.SourceGen\DataCatalyst.Plugins.ConceptDomain.SourceGen.csproj"
 			OutputItemType="Analyzer"

@@ -1,7 +1,7 @@
-namespace DataCatalyst.Plugins.Transition.Models;
+namespace DataCatalyst.Extensions.Composition;
 
 using System.Collections.Generic;
-using Abstractions;
+using DataCatalyst.Abstractions;
 
 /// <summary>Defines a state transition with conditions.</summary>
 [DataComponent]

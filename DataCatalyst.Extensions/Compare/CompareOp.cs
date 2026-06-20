@@ -1,4 +1,4 @@
-namespace DataCatalyst.Plugins.NumericCompare.Contracts;
+namespace DataCatalyst.Extensions.Compare;
 
 /// <summary>Comparison operators for numeric evaluation.</summary>
 public enum CompareOp : byte {

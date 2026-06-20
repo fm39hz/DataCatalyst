@@ -3,9 +3,9 @@ namespace DataCatalyst.Plugins.StateEngine.Core;
 using System;
 using System.Collections.Generic;
 using DataCatalyst.Core;
-using DataCatalyst.Plugins.NumericCompare.Core;
+using DataCatalyst.Extensions.Compare;
+using DataCatalyst.Extensions.Composition;
 using Models;
-using Transition.Models;
 
 /// <summary>Helper to bake and flatten hierarchical StateGroups into high-performance generic structures.</summary>
 public static class StateEngineBaker {

@@ -1,8 +1,7 @@
-namespace DataCatalyst.Plugins.NumericCompare.Core;
+namespace DataCatalyst.Extensions.Compare;
 
 using System;
 using System.Collections.Generic;
-using Contracts;
 
 /// <summary>Parses and evaluates numeric comparison operators.</summary>
 public static class OperatorParser {

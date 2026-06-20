@@ -1,4 +1,4 @@
-namespace DataCatalyst.Plugins.Materializer;
+namespace DataCatalyst.Extensions.Materialization;
 
 using System;
 using System.Collections.Generic;
