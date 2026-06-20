@@ -29,8 +29,8 @@
 		<ProjectReference Include="..\DataCatalyst.Plugins.StateEngine.SourceGen\DataCatalyst.Plugins.StateEngine.SourceGen.csproj"
 			OutputItemType="Analyzer"
 			ReferenceOutputAssembly="false"/>
-		<ProjectReference Include="..\DataCatalyst.Plugins.ConceptDomain\DataCatalyst.Plugins.ConceptDomain.csproj"/>
-		<ProjectReference Include="..\DataCatalyst.Plugins.ConceptDomain.SourceGen\DataCatalyst.Plugins.ConceptDomain.SourceGen.csproj"
+		<ProjectReference Include="..\DataCatalyst.Plugins.GameConcept\DataCatalyst.Plugins.GameConcept.csproj"/>
+		<ProjectReference Include="..\DataCatalyst.Plugins.GameConcept.SourceGen\DataCatalyst.Plugins.GameConcept.SourceGen.csproj"
 			OutputItemType="Analyzer"
 			ReferenceOutputAssembly="false"/>
 	</ItemGroup>

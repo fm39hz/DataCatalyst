@@ -9,11 +9,11 @@ using DataCatalyst.Plugins.StateEngine.Models;
 using FluentAssertions;
 using Xunit;
 
-// SourceGen auto-generates mappers for these enums via [DataStateEnum] and [DataSensorEnum]
-[DataStateEnum]
+// SourceGen auto-generates mappers for these enums via [StateEnum] and [SensorEnum]
+[StateEnum]
 public enum PlayerState { Idle, Run, Jump, Attack, Patrol }
 
-[DataSensorEnum]
+[SensorEnum]
 public enum PlayerSensor { Speed, IsGrounded, Health, Alert }
 
 public class StateEngineSourceGenTests {

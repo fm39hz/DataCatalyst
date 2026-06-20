@@ -102,8 +102,8 @@ DataCatalyst.SourceGen/                    Compile-time generators
 
 DataCatalyst.Plugins.StateEngine/          Data-driven hierarchical FSM
 DataCatalyst.Plugins.StateEngine.SourceGen/
-DataCatalyst.Plugins.ConceptDomain/        Type-safe scoped entry access
-DataCatalyst.Plugins.ConceptDomain.SourceGen/
+DataCatalyst.Plugins.GameConcept/                Game concept scoped entry access
+DataCatalyst.Plugins.GameConcept.SourceGen/
 ```
 
 ```mermaid
@@ -142,33 +142,33 @@ graph LR
 
 ### Pipeline Types
 
-| Type | Description |
-|---|---|
-| `DataEntry` | One entry — `Key`, `Inherits`, `Components` (typed structs), `SourceFile`, `Layer` |
-| `DataGraph` | Unresolved dependency graph — `Dictionary<string, DataEntry>` |
-| `DataCatalog` | Resolved immutable catalog — `Get<T>(key)`, `TryGet<T>(key)`, `ContainsKey(key)` |
-| `DataCatalogExtensions` | `Bind<TKey, TComponent>(selector)` — extract one component type into a dictionary |
-| `DataGraphBuilder` | Static `Build(entries, diagnostics?, env?)` — layer-aware merge |
-| `DataCatalogBuilder` | Static `Resolve(graph, diagnostics?, env?)` — inheritance flattening |
+| Type                    | Description                                                                        |
+| ----------------------- | ---------------------------------------------------------------------------------- |
+| `DataEntry`             | One entry — `Key`, `Inherits`, `Components` (typed structs), `SourceFile`, `Layer` |
+| `DataGraph`             | Unresolved dependency graph — `Dictionary<string, DataEntry>`                      |
+| `DataCatalog`           | Resolved immutable catalog — `Get<T>(key)`, `TryGet<T>(key)`, `ContainsKey(key)`   |
+| `DataCatalogExtensions` | `Bind<TKey, TComponent>(selector)` — extract one component type into a dictionary  |
+| `DataGraphBuilder`      | Static `Build(entries, diagnostics?, env?)` — layer-aware merge                    |
+| `DataCatalogBuilder`    | Static `Resolve(graph, diagnostics?, env?)` — inheritance flattening               |
 
 ### Registries
 
-| Registry | Auto-populated by SourceGen |
-|---|---|
-| `PluginRegistry` | `IPlugin` classes |
-| `PrimitiveRegistry` | `[DataComponent]` structs |
-| `MapperRegistry` | `[DataStateEnum]`, `[DataSensorEnum]` |
-| `ConceptRegistry` | `[DataConcept("name")]` structs |
-| `ServiceRegistry` | Manual |
-| `DataViewAdapterRegistry` | Manual |
+| Registry                  | Auto-populated by SourceGen     |
+| ------------------------- | ------------------------------- |
+| `PluginRegistry`          | `IPlugin` classes               |
+| `PrimitiveRegistry`       | `[DataComponent]` structs       |
+| `MapperRegistry`          | `[StateEnum]`, `[SensorEnum]`   |
+| `ConceptRegistry`         | `[DataConcept("name")]` structs |
+| `ServiceRegistry`         | Manual                          |
+| `DataViewAdapterRegistry` | Manual                          |
 
 ### Plugin Hooks
 
-| Hook | Called | Input |
-|---|---|---|
+| Hook              | Called                | Input                      |
+| ----------------- | --------------------- | -------------------------- |
 | `IPostLoadPlugin` | After `LoadDirectory` | `IReadOnlyList<DataEntry>` |
-| `IGraphPlugin` | After `Build` | `DataGraph` |
-| `ICatalogPlugin` | After `Resolve` | `DataCatalog` |
+| `IGraphPlugin`    | After `Build`         | `DataGraph`                |
+| `ICatalogPlugin`  | After `Resolve`       | `DataCatalog`              |
 
 ---
 
@@ -223,10 +223,10 @@ Hierarchical, priority-based FSM — completely data-driven.
 ```csharp
 using DataCatalyst.Plugins.StateEngine.Contracts;
 
-[DataStateEnum]
+[StateEnum]
 public enum AIState { Idle, Patrol, Attack, Flee }
 
-[DataSensorEnum]
+[SensorEnum]
 public enum AISensor { PlayerDistance, HealthPercent, Alert }
 ```
 
@@ -238,11 +238,21 @@ SourceGen auto-generates `IStateMapper<AIState>` + `ISensorMapper<AISensor>`.
 	"DefaultState": "Idle",
 	"States": {
 		"Idle": {
-			"Transitions": [{
-				"TargetState": "Patrol",
-				"Priority": 5,
-				"Conditions": { "All": [{ "Signal": "PlayerDistance", "Op": "<", "Value": 10 }] }
-			}]
+			"Transitions": [
+				{
+					"TargetState": "Patrol",
+					"Priority": 5,
+					"Conditions": {
+						"All": [
+							{
+								"Signal": "PlayerDistance",
+								"Op": "<",
+								"Value": 10
+							}
+						]
+					}
+				}
+			]
 		}
 	}
 }
@@ -271,35 +281,31 @@ if (result.HasValue) entity.TransitionTo(result.TargetStateId);
 
 Features: hierarchical states with parent fallback, hysteresis (`Value` / `ExitValue`), dynamic sensor influences.
 
-### ConceptDomain
+### GameConcept
 
-Type-safe scoped access to entry groups.
+Game designers think in domains: "my game has **weapons**, **currency**, **skills**, **combat**." GameConcept lets you declare these as typed, data-driven groupings — not as ECS entity IDs, not as tag components, not as Godot groups.
 
 ```csharp
-using DataCatalyst.Plugins.ConceptDomain;
+using DataCatalyst.Plugins.GameConcept;
 
-[DataConcept("Item")]
-public readonly record struct ItemTag;
-
-[DataConcept("Enemy")]
-public readonly record struct EnemyTag;
+[DataConcept("Weapon")]  public readonly record struct WeaponConcept;
+[DataConcept("Currency")] public readonly record struct CurrencyConcept;
 ```
-
-SourceGen auto-registers them in `ConceptRegistry.Default`.
 
 Map entries at runtime:
 
 ```csharp
-var plugin = new ConceptDomainPlugin();
-plugin.RegisterEntries<EnemyTag>(Keys.Goblin, Keys.BaseMonster);
-plugin.RegisterEntries<ItemTag>(Keys.IronSword, Keys.HealthPotion);
+var plugin = new GameConceptPlugin();
+plugin.RegisterEntries<WeaponConcept>(Keys.IronSword, Keys.BattleAxe);
+plugin.RegisterEntries<CurrencyConcept>(Keys.Gold, Keys.Silver);
+plugin.RegisterEntries<SkillConcept>(Keys.Fireball, Keys.Heal);
 plugin.OnCatalogResolved(catalog, diagnostics);
 ```
 
-Or load from a JSON file:
+Or load from JSON:
 
 ```json
-{ "Enemy": ["Goblin", "BaseMonster"], "Item": ["IronSword", "HealthPotion"] }
+{ "Weapon": ["IronSword", "BattleAxe"], "Currency": ["Gold", "Silver"] }
 ```
 
 ```csharp
@@ -309,11 +315,11 @@ plugin.LoadConcepts("Data/concepts.json");
 Access:
 
 ```csharp
-var items   = catalog.GetConcept<ItemTag>();
-var enemies = catalog.GetConcept<EnemyTag>();
+var weapons   = catalog.GetConcept<WeaponConcept>();
+var currencies = catalog.GetConcept<CurrencyConcept>();
 
-var swordHp = items.Get<Health>(Keys.IronSword);    // scoped to Item domain
-var gobHp   = enemies.Get<Health>(Keys.Goblin);      // scoped to Enemy domain
+var swordAtk = weapons.Get<CombatStats>(Keys.IronSword);
+var goldVal  = currencies.Get<Value>(Keys.Gold);
 ```
 
 ---
@@ -329,8 +335,8 @@ dotnet add package DataCatalyst.Extensions                    # Compare, Composi
 # Plugins
 dotnet add package DataCatalyst.Plugins.StateEngine
 dotnet add package DataCatalyst.Plugins.StateEngine.SourceGen
-dotnet add package DataCatalyst.Plugins.ConceptDomain
-dotnet add package DataCatalyst.Plugins.ConceptDomain.SourceGen
+dotnet add package DataCatalyst.Plugins.GameConcept
+dotnet add package DataCatalyst.Plugins.GameConcept.SourceGen
 ```
 
 SourceGen packages must be referenced as analyzers:
@@ -346,13 +352,13 @@ SourceGen packages must be referenced as analyzers:
 
 All generators run at compile time and produce code that is linked into the consuming project. They eliminate manual boilerplate.
 
-| Generator | Scans | Produces |
-|---|---|---|
-| `ComponentGenerator` | `[DataComponent]` structs | Type registrations in `PrimitiveRegistry` |
-| `PluginGenerator` | `IPlugin` classes | Plugin registrations in `PluginRegistry` |
-| `EntryKeysGenerator` | Data file names | `Keys.{FileName}` constants |
-| `StateMachineGenerator` | `[DataStateEnum]`, `[DataSensorEnum]` | `IStateMapper<T>` + `ISensorMapper<T>` |
-| `ConceptGenerator` | `[DataConcept("name")]` | Concept registrations in `ConceptRegistry` |
+| Generator               | Scans                         | Produces                                   |
+| ----------------------- | ----------------------------- | ------------------------------------------ |
+| `ComponentGenerator`    | `[DataComponent]` structs     | Type registrations in `PrimitiveRegistry`  |
+| `PluginGenerator`       | `IPlugin` classes             | Plugin registrations in `PluginRegistry`   |
+| `EntryKeysGenerator`    | Data file names               | `Keys.{FileName}` constants                |
+| `StateMachineGenerator` | `[StateEnum]`, `[SensorEnum]` | `IStateMapper<T>` + `ISensorMapper<T>`     |
+| `ConceptGenerator`      | `[DataConcept("name")]`       | Concept registrations in `ConceptRegistry` |
 
 ---
 

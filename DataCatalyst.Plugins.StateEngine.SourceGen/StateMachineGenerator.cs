@@ -15,8 +15,8 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 public sealed class StateMachineGenerator : IIncrementalGenerator {
 	private static readonly DiagnosticDescriptor EnumRequiredError = new(
 		id: "DC020",
-		title: "DataStateEnum/DataSensorEnum must be an enum",
-		messageFormat: "[DataStateEnum] and [DataSensorEnum] on '{0}' are only valid on enum types",
+		title: "StateEnum/SensorEnum must be an enum",
+		messageFormat: "[StateEnum] and [SensorEnum] on '{0}' are only valid on enum types",
 		category: "DataCatalyst.StateEngine",
 		defaultSeverity: DiagnosticSeverity.Error,
 		isEnabledByDefault: true);
@@ -24,13 +24,13 @@ public sealed class StateMachineGenerator : IIncrementalGenerator {
 	private static readonly DiagnosticDescriptor EmptyEnumWarning = new(
 		id: "DC021",
 		title: "Enum has no members",
-		messageFormat: "[DataStateEnum] or [DataSensorEnum] on '{0}' enum has no members. Mapper will have no valid mappings.",
+		messageFormat: "[StateEnum] or [SensorEnum] on '{0}' enum has no members. Mapper will have no valid mappings.",
 		category: "DataCatalyst.StateEngine",
 		defaultSeverity: DiagnosticSeverity.Warning,
 		isEnabledByDefault: true);
 
-	private const string StateEnumAttr = "DataCatalyst.Plugins.StateEngine.Contracts.DataStateEnumAttribute";
-	private const string SensorEnumAttr = "DataCatalyst.Plugins.StateEngine.Contracts.DataSensorEnumAttribute";
+	private const string StateEnumAttr = "DataCatalyst.Plugins.StateEngine.Contracts.StateEnumAttribute";
+	private const string SensorEnumAttr = "DataCatalyst.Plugins.StateEngine.Contracts.SensorEnumAttribute";
 
 	public void Initialize(IncrementalGeneratorInitializationContext context) {
 		var stateEnums = context.SyntaxProvider.ForAttributeWithMetadataName(

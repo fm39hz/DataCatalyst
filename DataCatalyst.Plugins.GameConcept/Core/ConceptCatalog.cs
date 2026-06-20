@@ -5,9 +5,9 @@ using DataCatalyst.Core;
 
 /// <summary>
 /// Type-safe scoped access to entries within a concept domain.
-/// TTag is a phantom type that provides compile-time scoping.
+/// TConcept is a phantom type that provides compile-time scoping (e.g. ItemConcept, EnemyConcept).
 /// </summary>
-public sealed class ConceptCatalog<TTag> where TTag : struct {
+public sealed class ConceptCatalog<TConcept> where TConcept : struct {
 	internal ConceptCatalog(IReadOnlyDictionary<string, DataEntry> entries) {
 		Entries = entries;
 	}

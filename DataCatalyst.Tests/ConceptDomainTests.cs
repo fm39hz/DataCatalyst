@@ -8,20 +8,20 @@ using DataCatalyst.Plugins.ConceptDomain;
 using FluentAssertions;
 using Xunit;
 
-// Tag types with [DataConcept] for SourceGen tests
+// Concept types with [DataConcept] for SourceGen tests
 [DataConcept("Item")]
-public readonly record struct ItemTag;
+public readonly record struct ItemConcept;
 
 [DataConcept("Enemy")]
-public readonly record struct EnemyTag;
+public readonly record struct EnemyConcept;
 
 [DataConcept("Money")]
-public readonly record struct MoneyTag;
+public readonly record struct MoneyConcept;
 
-// Tag types without [DataConcept] for manual registration tests
-public readonly record struct TestItemTag;
-public readonly record struct TestEnemyTag;
-public readonly record struct TestMoneyTag;
+// Concept types without [DataConcept] for manual registration tests
+public readonly record struct TestItemConcept;
+public readonly record struct TestEnemyConcept;
+public readonly record struct TestMoneyConcept;
 
 public class ConceptDomainTests : IDisposable {
 	private readonly string _tempDir;
@@ -48,23 +48,23 @@ public class ConceptDomainTests : IDisposable {
 	[Fact]
 	public void ConceptRegistry_Register_StoresMapping() {
 		var registry = new ConceptRegistry();
-		registry.Register<TestItemTag>("Item");
-		registry.Register<TestEnemyTag>("Enemy");
+		registry.Register<TestItemConcept>("Item");
+		registry.Register<TestEnemyConcept>("Enemy");
 
 		registry.Count.Should().Be(2);
-		registry.IsRegistered<TestItemTag>().Should().BeTrue();
-		registry.IsRegistered<TestEnemyTag>().Should().BeTrue();
-		registry.IsRegistered<TestMoneyTag>().Should().BeFalse();
+		registry.IsRegistered<TestItemConcept>().Should().BeTrue();
+		registry.IsRegistered<TestEnemyConcept>().Should().BeTrue();
+		registry.IsRegistered<TestMoneyConcept>().Should().BeFalse();
 	}
 
 	[Fact]
 	public void ConceptRegistry_ResolveType_ReturnsCorrectType() {
 		var registry = new ConceptRegistry();
-		registry.Register<TestItemTag>("Item");
+		registry.Register<TestItemConcept>("Item");
 
 		var type = registry.ResolveType("Item");
 #pragma warning disable CA2263
-		type.Should().Be(typeof(TestItemTag));
+		type.Should().Be(typeof(TestItemConcept));
 #pragma warning restore CA2263
 	}
 
@@ -79,9 +79,9 @@ public class ConceptDomainTests : IDisposable {
 	[Fact]
 	public void ConceptRegistry_ResolveName_ReturnsCorrectName() {
 		var registry = new ConceptRegistry();
-		registry.Register<TestItemTag>("Item");
+		registry.Register<TestItemConcept>("Item");
 
-		var name = registry.ResolveName<TestItemTag>();
+		var name = registry.ResolveName<TestItemConcept>();
 		name.Should().Be("Item");
 	}
 
@@ -89,7 +89,7 @@ public class ConceptDomainTests : IDisposable {
 	public void ConceptRegistry_ResolveName_ReturnsNullForUnregistered() {
 		var registry = new ConceptRegistry();
 
-		var name = registry.ResolveName<TestMoneyTag>();
+		var name = registry.ResolveName<TestMoneyConcept>();
 		name.Should().BeNull();
 	}
 
@@ -108,8 +108,8 @@ public class ConceptDomainTests : IDisposable {
 		var catalog = DataCatalogBuilder.Resolve(graph, env: _env);
 
 		var plugin = new ConceptDomainPlugin();
-		plugin.Registry.Register<TestItemTag>("Item");
-		plugin.RegisterEntries<TestItemTag>("Sword", "Shield");
+		plugin.Registry.Register<TestItemConcept>("Item");
+		plugin.RegisterEntries<TestItemConcept>("Sword", "Shield");
 
 		var diags = new List<string>();
 
@@ -118,7 +118,7 @@ public class ConceptDomainTests : IDisposable {
 
 		// Assert
 		diags.Should().NotContain(d => d.Contains("Item"));
-		var items = plugin.GetConcept<TestItemTag>();
+		var items = plugin.GetConcept<TestItemConcept>();
 		items.Count.Should().Be(2);
 	}
 
@@ -134,8 +134,8 @@ public class ConceptDomainTests : IDisposable {
 		var catalog = DataCatalogBuilder.Resolve(graph, env: _env);
 
 		var plugin = new ConceptDomainPlugin();
-		plugin.Registry.Register<TestItemTag>("Item");
-		plugin.RegisterEntries<TestItemTag>("Sword", "NonExistent");
+		plugin.Registry.Register<TestItemConcept>("Item");
+		plugin.RegisterEntries<TestItemConcept>("Sword", "NonExistent");
 
 		var diags = new List<string>();
 
@@ -154,7 +154,7 @@ public class ConceptDomainTests : IDisposable {
 		var catalog = DataCatalogBuilder.Resolve(graph, env: _env);
 
 		var plugin = new ConceptDomainPlugin();
-		plugin.Registry.Register<TestItemTag>("Item");
+		plugin.Registry.Register<TestItemConcept>("Item");
 
 		var diags = new List<string>();
 
@@ -189,8 +189,8 @@ public class ConceptDomainTests : IDisposable {
 		var catalog = DataCatalogBuilder.Resolve(graph, env: _env);
 
 		var plugin = new ConceptDomainPlugin();
-		plugin.Registry.Register<TestItemTag>("Item");
-		plugin.Registry.Register<TestEnemyTag>("Enemy");
+		plugin.Registry.Register<TestItemConcept>("Item");
+		plugin.Registry.Register<TestEnemyConcept>("Enemy");
 		plugin.LoadConcepts(conceptsFile);
 
 		var diags = new List<string>();
@@ -199,7 +199,7 @@ public class ConceptDomainTests : IDisposable {
 		plugin.OnCatalogResolved(catalog, diags);
 
 		// Assert
-		var items = plugin.GetConcept<TestItemTag>();
+		var items = plugin.GetConcept<TestItemConcept>();
 		items.Count.Should().Be(2);
 	}
 
@@ -207,20 +207,20 @@ public class ConceptDomainTests : IDisposable {
 	public void ConceptDomainPlugin_GetConcept_ThrowsForUnregisteredConcept() {
 		var plugin = new ConceptDomainPlugin();
 
-		Action act = () => plugin.GetConcept<TestMoneyTag>();
+		Action act = () => plugin.GetConcept<TestMoneyConcept>();
 		act.Should().Throw<InvalidOperationException>()
 			.WithMessage("*not registered*");
 	}
 
 	[Fact]
 	public void SourceGen_AutoRegistersConcepts() {
-		// SourceGen should auto-register ItemTag, EnemyTag, MoneyTag via [DataConcept] attribute
-		ConceptRegistry.Default.IsRegistered<ItemTag>().Should().BeTrue();
-		ConceptRegistry.Default.IsRegistered<EnemyTag>().Should().BeTrue();
-		ConceptRegistry.Default.IsRegistered<MoneyTag>().Should().BeTrue();
+		// SourceGen should auto-register ItemConcept, EnemyConcept, MoneyConcept via [DataConcept] attribute
+		ConceptRegistry.Default.IsRegistered<ItemConcept>().Should().BeTrue();
+		ConceptRegistry.Default.IsRegistered<EnemyConcept>().Should().BeTrue();
+		ConceptRegistry.Default.IsRegistered<MoneyConcept>().Should().BeTrue();
 
-		ConceptRegistry.Default.ResolveName<ItemTag>().Should().Be("Item");
-		ConceptRegistry.Default.ResolveName<EnemyTag>().Should().Be("Enemy");
-		ConceptRegistry.Default.ResolveName<MoneyTag>().Should().Be("Money");
+		ConceptRegistry.Default.ResolveName<ItemConcept>().Should().Be("Item");
+		ConceptRegistry.Default.ResolveName<EnemyConcept>().Should().Be("Enemy");
+		ConceptRegistry.Default.ResolveName<MoneyConcept>().Should().Be("Money");
 	}
 }

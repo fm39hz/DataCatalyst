@@ -9,7 +9,7 @@
 		<SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
 		<DevelopmentDependency>true</DevelopmentDependency>
 		<PackageId>DataCatalyst.Plugins.StateEngine.SourceGen</PackageId>
-		<Description>Roslyn source generator that discovers [DataStateEnum] and [DataSensorEnum] types and generates state/sensor mapper registrations.</Description>
+		<Description>Roslyn source generator that discovers [StateEnum] and [SensorEnum] types and generates state/sensor mapper registrations.</Description>
 		<NoWarn>RS2008</NoWarn>
 	</PropertyGroup>
 

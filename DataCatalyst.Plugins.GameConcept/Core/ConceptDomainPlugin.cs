@@ -28,10 +28,10 @@ public sealed class ConceptDomainPlugin : ICatalogPlugin {
 	public ConceptRegistry Registry => ConceptRegistry.Default;
 
 	/// <summary>Register entries belonging to a concept.</summary>
-	public void RegisterEntries<TTag>(params string[] entryKeys) where TTag : struct {
-		var name = ConceptRegistry.Default.ResolveName<TTag>()
+	public void RegisterEntries<TConcept>(params string[] entryKeys) where TConcept : struct {
+		var name = ConceptRegistry.Default.ResolveName<TConcept>()
 			?? throw new InvalidOperationException(
-				$"Concept '{typeof(TTag).Name}' is not registered. Add [DataConcept] attribute.");
+				$"Concept '{typeof(TConcept).Name}' is not registered. Add [DataConcept] attribute.");
 
 		if (!_conceptEntries.TryGetValue(name, out var set)) {
 			set = [];
@@ -80,14 +80,14 @@ public sealed class ConceptDomainPlugin : ICatalogPlugin {
 	}
 
 	/// <summary>Gets a concept-scoped catalog by tag type.</summary>
-	public ConceptCatalog<TTag> GetConcept<TTag>() where TTag : struct {
-		if (_conceptCatalogs.TryGetValue(typeof(TTag), out var catalog) &&
-			catalog is ConceptCatalog<TTag> typed) {
+	public ConceptCatalog<TConcept> GetConcept<TConcept>() where TConcept : struct {
+		if (_conceptCatalogs.TryGetValue(typeof(TConcept), out var catalog) &&
+			catalog is ConceptCatalog<TConcept> typed) {
 			return typed;
 		}
 		throw new InvalidOperationException(
-			$"Concept '{typeof(TTag).Name}' not registered. " +
-			"Call Registry.Register<TTag>(name) and RegisterEntries() before catalog resolution.");
+			$"Concept '{typeof(TConcept).Name}' not registered. " +
+			"Call Registry.Register<TConcept>(name) and RegisterEntries() before catalog resolution.");
 	}
 
 	/// <summary>

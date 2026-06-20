@@ -16,9 +16,9 @@ public sealed class ConceptRegistry : IEnumerable<KeyValuePair<Type, string>> {
 	private readonly Dictionary<Type, string> _tagToName = [];
 
 	/// <summary>Register a concept: tag type to name.</summary>
-	public void Register<TTag>(string name) where TTag : struct {
-		_nameToTag[name] = typeof(TTag);
-		_tagToName[typeof(TTag)] = name;
+	public void Register<TConcept>(string name) where TConcept : struct {
+		_nameToTag[name] = typeof(TConcept);
+		_tagToName[typeof(TConcept)] = name;
 	}
 
 	/// <summary>Resolve concept name to tag type.</summary>
@@ -26,16 +26,16 @@ public sealed class ConceptRegistry : IEnumerable<KeyValuePair<Type, string>> {
 		_nameToTag.TryGetValue(name, out var type) ? type : null;
 
 	/// <summary>Resolve tag type to concept name.</summary>
-	public string? ResolveName<TTag>() where TTag : struct =>
-		_tagToName.TryGetValue(typeof(TTag), out var name) ? name : null;
+	public string? ResolveName<TConcept>() where TConcept : struct =>
+		_tagToName.TryGetValue(typeof(TConcept), out var name) ? name : null;
 
 	/// <summary>Resolve tag type to concept name.</summary>
 	public string? ResolveName(Type tagType) =>
 		_tagToName.TryGetValue(tagType, out var name) ? name : null;
 
 	/// <summary>Check if concept is registered.</summary>
-	public bool IsRegistered<TTag>() where TTag : struct =>
-		_tagToName.ContainsKey(typeof(TTag));
+	public bool IsRegistered<TConcept>() where TConcept : struct =>
+		_tagToName.ContainsKey(typeof(TConcept));
 
 	/// <summary>All registered concept names.</summary>
 	public IReadOnlyCollection<string> ConceptNames => _nameToTag.Keys;

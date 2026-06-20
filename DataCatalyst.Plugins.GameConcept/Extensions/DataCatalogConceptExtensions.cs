@@ -11,12 +11,12 @@ public static class DataCatalogConceptExtensions {
 	/// Gets a concept-scoped catalog by tag type.
 	/// Requires ConceptDomainPlugin to be registered and configured.
 	/// </summary>
-	public static ConceptCatalog<TTag> GetConcept<TTag>(this DataCatalog catalog)
-		where TTag : struct {
+	public static ConceptCatalog<TConcept> GetConcept<TConcept>(this DataCatalog catalog)
+		where TConcept : struct {
 
 		var plugin = ServiceRegistry.Default.Get<ConceptDomainPlugin>() ?? throw new InvalidOperationException(
 				"ConceptDomainPlugin not registered. " +
 				"Ensure the plugin is loaded via [DataPlugin] assembly attribute.");
-		return plugin.GetConcept<TTag>();
+		return plugin.GetConcept<TConcept>();
 	}
 }

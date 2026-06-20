@@ -7,7 +7,7 @@
 	<Project Path="DataCatalyst.Extensions/DataCatalyst.Extensions.csproj"/>
 	<Project Path="DataCatalyst.Plugins.StateEngine/DataCatalyst.Plugins.StateEngine.csproj"/>
 	<Project Path="DataCatalyst.Plugins.StateEngine.SourceGen/DataCatalyst.Plugins.StateEngine.SourceGen.csproj"/>
-	<Project Path="DataCatalyst.Plugins.ConceptDomain/DataCatalyst.Plugins.ConceptDomain.csproj"/>
-	<Project Path="DataCatalyst.Plugins.ConceptDomain.SourceGen/DataCatalyst.Plugins.ConceptDomain.SourceGen.csproj"/>
+	<Project Path="DataCatalyst.Plugins.GameConcept/DataCatalyst.Plugins.GameConcept.csproj"/>
+	<Project Path="DataCatalyst.Plugins.GameConcept.SourceGen/DataCatalyst.Plugins.GameConcept.SourceGen.csproj"/>
 	<Project Path="DataCatalyst.Tests/DataCatalyst.Tests.csproj"/>
 </Solution>

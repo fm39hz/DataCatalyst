@@ -17,11 +17,11 @@ public static class StateEngineBaker {
 		var stateMapper = MapperRegistry.Default.Get<Contracts.IStateMapper<TState>>()
 			?? throw new InvalidOperationException(
 				$"No IStateMapper<{typeof(TState).Name}> registered. " +
-				"Add [DataStateEnum] attribute to your enum type, or manually register.");
+				"Add [StateEnum] attribute to your enum type, or manually register.");
 		var sensorMapper = MapperRegistry.Default.Get<Contracts.ISensorMapper<TSensor>>()
 			?? throw new InvalidOperationException(
 				$"No ISensorMapper<{typeof(TSensor).Name}> registered. " +
-				"Add [DataSensorEnum] attribute to your enum type, or manually register.");
+				"Add [SensorEnum] attribute to your enum type, or manually register.");
 
 		return Bake(group, k => stateMapper.MapState(k, group.GroupId), sensorMapper.MapSensor);
 	}
