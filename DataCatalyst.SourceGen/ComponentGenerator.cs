@@ -2,7 +2,6 @@ namespace DataCatalyst;
 
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -37,7 +36,7 @@ public sealed class ComponentGenerator : IIncrementalGenerator {
 			static (node, _) => node is TypeDeclarationSyntax,
 			static (ctx, _) => {
 				var t = (INamedTypeSymbol)ctx.TargetSymbol;
-				Location? errorLoc = t.TypeKind != TypeKind.Structure
+				var errorLoc = t.TypeKind != TypeKind.Structure
 						? ctx.TargetNode.GetLocation()
 						: null;
 				var fullType = t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
@@ -50,26 +49,20 @@ public sealed class ComponentGenerator : IIncrementalGenerator {
 		context.RegisterSourceOutput(primitives,
 			static (spc, pr) => {
 				foreach (var p in pr) {
-					if (p.ErrorLocation is {} loc)
+					if (p.ErrorLocation is { } loc) {
 						spc.ReportDiagnostic(Diagnostic.Create(StructRequiredError, loc));
+					}
 				}
 
 				Emit(spc, pr);
 			});
 	}
 
-	private readonly struct ComponentResult {
-		public readonly string? FullType;
-		public readonly string? ShortName;
-		public readonly string? NsQualified;
-		public readonly Location? ErrorLocation;
-
-		public ComponentResult(string? fullType, string? shortName, string? nsQualified, Location? errorLocation) {
-			FullType = fullType;
-			ShortName = shortName;
-			NsQualified = nsQualified;
-			ErrorLocation = errorLocation;
-		}
+	private readonly struct ComponentResult(string? fullType, string? shortName, string? nsQualified, Location? errorLocation) {
+		public readonly string? FullType = fullType;
+		public readonly string? ShortName = shortName;
+		public readonly string? NsQualified = nsQualified;
+		public readonly Location? ErrorLocation = errorLocation;
 	}
 
 	private static void Emit(SourceProductionContext spc,
@@ -80,30 +73,43 @@ public sealed class ComponentGenerator : IIncrementalGenerator {
 		var shortToNs = new Dictionary<string, List<string>>();
 
 		foreach (var p in allPrims) {
-			if (p.FullType == null || p.ShortName == null || p.NsQualified == null) continue;
+			if (p.FullType == null || p.ShortName == null || p.NsQualified == null) {
+				continue;
+			}
+
 			counts.TryGetValue(p.ShortName, out var c);
 			counts[p.ShortName] = c + 1;
-			if (!shortToNs.ContainsKey(p.ShortName))
+			if (!shortToNs.ContainsKey(p.ShortName)) {
 				shortToNs[p.ShortName] = [];
+			}
+
 			shortToNs[p.ShortName].Add(p.NsQualified);
 		}
 
 		// Second pass: build final list (short if unique, ns-qualified if colliding)
 		var prims = new List<(string FullType, string Discrim)>();
 		foreach (var p in allPrims) {
-			if (p.FullType == null || p.NsQualified == null || p.ShortName == null) continue;
+			if (p.FullType == null || p.NsQualified == null || p.ShortName == null) {
+				continue;
+			}
+
 			var finalD = counts[p.ShortName] > 1 ? p.NsQualified : p.ShortName;
 			prims.Add((p.FullType, finalD));
 		}
 
 		// Report collisions with resolved discriminator info
 		foreach (var kv in counts) {
-			if (kv.Value <= 1) continue;
+			if (kv.Value <= 1) {
+				continue;
+			}
+
 			var msg = shortToNs.TryGetValue(kv.Key, out var list) ? string.Join(", ", list) : "";
 			spc.ReportDiagnostic(Diagnostic.Create(CollisionWarning, Location.None, kv.Key, msg));
 		}
 
-		if (prims.Count == 0) return;
+		if (prims.Count == 0) {
+			return;
+		}
 
 		var initBody = new List<StatementSyntax>();
 		foreach (var (ft, _) in prims) {
@@ -160,8 +166,7 @@ public sealed class ComponentGenerator : IIncrementalGenerator {
 			SourceText.From(cu.ToFullString(), Encoding.UTF8));
 	}
 
-	private static StatementSyntax BuildRegisterCall(string target, string fullType) {
-		return ExpressionStatement(
+	private static StatementSyntax BuildRegisterCall(string target, string fullType) => ExpressionStatement(
 			InvocationExpression(
 				MemberAccessExpression(
 					SyntaxKind.SimpleMemberAccessExpression,
@@ -170,10 +175,8 @@ public sealed class ComponentGenerator : IIncrementalGenerator {
 						.WithTypeArgumentList(
 							TypeArgumentList(
 								SingletonSeparatedList(ParseTypeName(fullType)))))));
-	}
 
-	private static StatementSyntax BuildGenericCall(string instance, string method, string fullType) {
-		return ExpressionStatement(
+	private static StatementSyntax BuildGenericCall(string instance, string method, string fullType) => ExpressionStatement(
 			InvocationExpression(
 				MemberAccessExpression(
 					SyntaxKind.SimpleMemberAccessExpression,
@@ -182,7 +185,6 @@ public sealed class ComponentGenerator : IIncrementalGenerator {
 						.WithTypeArgumentList(
 							TypeArgumentList(
 								SingletonSeparatedList(ParseTypeName(fullType)))))));
-	}
 
 	private static StatementSyntax BuildRegisterIdsStatement(List<(string FullType, string Discrim)> prims) {
 		var elems = new List<ExpressionSyntax>();
@@ -190,7 +192,7 @@ public sealed class ComponentGenerator : IIncrementalGenerator {
 			elems.Add(
 				InitializerExpression(
 					SyntaxKind.ComplexElementInitializerExpression,
-					SeparatedList<ExpressionSyntax>(
+					SeparatedList(
 						new ExpressionSyntax[] {
 							LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(d)),
 							TypeOfExpression(ParseTypeName(ft))

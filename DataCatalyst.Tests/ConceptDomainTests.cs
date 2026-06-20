@@ -63,7 +63,9 @@ public class ConceptDomainTests : IDisposable {
 		registry.Register<TestItemTag>("Item");
 
 		var type = registry.ResolveType("Item");
+#pragma warning disable CA2263
 		type.Should().Be(typeof(TestItemTag));
+#pragma warning restore CA2263
 	}
 
 	[Fact]

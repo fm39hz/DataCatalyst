@@ -14,12 +14,9 @@ public static class DataCatalogConceptExtensions {
 	public static ConceptCatalog<TTag> GetConcept<TTag>(this DataCatalog catalog)
 		where TTag : struct {
 
-		var plugin = ServiceRegistry.Default.Get<ConceptDomainPlugin>();
-		if (plugin == null) {
-			throw new InvalidOperationException(
+		var plugin = ServiceRegistry.Default.Get<ConceptDomainPlugin>() ?? throw new InvalidOperationException(
 				"ConceptDomainPlugin not registered. " +
 				"Ensure the plugin is loaded via [DataPlugin] assembly attribute.");
-		}
 		return plugin.GetConcept<TTag>();
 	}
 }

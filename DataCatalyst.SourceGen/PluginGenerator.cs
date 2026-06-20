@@ -40,8 +40,10 @@ public sealed class PluginGenerator : IIncrementalGenerator {
 				var t = (INamedTypeSymbol)ctx.TargetSymbol;
 				var comp = ctx.SemanticModel.Compilation;
 				var iface = comp.GetTypeByMetadataName(DataPluginIface);
-				if (iface == null || !t.AllInterfaces.Contains(iface, SymbolEqualityComparer.Default))
+				if (iface == null || !t.AllInterfaces.Contains(iface, SymbolEqualityComparer.Default)) {
 					return default(PluginInfo?);
+				}
+
 				var attrClass = comp.GetTypeByMetadataName(DataPluginAttr);
 				var deps = GetDeps(t.GetAttributes(), attrClass);
 				return new PluginInfo(t, deps);
@@ -52,37 +54,37 @@ public sealed class PluginGenerator : IIncrementalGenerator {
 
 		context.RegisterSourceOutput(plugins,
 			static (spc, pl) => {
-				if (pl.Length == 0) return;
+				if (pl.Length == 0) {
+					return;
+				}
+
 				Emit(spc, pl);
 			});
 	}
 
-	private readonly struct PluginInfo {
-		public readonly INamedTypeSymbol Type;
-		public readonly string FullType;
-		public readonly string[] Deps;
-
-		public PluginInfo(INamedTypeSymbol type, string[] deps) {
-			Type = type;
-			FullType = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-			Deps = deps;
-		}
+	private readonly struct PluginInfo(INamedTypeSymbol type, string[] deps) {
+		public readonly INamedTypeSymbol Type = type;
+		public readonly string FullType = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+		public readonly string[] Deps = deps;
 	}
 
 	private static string[] GetDeps(ImmutableArray<AttributeData> attrs, INamedTypeSymbol? attrClass) {
-		if (attrClass == null) return [];
+		if (attrClass == null) {
+			return [];
+		}
 
 		foreach (var a in attrs) {
-			if (!SymbolEqualityComparer.Default.Equals(a.AttributeClass, attrClass)) continue;
+			if (!SymbolEqualityComparer.Default.Equals(a.AttributeClass, attrClass)) {
+				continue;
+			}
 
 			// Named argument: DependsOn
 			foreach (var n in a.NamedArguments) {
 				if (n.Key == "DependsOn" && n.Value.Values is { Length: > 0 } vs) {
-					return vs
+					return [.. vs
 						.Select(v => v.Value)
 						.OfType<INamedTypeSymbol>()
-						.Select(s => s.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat))
-						.ToArray();
+						.Select(s => s.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat))];
 				}
 			}
 
@@ -90,11 +92,10 @@ public sealed class PluginGenerator : IIncrementalGenerator {
 			if (a.ConstructorArguments.Length > 0) {
 				var arg = a.ConstructorArguments[0];
 				if (arg.Kind == TypedConstantKind.Array && arg.Values.Length > 0) {
-					return arg.Values
+					return [.. arg.Values
 						.Select(v => v.Value)
 						.OfType<INamedTypeSymbol>()
-						.Select(s => s.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat))
-						.ToArray();
+						.Select(s => s.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat))];
 				}
 			}
 		}
@@ -103,7 +104,9 @@ public sealed class PluginGenerator : IIncrementalGenerator {
 
 	private static void Emit(SourceProductionContext spc, ImmutableArray<PluginInfo> allPlugins) {
 		var sorted = TopoSort([.. allPlugins], spc);
-		if (sorted == null) return; // Cycle detected → abort emit, error diagnostic already reported
+		if (sorted == null) {
+			return; // Cycle detected → abort emit, error diagnostic already reported
+		}
 
 		var initBody = new List<StatementSyntax>();
 		var regBody = new List<StatementSyntax>();
@@ -157,8 +160,7 @@ public sealed class PluginGenerator : IIncrementalGenerator {
 			SourceText.From(cu.ToFullString(), Encoding.UTF8));
 	}
 
-	private static StatementSyntax BuildRegisterCall(string target, string fullType) {
-		return ExpressionStatement(
+	private static StatementSyntax BuildRegisterCall(string target, string fullType) => ExpressionStatement(
 			InvocationExpression(
 				MemberAccessExpression(
 					SyntaxKind.SimpleMemberAccessExpression,
@@ -167,10 +169,8 @@ public sealed class PluginGenerator : IIncrementalGenerator {
 						.WithTypeArgumentList(
 							TypeArgumentList(
 								SingletonSeparatedList(ParseTypeName(fullType)))))));
-	}
 
-	private static StatementSyntax BuildGenericCall(string instance, string method, string fullType) {
-		return ExpressionStatement(
+	private static StatementSyntax BuildGenericCall(string instance, string method, string fullType) => ExpressionStatement(
 			InvocationExpression(
 				MemberAccessExpression(
 					SyntaxKind.SimpleMemberAccessExpression,
@@ -179,7 +179,6 @@ public sealed class PluginGenerator : IIncrementalGenerator {
 						.WithTypeArgumentList(
 							TypeArgumentList(
 								SingletonSeparatedList(ParseTypeName(fullType)))))));
-	}
 
 	// Deterministic Kahn topological sort using sorted ready set
 	private static List<PluginInfo>? TopoSort(List<PluginInfo> plugins, SourceProductionContext spc) {
@@ -189,7 +188,10 @@ public sealed class PluginGenerator : IIncrementalGenerator {
 		var allTypes = new HashSet<string>();
 
 		foreach (var p in plugins) {
-			if (map.ContainsKey(p.FullType)) continue;
+			if (map.ContainsKey(p.FullType)) {
+				continue;
+			}
+
 			map[p.FullType] = p;
 			allTypes.Add(p.FullType);
 			indeg[p.FullType] = 0;
@@ -232,8 +234,9 @@ public sealed class PluginGenerator : IIncrementalGenerator {
 		var processed = new HashSet<string>(result.Select(p => p.FullType));
 		if (processed.Count != allTypes.Count) {
 			foreach (var t in allTypes) {
-				if (!processed.Contains(t))
+				if (!processed.Contains(t)) {
 					spc.ReportDiagnostic(Diagnostic.Create(CycleError, Location.None, t));
+				}
 			}
 			return null;
 		}

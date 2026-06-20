@@ -2,7 +2,6 @@ namespace DataCatalyst.Plugins.ConceptDomain;
 
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -37,7 +36,7 @@ public sealed class ConceptGenerator : IIncrementalGenerator {
 			static (node, _) => node is TypeDeclarationSyntax,
 			static (ctx, _) => {
 				var t = (INamedTypeSymbol)ctx.TargetSymbol;
-				Location? errorLoc = t.TypeKind != TypeKind.Structure
+				var errorLoc = t.TypeKind != TypeKind.Structure
 						? ctx.TargetNode.GetLocation()
 						: null;
 
@@ -47,7 +46,10 @@ public sealed class ConceptGenerator : IIncrementalGenerator {
 				string? conceptName = null;
 				var attrClass = ctx.SemanticModel.Compilation.GetTypeByMetadataName(DataConceptAttr);
 				foreach (var a in t.GetAttributes()) {
-					if (!SymbolEqualityComparer.Default.Equals(a.AttributeClass, attrClass)) continue;
+					if (!SymbolEqualityComparer.Default.Equals(a.AttributeClass, attrClass)) {
+						continue;
+					}
+
 					if (a.ConstructorArguments.Length > 0 && a.ConstructorArguments[0].Value is string name) {
 						conceptName = name;
 					}
@@ -60,24 +62,19 @@ public sealed class ConceptGenerator : IIncrementalGenerator {
 		context.RegisterSourceOutput(concepts,
 			static (spc, cr) => {
 				foreach (var c in cr) {
-					if (c.ErrorLocation is { } loc)
+					if (c.ErrorLocation is { } loc) {
 						spc.ReportDiagnostic(Diagnostic.Create(StructRequiredError, loc));
+					}
 				}
 
 				Emit(spc, cr);
 			});
 	}
 
-	private readonly struct ConceptResult {
-		public readonly string? FullType;
-		public readonly string? ConceptName;
-		public readonly Location? ErrorLocation;
-
-		public ConceptResult(string? fullType, string? conceptName, Location? errorLocation) {
-			FullType = fullType;
-			ConceptName = conceptName;
-			ErrorLocation = errorLocation;
-		}
+	private readonly struct ConceptResult(string? fullType, string? conceptName, Location? errorLocation) {
+		public readonly string? FullType = fullType;
+		public readonly string? ConceptName = conceptName;
+		public readonly Location? ErrorLocation = errorLocation;
 	}
 
 	private static void Emit(SourceProductionContext spc,
@@ -88,7 +85,9 @@ public sealed class ConceptGenerator : IIncrementalGenerator {
 		var nameToType = new Dictionary<string, string>();
 
 		foreach (var c in allConcepts) {
-			if (c.FullType == null || c.ConceptName == null) continue;
+			if (c.FullType == null || c.ConceptName == null) {
+				continue;
+			}
 
 			if (nameToType.TryGetValue(c.ConceptName, out var existingType)) {
 				spc.ReportDiagnostic(Diagnostic.Create(
@@ -99,7 +98,9 @@ public sealed class ConceptGenerator : IIncrementalGenerator {
 			validConcepts.Add((c.FullType, c.ConceptName));
 		}
 
-		if (validConcepts.Count == 0) return;
+		if (validConcepts.Count == 0) {
+			return;
+		}
 
 		var initBody = new List<StatementSyntax>();
 		foreach (var (ft, name) in validConcepts) {
@@ -138,8 +139,7 @@ public sealed class ConceptGenerator : IIncrementalGenerator {
 			SourceText.From(cu.ToFullString(), Encoding.UTF8));
 	}
 
-	private static StatementSyntax BuildRegisterCall(string target, string fullType, string conceptName) {
-		return ExpressionStatement(
+	private static StatementSyntax BuildRegisterCall(string target, string fullType, string conceptName) => ExpressionStatement(
 			InvocationExpression(
 				MemberAccessExpression(
 					SyntaxKind.SimpleMemberAccessExpression,
@@ -155,5 +155,4 @@ public sealed class ConceptGenerator : IIncrementalGenerator {
 								LiteralExpression(
 									SyntaxKind.StringLiteralExpression,
 									Literal(conceptName)))))));
-	}
 }

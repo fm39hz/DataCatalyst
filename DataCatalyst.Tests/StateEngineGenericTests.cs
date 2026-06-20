@@ -2,9 +2,9 @@ namespace DataCatalyst.Tests;
 
 using System;
 using System.Collections.Generic;
+using DataCatalyst.Extensions.Composition;
 using DataCatalyst.Plugins.StateEngine.Core;
 using DataCatalyst.Plugins.StateEngine.Models;
-using DataCatalyst.Extensions.Composition;
 using FluentAssertions;
 using Xunit;
 
