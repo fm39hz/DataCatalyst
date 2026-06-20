@@ -2,12 +2,30 @@ namespace DataCatalyst.Plugins.StateEngine.Core;
 
 using System;
 using System.Collections.Generic;
+using DataCatalyst.Core;
 using DataCatalyst.Plugins.NumericCompare.Core;
 using Models;
 using Transition.Models;
 
 /// <summary>Helper to bake and flatten hierarchical StateGroups into high-performance generic structures.</summary>
 public static class StateEngineBaker {
+	/// <summary>Bakes a StateGroup using auto-registered mappers from MapperRegistry.Default.</summary>
+	public static BakedStateGroup<TState, TSensor> Bake<TState, TSensor>(StateGroup group)
+		where TState : notnull
+		where TSensor : notnull {
+
+		var stateMapper = MapperRegistry.Default.Get<Contracts.IStateMapper<TState>>()
+			?? throw new InvalidOperationException(
+				$"No IStateMapper<{typeof(TState).Name}> registered. " +
+				"Add [DataStateEnum] attribute to your enum type, or manually register.");
+		var sensorMapper = MapperRegistry.Default.Get<Contracts.ISensorMapper<TSensor>>()
+			?? throw new InvalidOperationException(
+				$"No ISensorMapper<{typeof(TSensor).Name}> registered. " +
+				"Add [DataSensorEnum] attribute to your enum type, or manually register.");
+
+		return Bake(group, k => stateMapper.MapState(k, group.GroupId), sensorMapper.MapSensor);
+	}
+
 	/// <summary>Bakes a string-based StateGroup into a flat, typesafe BakedStateGroup.</summary>
 	public static BakedStateGroup<TState, TSensor> Bake<TState, TSensor>(
 		StateGroup group,

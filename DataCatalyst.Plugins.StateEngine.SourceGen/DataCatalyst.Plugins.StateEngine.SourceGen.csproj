@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<RootNamespace>DataCatalyst.Plugins.StateEngine</RootNamespace>
+		<AssemblyName>DataCatalyst.Plugins.StateEngine.SourceGen</AssemblyName>
+		<IsRoslynComponent>true</IsRoslynComponent>
+		<EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+		<IncludeBuildOutput>false</IncludeBuildOutput>
+		<SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+		<DevelopmentDependency>true</DevelopmentDependency>
+		<PackageId>DataCatalyst.Plugins.StateEngine.SourceGen</PackageId>
+		<Description>Roslyn source generator that discovers [DataStateEnum] and [DataSensorEnum] types and generates state/sensor mapper registrations.</Description>
+		<NoWarn>RS2008</NoWarn>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all"/>
+		<PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all"/>
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false"/>
+	</ItemGroup>
+</Project>
