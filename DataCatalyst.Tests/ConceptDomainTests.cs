@@ -109,7 +109,7 @@ public class ConceptDomainTests : IDisposable {
 
 		var plugin = new ConceptDomainPlugin();
 		plugin.Registry.Register<TestItemTag>("Item");
-		plugin.RegisterEntries("Item", "Sword", "Shield");
+		plugin.RegisterEntries<TestItemTag>("Sword", "Shield");
 
 		var diags = new List<string>();
 
@@ -135,7 +135,7 @@ public class ConceptDomainTests : IDisposable {
 
 		var plugin = new ConceptDomainPlugin();
 		plugin.Registry.Register<TestItemTag>("Item");
-		plugin.RegisterEntries("Item", "Sword", "NonExistent");
+		plugin.RegisterEntries<TestItemTag>("Sword", "NonExistent");
 
 		var diags = new List<string>();
 

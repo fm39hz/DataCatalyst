@@ -28,10 +28,14 @@ public sealed class ConceptDomainPlugin : ICatalogPlugin {
 	public ConceptRegistry Registry => ConceptRegistry.Default;
 
 	/// <summary>Register entries belonging to a concept.</summary>
-	public void RegisterEntries(string conceptName, params string[] entryKeys) {
-		if (!_conceptEntries.TryGetValue(conceptName, out var set)) {
+	public void RegisterEntries<TTag>(params string[] entryKeys) where TTag : struct {
+		var name = ConceptRegistry.Default.ResolveName<TTag>()
+			?? throw new InvalidOperationException(
+				$"Concept '{typeof(TTag).Name}' is not registered. Add [DataConcept] attribute.");
+
+		if (!_conceptEntries.TryGetValue(name, out var set)) {
 			set = [];
-			_conceptEntries[conceptName] = set;
+			_conceptEntries[name] = set;
 		}
 		foreach (var key in entryKeys) {
 			set.Add(key);
