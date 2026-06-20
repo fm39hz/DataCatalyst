@@ -5,7 +5,9 @@
 	<Project Path="DataCatalyst.Loaders.Json/DataCatalyst.Loaders.Json.csproj"/>
 
 	<Project Path="DataCatalyst.Plugins.NumericCompare/DataCatalyst.Plugins.NumericCompare.csproj"/>
-	<Project Path="DataCatalyst.Plugins.StateEngine\DataCatalyst.Plugins.StateEngine.csproj"/>
+	<Project Path="DataCatalyst.Plugins.StateEngine/DataCatalyst.Plugins.StateEngine.csproj"/>
 	<Project Path="DataCatalyst.Plugins.Transition/DataCatalyst.Plugins.Transition.csproj"/>
+	<Project Path="DataCatalyst.Plugins.ConceptDomain/DataCatalyst.Plugins.ConceptDomain.csproj"/>
+	<Project Path="DataCatalyst.Plugins.ConceptDomain.SourceGen/DataCatalyst.Plugins.ConceptDomain.SourceGen.csproj"/>
 	<Project Path="DataCatalyst.Tests/DataCatalyst.Tests.csproj"/>
 </Solution>
