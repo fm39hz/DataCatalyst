@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using DataCatalyst.Core;
 using DataCatalyst.Extensions.Composition;
 using DataCatalyst.Plugins.GameConcept;
+using DataCatalyst.Plugins.StateEngine;
 using DataCatalyst.Plugins.StateEngine.Contracts;
 using DataCatalyst.Plugins.StateEngine.Core;
 using DataCatalyst.Plugins.StateEngine.Models;
@@ -11,10 +12,10 @@ using FluentAssertions;
 using Xunit;
 
 // SourceGen auto-generates mappers for these enums via [DataConcept(Kind = State)] and [DataConcept(Kind = Sensor)]
-[DataConcept("PlayerState", Kind = ConceptKind.State)]
+[DataConcept("PlayerState", Kind = ConceptKinds.State)]
 public enum PlayerState { Idle, Run, Jump, Attack, Patrol }
 
-[DataConcept("PlayerSensor", Kind = ConceptKind.Sensor)]
+[DataConcept("PlayerSensor", Kind = ConceptKinds.Sensor)]
 public enum PlayerSensor { Speed, IsGrounded, Health, Alert }
 
 public class StateEngineSourceGenTests {

@@ -45,15 +45,15 @@ public sealed class StateMachineGenerator : IIncrementalGenerator {
 				var fullType = t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
 				var shortName = GetShortName(fullType);
 
-				// Extract Kind from attribute
-				var kind = 0; // Default
+				// Extract Kind from attribute (string)
+				var kind = "";
 				var attrClass = ctx.SemanticModel.Compilation.GetTypeByMetadataName(DataConceptAttr);
 				if (attrClass != null) {
 					foreach (var a in t.GetAttributes()) {
 						if (!SymbolEqualityComparer.Default.Equals(a.AttributeClass, attrClass)) continue;
 						foreach (var n in a.NamedArguments) {
-							if (n.Key == "Kind" && n.Value.Value is int kindVal) {
-								kind = kindVal;
+							if (n.Key == "Kind" && n.Value.Value is string kindStr) {
+								kind = kindStr;
 							}
 						}
 						break;
@@ -65,8 +65,8 @@ public sealed class StateMachineGenerator : IIncrementalGenerator {
 
 		context.RegisterSourceOutput(enums,
 			static (spc, results) => {
-				var states = results.Where(r => r.Kind == 1).ToImmutableArray(); // State = 1
-				var sensors = results.Where(r => r.Kind == 2).ToImmutableArray(); // Sensor = 2
+				var states = results.Where(r => r.Kind == "state").ToImmutableArray();
+				var sensors = results.Where(r => r.Kind == "sensor").ToImmutableArray();
 
 				foreach (var r in results) {
 					if (!r.IsValid)
@@ -79,13 +79,13 @@ public sealed class StateMachineGenerator : IIncrementalGenerator {
 			});
 	}
 
-	private readonly struct EnumResult(string fullType, string simpleName, bool isValid, Location location, string[] members, int kind) {
+	private readonly struct EnumResult(string fullType, string simpleName, bool isValid, Location location, string[] members, string kind) {
 		public readonly string FullType = fullType;
 		public readonly string SimpleName = simpleName;
 		public readonly bool IsValid = isValid;
 		public readonly Location Location = location;
 		public readonly string[] Members = members;
-		public readonly int Kind = kind;
+		public readonly string Kind = kind;
 	}
 
 	private static void Emit(SourceProductionContext spc,

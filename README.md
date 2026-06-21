@@ -6,18 +6,6 @@
 
 **DataCatalyst** is a compile-time composition framework for C#/.NET. It separates code from content: C# defines infrastructure, data files define game content, and SourceGen bridges them.
 
-```mermaid
-graph LR
-    A[Data files] -->|Load| B[LoadResult]
-    B -->|Build| C[DataGraph]
-    C -->|Resolve| D[DataCatalog]
-    D -->|Keys.* / GetConcept| E[typed access]
-```
-
----
-
-## 💡 Philosophy
-
 > **Code itself has no content.** Game logic, behaviors, values should never be hardcoded. Designers parameterize everything to model the world.
 
 ---
@@ -128,66 +116,49 @@ graph BT
 
 ---
 
-## 🧩 API
+## 🧩 Core API
 
-### Attributes
+### Pipeline Types
 
-| Attribute                                    | Target               | Meaning           | SourceGen                              |
-| -------------------------------------------- | -------------------- | ----------------- | -------------------------------------- |
-| `[DataComponent]`                            | `struct` with fields | Data schema       | `PrimitiveRegistry` registrations      |
-| `[DataConcept("name")]`                      | `record struct`      | Concept grouping  | `ConceptRegistry` registrations        |
-| `[DataConcept("name", Kind = State/Sensor)]` | `enum`               | State/sensor type | `IStateMapper<T>` / `ISensorMapper<T>` |
-| `[DataPlugin]`                               | `class : IPlugin`    | Pipeline plugin   | `PluginRegistry` registrations         |
-
-```csharp
-// Data schema
-[DataComponent] public struct Health { public float Current; public float Max; }
-
-// Concept grouping
-[DataConcept("Weapon")] public readonly record struct WeaponConcept;
-[DataConcept("Currency")] public readonly record struct CurrencyConcept;
-
-// State machine types
-[DataConcept("AIState", Kind = ConceptKind.State)]   public enum AIState { Idle, Patrol, Attack }
-[DataConcept("AISensor", Kind = ConceptKind.Sensor)] public enum AISensor { PlayerDistance, Alert }
-
-// Plugin
-[DataPlugin] public class MyPlugin : ICatalogPlugin { }
-```
-
-### Pipeline
-
-| Type                    | API                                                                               |
-| ----------------------- | --------------------------------------------------------------------------------- |
-| `DataEntry`             | `Key`, `Inherits`, `Components`, `SourceFile`, `Layer`, `Get<T>()`, `TryGet<T>()` |
-| `DataGraph`             | `Entries` (mutable)                                                               |
-| `DataCatalog`           | `Entries` (read-only), `Get<T>(key)`, `TryGet<T>(key)`, `ContainsKey(key)`        |
-| `DataCatalogExtensions` | `Bind<TKey, TComponent>(selector)`                                                |
-| `DataGraphBuilder`      | `Build(entries, diagnostics?, env?)`                                              |
-| `DataCatalogBuilder`    | `Resolve(graph, diagnostics?, env?)`                                              |
+| Type                 | API                                                                               |
+| -------------------- | --------------------------------------------------------------------------------- |
+| `DataEntry`          | `Key`, `Inherits`, `Components`, `SourceFile`, `Layer`, `Get<T>()`, `TryGet<T>()` |
+| `DataGraph`          | `Entries` (mutable)                                                               |
+| `DataCatalog`        | `Entries` (read-only), `Get<T>(int)`, `Get<T>(string)`, `Bind<TKey,T>()`          |
+| `DataGraphBuilder`   | `Build(entries, diagnostics?, env?)` — layer-aware merge                          |
+| `DataCatalogBuilder` | `Resolve(graph, diagnostics?, env?)` — inheritance flatten + cycle detect         |
 
 ```csharp
-// Single entry
-var hp = catalog.Get<Health>(Keys.Goblin);
-
-// Bulk
-var allHealth = catalog.Bind<string, Health>(h => h.Key);
-var goblinHp = allHealth[Keys.Goblin];
+var hp   = catalog.Get<Health>(Keys.Goblin);
+var all  = catalog.Bind<string, Health>(h => h.Key);
+var gobHp = all[Keys.Goblin];
 ```
+
+### Core Attributes
+
+| Attribute         | Target               | Meaning         | SourceGen                         |
+| ----------------- | -------------------- | --------------- | --------------------------------- |
+| `[DataComponent]` | `struct` with fields | Data schema     | `PrimitiveRegistry` registrations |
+| `[DataPlugin]`    | `class : IPlugin`    | Pipeline plugin | `PluginRegistry` + `LoadAll()`    |
+
+### Registries
+
+| Registry            | Auto-populated by                       | Manual                             |
+| ------------------- | --------------------------------------- | ---------------------------------- |
+| `PluginRegistry`    | SourceGen (topo-sorted via `DependsOn`) | `Register(type, instance)`         |
+| `PrimitiveRegistry` | SourceGen (`[DataComponent]`)           | `Register<T>()`                    |
+| `ServiceRegistry`   | —                                       | `Register<T>(service)`, `Get<T>()` |
+| `MapperRegistry`    | Plugin SourceGens                       | `Register<T>(mapper)`, `Get<T>()`  |
 
 ### Plugin System
 
 ```csharp
 public interface IPlugin {
     bool IsEnabled { get; }
-    void OnLoad();           // after registration, before pipeline
+    void OnLoad();
 }
-public interface IPluginInit : IPlugin {
-    void OnPluginInit();     // pipeline ready
-}
-public interface IPluginCleanup : IPluginInit {
-    void OnPluginCleanup();  // pipeline shutdown
-}
+public interface IPluginInit : IPlugin { void OnPluginInit(); }
+public interface IPluginCleanup : IPluginInit { void OnPluginCleanup(); }
 ```
 
 | Hook              | Called                | Input                      |
@@ -196,7 +167,13 @@ public interface IPluginCleanup : IPluginInit {
 | `IGraphPlugin`    | After graph build     | `DataGraph`                |
 | `ICatalogPlugin`  | After catalog resolve | `DataCatalog`              |
 
-Plugin ordering via `[DataPlugin(DependsOn = [typeof(OtherPlugin)])]` - topological sort at runtime.
+```csharp
+[DataPlugin]
+public class MyPlugin : ICatalogPlugin;
+
+[DataPlugin(DependsOn = [typeof(OtherPlugin)])]
+public class DepPlugin : ICatalogPlugin;
+```
 
 ### Extensions
 
@@ -212,11 +189,23 @@ Plugin ordering via `[DataPlugin(DependsOn = [typeof(OtherPlugin)])]` - topologi
 
 Game designers think in domains: "my game has **weapons**, **currency**, **skills**, **combat**." GameConcept lets you declare these as typed, data-driven groupings - not ECS tags, not Godot groups, not entity IDs.
 
+### Plugin Attributes
+
+| Attribute               | Target            | Meaning          | Processed by          |
+| ----------------------- | ----------------- | ---------------- | --------------------- |
+| `[DataConcept("name")]` | `record struct`   | Concept grouping | GameConcept.SourceGen |
+| `[DataPlugin]`          | `class : IPlugin` | Pipeline hook    | PluginGenerator       |
+
+`Kind` is an extensible string — plugins define their own constants. GameConcept processes struct concepts (Kind not set). Future plugins process their own kinds (e.g. StateEngine processes `Kind = "state"` and `Kind = "sensor"`).
+
 ```csharp
 using DataCatalyst.Plugins.GameConcept;
 
-[DataConcept("Weapon")]  public readonly record struct WeaponConcept;
-[DataConcept("Currency")] public readonly record struct CurrencyConcept;
+[DataConcept("Weapon")]
+public readonly record struct WeaponConcept;
+
+[DataConcept("Currency")]
+public readonly record struct CurrencyConcept;
 ```
 
 SourceGen auto-registers them in `ConceptRegistry.Default`. Map entries at runtime:
@@ -231,7 +220,10 @@ plugin.OnCatalogResolved(catalog, diagnostics);
 Or load from JSON - designer-managed:
 
 ```json
-{ "Weapon": ["IronSword", "BattleAxe"], "Currency": ["Gold", "Silver"] }
+{
+	"Weapon": ["IronSword", "BattleAxe"],
+	"Currency": ["Gold", "Silver"]
+}
 ```
 
 ```csharp
@@ -251,15 +243,16 @@ var goldVal  = currencies.Get<Value>(Keys.Gold);
 
 ## 🔌 StateEngine
 
-Data-driven hierarchical FSM. Depends on GameConcept for `[DataConcept]` attribute - state/sensor enums are concepts too.
+Data-driven hierarchical FSM. Uses `[DataConcept(Kind = State/Sensor)]` from GameConcept plugin - StateEngine.SourceGen consumes the attribute to generate mappers.
 
 ```csharp
 using DataCatalyst.Plugins.GameConcept;
+using DataCatalyst.Plugins.StateEngine;
 
-[DataConcept("AIState", Kind = ConceptKind.State)]
+[DataConcept("AIState", Kind = ConceptKinds.State)]
 public enum AIState { Idle, Patrol, Attack, Flee }
 
-[DataConcept("AISensor", Kind = ConceptKind.Sensor)]
+[DataConcept("AISensor", Kind = ConceptKinds.Sensor)]
 public enum AISensor { PlayerDistance, HealthPercent, Alert }
 ```
 
@@ -309,15 +302,6 @@ var result = StateEngineEvaluator<AIState, AISensor>.Evaluate(
 
 if (result.HasValue) entity.TransitionTo(result.TargetStateId);
 ```
-
-`StateEnginePlugin` declares dependency via `DependsOn`:
-
-```csharp
-[DataPlugin(DependsOn = [typeof(GameConceptPlugin)])]
-public sealed class StateEnginePlugin : ICatalogPlugin { ... }
-```
-
-StateEngine uses `[DataConcept(Kind = State/Sensor)]` defined in GameConcept to auto-generate mappers. GameConcept is resolved first at runtime.
 
 ---
 
