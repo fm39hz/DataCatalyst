@@ -8,15 +8,13 @@ using DataCatalyst.Plugins.GameConcept;
 using FluentAssertions;
 using Xunit;
 
-// Concept types with [DataConcept] for SourceGen tests
-[DataConcept("Item")]
-public readonly record struct ItemConcept;
-
-[DataConcept("Enemy")]
-public readonly record struct EnemyConcept;
-
-[DataConcept("Money")]
-public readonly record struct MoneyConcept;
+// Concept types with [DataConcept] for SourceGen tests — nested under Concept class
+// (matches SourceGen-generated output from concepts.json)
+public static partial class Concept {
+	[DataConcept("Item")] public readonly partial struct Item;
+	[DataConcept("Enemy")] public readonly partial struct Enemy;
+	[DataConcept("Money")] public readonly partial struct Money;
+}
 
 // Concept types without [DataConcept] for manual registration tests
 public readonly record struct TestItemConcept;
@@ -206,12 +204,12 @@ public class GameConceptTests : IDisposable {
 
 	[Fact]
 	public void SourceGen_AutoRegistersConcepts() {
-		ConceptRegistry.Default.IsRegistered<ItemConcept>().Should().BeTrue();
-		ConceptRegistry.Default.IsRegistered<EnemyConcept>().Should().BeTrue();
-		ConceptRegistry.Default.IsRegistered<MoneyConcept>().Should().BeTrue();
+		ConceptRegistry.Default.IsRegistered<Concept.Item>().Should().BeTrue();
+		ConceptRegistry.Default.IsRegistered<Concept.Enemy>().Should().BeTrue();
+		ConceptRegistry.Default.IsRegistered<Concept.Money>().Should().BeTrue();
 
-		ConceptRegistry.Default.ResolveName<ItemConcept>().Should().Be("Item");
-		ConceptRegistry.Default.ResolveName<EnemyConcept>().Should().Be("Enemy");
-		ConceptRegistry.Default.ResolveName<MoneyConcept>().Should().Be("Money");
+		ConceptRegistry.Default.ResolveName<Concept.Item>().Should().Be("Item");
+		ConceptRegistry.Default.ResolveName<Concept.Enemy>().Should().Be("Enemy");
+		ConceptRegistry.Default.ResolveName<Concept.Money>().Should().Be("Money");
 	}
 }

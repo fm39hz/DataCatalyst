@@ -6,32 +6,30 @@
 		<IsPackable>false</IsPackable>
 	</PropertyGroup>
 	<ItemGroup>
-		<PackageReference Include="FluentAssertions"/>
-		<PackageReference Include="Microsoft.NET.Test.Sdk"/>
-		<PackageReference Include="xunit"/>
+		<PackageReference Include="FluentAssertions" />
+		<PackageReference Include="Microsoft.NET.Test.Sdk" />
+		<PackageReference Include="xunit" />
 		<PackageReference Include="xunit.runner.visualstudio">
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 			<PrivateAssets>all</PrivateAssets>
 		</PackageReference>
-		<PackageReference Include="Microsoft.CodeAnalysis.CSharp"/>
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
 	</ItemGroup>
 	<ItemGroup>
-		<AdditionalFiles Include="Data/**/*.json"/>
+		<AdditionalFiles Include="Data/**/*.json" />
 	</ItemGroup>
 	<ItemGroup>
-		<ProjectReference Include="..\DataCatalyst.Abstractions\DataCatalyst.Abstractions.csproj"/>
-		<ProjectReference Include="..\DataCatalyst.Core\DataCatalyst.Core.csproj"/>
-		<ProjectReference Include="..\DataCatalyst.Loaders.Json\DataCatalyst.Loaders.Json.csproj"/>
+		<ProjectReference Include="..\DataCatalyst.Abstractions\DataCatalyst.Abstractions.csproj" />
+		<ProjectReference Include="..\DataCatalyst.Core\DataCatalyst.Core.csproj" />
+		<ProjectReference Include="..\DataCatalyst.Loaders.Json\DataCatalyst.Loaders.Json.csproj" />
 
-		<ProjectReference Include="..\DataCatalyst.SourceGen\DataCatalyst.SourceGen.csproj"/>
-		<ProjectReference Include="..\DataCatalyst.Extensions\DataCatalyst.Extensions.csproj"/>
-		<ProjectReference Include="..\DataCatalyst.Plugins.StateEngine\DataCatalyst.Plugins.StateEngine.csproj"/>
-		<ProjectReference Include="..\DataCatalyst.Plugins.StateEngine.SourceGen\DataCatalyst.Plugins.StateEngine.SourceGen.csproj"
-			OutputItemType="Analyzer"
-			ReferenceOutputAssembly="false"/>
-		<ProjectReference Include="..\DataCatalyst.Plugins.GameConcept\DataCatalyst.Plugins.GameConcept.csproj"/>
-		<ProjectReference Include="..\DataCatalyst.Plugins.GameConcept.SourceGen\DataCatalyst.Plugins.GameConcept.SourceGen.csproj"
-			OutputItemType="Analyzer"
-			ReferenceOutputAssembly="false"/>
+		<ProjectReference Include="..\DataCatalyst.SourceGen\DataCatalyst.SourceGen.csproj" />
+		<ProjectReference Include="..\DataCatalyst.Extensions\DataCatalyst.Extensions.csproj" />
+		<ProjectReference Include="..\DataCatalyst.Plugins.StateEngine\DataCatalyst.Plugins.StateEngine.csproj" />
+		<ProjectReference Include="..\DataCatalyst.Plugins.StateEngine.SourceGen\DataCatalyst.Plugins.StateEngine.SourceGen.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+		<ProjectReference Include="..\DataCatalyst.Plugins.StateEngine.SourceGen\DataCatalyst.Plugins.StateEngine.SourceGen.csproj" ReferenceOutputAssembly="true" />
+		<ProjectReference Include="..\DataCatalyst.Plugins.GameConcept\DataCatalyst.Plugins.GameConcept.csproj" />
+		<ProjectReference Include="..\DataCatalyst.Plugins.GameConcept.SourceGen\DataCatalyst.Plugins.GameConcept.SourceGen.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+		<ProjectReference Include="..\DataCatalyst.Plugins.GameConcept.SourceGen\DataCatalyst.Plugins.GameConcept.SourceGen.csproj" ReferenceOutputAssembly="true" />
 	</ItemGroup>
 </Project>
