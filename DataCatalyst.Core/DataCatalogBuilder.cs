@@ -19,15 +19,15 @@ public static class DataCatalogBuilder {
 			}
 
 			var merged = CollectComponents(entry, graph, resolved, []);
-			resolved[entry.Key] = new DataEntry(entry.Key, merged, null, entry.ConceptName) { SourceFile = entry.SourceFile };
+			resolved[entry.Key] = new DataEntry(entry.Key, merged, entry.Inherits, entry.ConceptName) { SourceFile = entry.SourceFile };
 		}
 
 		var catalog = new DataCatalog(resolved);
 
 		var diag = diagnostics ?? [];
-			foreach (var p in env.Plugins.EnabledPlugins.OfType<ICatalogPlugin>()) {
-				p.OnCatalogResolved(catalog, diag);
-			}
+		foreach (var p in env.Plugins.EnabledPlugins.OfType<ICatalogPlugin>()) {
+			p.OnCatalogResolved(catalog, diag);
+		}
 
 		return catalog;
 	}
@@ -50,7 +50,7 @@ public static class DataCatalogBuilder {
 				}
 				else if (graph.Entries.TryGetValue(parentKey, out var parentGraphEntry)) {
 					var parentMerged = CollectComponents(parentGraphEntry, graph, resolved, visiting);
-					resolved[parentKey] = new DataEntry(parentKey, parentMerged, null) { SourceFile = parentGraphEntry.SourceFile };
+					resolved[parentKey] = new DataEntry(parentKey, parentMerged, parentGraphEntry.Inherits) { SourceFile = parentGraphEntry.SourceFile };
 					CopyMissing(merged, parentMerged);
 				}
 			}
@@ -61,27 +61,31 @@ public static class DataCatalogBuilder {
 	}
 
 	private static void CopyMissing(Dictionary<Type, object> target, IReadOnlyDictionary<Type, object> source) {
-		foreach (var (type, val) in source) {
-			if (target.ContainsKey(type)) {
-				// Field-level merge: apply non-default child fields on top of parent
-				if (ComponentMerger.TryMerge(type, target[type], val, out var merged)) {
-					target[type] = merged;
-				}
+		foreach (var (type, inheritedVal) in source) {
+			if (target.TryGetValue(type, out var existing)) {
+				target[type] = ComponentMerger.Merge(type, existing, inheritedVal);
 			}
 			else {
-				target[type] = val;
+				target[type] = inheritedVal;
 			}
 		}
 	}
 
 	private static List<DataEntry> TopologicalSort(DataGraph graph) {
-		var visited = new HashSet<string>();
+		const int Gray = 1;
+		const int Black = 2;
+
+		var colors = new Dictionary<string, int>();
 		var result = new List<DataEntry>();
 
 		void Dfs(DataEntry entry) {
-			if (!visited.Add(entry.Key)) {
-				return;
-			}
+			colors.TryGetValue(entry.Key, out var color);
+
+			if (color == Black) return;
+			if (color == Gray)
+				throw new InvalidOperationException($"Cycle detected in inheritance graph: '{entry.Key}' appears more than once in the same chain.");
+
+			colors[entry.Key] = Gray;
 
 			if (entry.Inherits != null) {
 				foreach (var parentKey in entry.Inherits) {
@@ -91,6 +95,7 @@ public static class DataCatalogBuilder {
 				}
 			}
 
+			colors[entry.Key] = Black;
 			result.Add(entry);
 		}
 

@@ -11,12 +11,17 @@ public static class StateEngineEvaluator<TState, TSensor>
 	where TSensor : notnull {
 
 	/// <summary>Result of a state machine evaluation.</summary>
-	public struct Result {
+	public readonly struct Result {
 		/// <summary>Resolved target state identifier.</summary>
-		public TState TargetStateId;
+		public TState TargetStateId { get; }
 
 		/// <summary>Whether a valid transition was found.</summary>
-		public bool HasValue;
+		public bool HasValue { get; }
+
+		public Result(TState targetStateId, bool hasValue) {
+			TargetStateId = targetStateId;
+			HasValue = hasValue;
+		}
 	}
 
 	/// <summary>
@@ -41,7 +46,7 @@ public static class StateEngineEvaluator<TState, TSensor>
 		}
 
 		if (!group.States.TryGetValue(currentStateId, out var currentState)) {
-			return new Result { HasValue = false };
+			return new Result(default!, false);
 		}
 
 		var bestTarget = default(TState);
@@ -76,8 +81,8 @@ public static class StateEngineEvaluator<TState, TSensor>
 		}
 
 		return hasBest
-			? new Result { TargetStateId = bestTarget!, HasValue = true }
-			: new Result { HasValue = false };
+			? new Result(bestTarget!, true)
+			: new Result(default!, false);
 	}
 
 	private static bool PassConditions(

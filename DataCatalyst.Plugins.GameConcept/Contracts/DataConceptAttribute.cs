@@ -3,9 +3,10 @@ namespace DataCatalyst.Plugins.GameConcept;
 using System;
 
 /// <summary>
-/// Declares a concept. On a struct (Kind=null or "default"): entry grouping.
-/// On an enum with a specific Kind: processed by the appropriate plugin's SourceGen.
-/// Kind is an extensible string — plugins define their own constants (e.g. "state", "sensor").
+/// Declares a concept kind. On a struct: entry grouping.
+/// On an enum with a Kind marker type: processed by plugin SourceGens.
+/// Kind is a marker type (not a value) — each plugin defines its own marker structs
+/// and their SourceGen recognizes them at compile time.
 /// </summary>
 [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Enum, AllowMultiple = false, Inherited = false)]
 public sealed class DataConceptAttribute : Attribute {
@@ -13,10 +14,10 @@ public sealed class DataConceptAttribute : Attribute {
 	public string Name { get; }
 
 	/// <summary>
-	/// Concept kind. Null/"default" for struct concepts. Plugin-specific kinds (e.g. "state", "sensor") for enums.
-	/// Plugins define their own kind constants. GameConcept processes Default kinds.
+	/// Marker type identifying the concept kind (e.g. typeof(StateKind), typeof(SensorKind)).
+	/// Null for struct concepts. Each plugin's SourceGen recognizes its own marker types.
 	/// </summary>
-	public string? Kind { get; set; }
+	public Type? Kind { get; set; }
 
 	/// <summary>Declares a concept with the given name.</summary>
 	public DataConceptAttribute(string name) => Name = name;

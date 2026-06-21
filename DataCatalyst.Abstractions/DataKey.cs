@@ -6,5 +6,5 @@ public readonly record struct DataKey<T>(string Id) where T : struct {
 	public bool HasValue => Id is not null;
 
 	/// <summary>Returns the identifier string, or empty.</summary>
-	public override string ToString() => Id ?? "";
+		public override string ToString() => Id ?? string.Empty;
 }

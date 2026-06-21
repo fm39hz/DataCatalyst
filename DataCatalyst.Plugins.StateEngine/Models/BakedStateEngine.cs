@@ -9,13 +9,17 @@ public sealed class BakedStateGroup<TState, TSensor>
 	where TSensor : notnull {
 
 	/// <summary>Unique identifier of the state group.</summary>
-	public string GroupId { get; init; } = "";
+	public string GroupId { get; init; } = string.Empty;
 
 	/// <summary>The default target state when no transition is selected.</summary>
 	public TState DefaultState { get; init; } = default!;
 
+	private readonly Dictionary<TState, BakedState<TState, TSensor>> _states = [];
+
 	/// <summary>Dictionary of states mapped by their generic type.</summary>
-	public Dictionary<TState, BakedState<TState, TSensor>> States { get; init; } = [];
+	public IReadOnlyDictionary<TState, BakedState<TState, TSensor>> States => _states;
+
+	internal Dictionary<TState, BakedState<TState, TSensor>> MutableStates => _states;
 }
 
 /// <summary>Baked representation of a single state and its pre-flattened transitions.</summary>

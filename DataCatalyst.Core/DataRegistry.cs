@@ -25,8 +25,8 @@ public sealed class DataRegistry {
 			throw new ArgumentNullException(nameof(type));
 		}
 #endif
-		if (!type.IsValueType) {
-			throw new ArgumentException("Component must be a value type (struct).", nameof(type));
+		if (!type.IsValueType || type.IsByRefLike) {
+			throw new ArgumentException("Component must be a value type (struct) and cannot be a ref struct.", nameof(type));
 		}
 
 		lock (_components) {

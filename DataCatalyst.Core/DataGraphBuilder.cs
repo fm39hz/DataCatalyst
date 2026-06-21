@@ -37,7 +37,7 @@ public static class DataGraphBuilder {
 				// Higher layer completely overrides lower layer entry
 				if (entry.Layer > existing.Layer) {
 					diag.Add($"Entry '{entry.Key}' (layer {entry.Layer}) replaces entry from layer {existing.Layer} ('{existing.SourceFile ?? Unknown}').");
-					graph.Entries[entry.Key] = entry;
+					graph.MutableEntries[entry.Key] = entry;
 				}
 				else {
 					// Same layer — create new entry with merged components (immutable)
@@ -46,21 +46,21 @@ public static class DataGraphBuilder {
 					foreach (var (type, val) in entry.Components) {
 						merged[type] = val;
 					}
-				graph.Entries[entry.Key] = new DataEntry(entry.Key, merged,
-					entry.Inherits ?? existing.Inherits, entry.ConceptName ?? existing.ConceptName) {
-					SourceFile = entry.SourceFile ?? existing.SourceFile,
-					Layer = entry.Layer
-				};
+					graph.MutableEntries[entry.Key] = new DataEntry(entry.Key, merged,
+						entry.Inherits ?? existing.Inherits, entry.ConceptName ?? existing.ConceptName) {
+						SourceFile = entry.SourceFile ?? existing.SourceFile,
+						Layer = entry.Layer
+					};
 				}
 			}
 			else {
-				graph.Entries[entry.Key] = entry;
+				graph.MutableEntries[entry.Key] = entry;
 			}
 		}
 
-			foreach (var p in env.Plugins.EnabledPlugins.OfType<IGraphPlugin>()) {
-				p.OnGraphBuilt(graph, diag);
-			}
+		foreach (var p in env.Plugins.EnabledPlugins.OfType<IGraphPlugin>()) {
+			p.OnGraphBuilt(graph, diag);
+		}
 
 		return graph;
 	}

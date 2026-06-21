@@ -181,7 +181,7 @@ public sealed class ComponentGenerator : IIncrementalGenerator {
 		foreach (var p in valid) {
 			var fullType = ParseTypeName(p.FullType!);
 
-			// var pVar = (FullType)parent;
+			// var pVal = (FullType)current;
 			var pVarDecl = LocalDeclarationStatement(
 				VariableDeclaration(IdentifierName("var"))
 					.WithVariables(
@@ -189,9 +189,9 @@ public sealed class ComponentGenerator : IIncrementalGenerator {
 							VariableDeclarator(Identifier("pVal"))
 								.WithInitializer(
 									EqualsValueClause(
-										CastExpression(fullType, IdentifierName("parent")))))));
+										CastExpression(fullType, IdentifierName("current")))))));
 
-			// var cVar = (FullType)child;
+			// var cVal = (FullType)inherited;
 			var cVarDecl = LocalDeclarationStatement(
 				VariableDeclaration(IdentifierName("var"))
 					.WithVariables(
@@ -199,9 +199,9 @@ public sealed class ComponentGenerator : IIncrementalGenerator {
 							VariableDeclarator(Identifier("cVal"))
 								.WithInitializer(
 									EqualsValueClause(
-										CastExpression(fullType, IdentifierName("child")))))));
+										CastExpression(fullType, IdentifierName("inherited")))))));
 
-			// if (!EqualityComparer<T>.Default.Equals(cVal.Field, default)) pVal.Field = cVal.Field;
+			// if (pVal.Field != cVal.Field) pVal.Field = cVal.Field;
 			var fieldStatements = new List<StatementSyntax>();
 			foreach (var field in p.Fields!) {
 				var colonIdx = field.LastIndexOf(':');
@@ -210,7 +210,7 @@ public sealed class ComponentGenerator : IIncrementalGenerator {
 				var fieldTypeStr = field.Substring(colonIdx + 1);
 
 				var equalsExpr = ParseExpression(
-					$"!global::System.Collections.Generic.EqualityComparer<{fieldTypeStr}>.Default.Equals(cVal.{fieldName}, default)");
+					$"!global::System.Collections.Generic.EqualityComparer<{fieldTypeStr}>.Default.Equals(pVal.{fieldName}, cVal.{fieldName})");
 
 				var ifStmt = IfStatement(
 					equalsExpr,
@@ -237,7 +237,7 @@ public sealed class ComponentGenerator : IIncrementalGenerator {
 			bodyStatements.AddRange(fieldStatements);
 			bodyStatements.Add(returnStmt);
 
-			// ComponentMerger.Register<FullType>((parent, child) => { ... });
+			// ComponentMerger.Register<FullType>((current, inherited) => { ... });
 			initBody.Add(
 				ExpressionStatement(
 					InvocationExpression(
@@ -255,9 +255,9 @@ public sealed class ComponentGenerator : IIncrementalGenerator {
 										ParenthesizedLambdaExpression(
 											ParameterList(
 												SeparatedList(new[] {
-													Parameter(Identifier("parent"))
+													Parameter(Identifier("current"))
 														.WithType(PredefinedType(Token(SyntaxKind.ObjectKeyword))),
-													Parameter(Identifier("child"))
+													Parameter(Identifier("inherited"))
 														.WithType(PredefinedType(Token(SyntaxKind.ObjectKeyword)))
 												})),
 											Block(bodyStatements))))))));

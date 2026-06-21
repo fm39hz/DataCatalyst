@@ -7,11 +7,17 @@ using DataCatalyst.Extensions.Composition;
 /// <summary>Group of related states with shared configuration.</summary>
 [DataComponent]
 public readonly record struct StateGroup {
+	/// <summary>Default multiplier for priority tier calculations.</summary>
+	public const int DefaultTierScale = 10000;
+
+	/// <summary>Default priority penalty per inheritance depth level.</summary>
+	public const int DefaultDepthPenalty = 1000;
+
 	/// <summary>Creates a StateGroup with default values.</summary>
 	public StateGroup() {
-		GroupId = "";
-		RequiredTrait = "";
-		DefaultState = "";
+		GroupId = string.Empty;
+		RequiredTrait = string.Empty;
+		DefaultState = string.Empty;
 		States = [];
 	}
 
@@ -22,10 +28,10 @@ public readonly record struct StateGroup {
 	public int PriorityTier { get; init; }
 
 	/// <summary>Multiplier for priority tier calculations.</summary>
-	public int TierScale { get; init; } = 10000;
+	public int TierScale { get; init; } = DefaultTierScale;
 
 	/// <summary>Priority penalty per inheritance depth level.</summary>
-	public int DepthPenalty { get; init; } = 1000;
+	public int DepthPenalty { get; init; } = DefaultDepthPenalty;
 
 	/// <summary>Trait required for this group to be active.</summary>
 	public string RequiredTrait { get; init; }

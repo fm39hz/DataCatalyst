@@ -7,13 +7,14 @@ using DataCatalyst.Core;
 /// Type-safe scoped access to entries within a concept domain.
 /// TConcept is a phantom type that provides compile-time scoping (e.g. ItemConcept, EnemyConcept).
 /// </summary>
-public sealed class ConceptCatalog<TConcept> where TConcept : struct {
-	internal ConceptCatalog(IReadOnlyDictionary<string, DataEntry> entries) {
+	public sealed class ConceptCatalog<TConcept> where TConcept : struct {
+	internal ConceptCatalog(IReadOnlyDictionary<string, DataEntry> entries, string conceptName) {
 		Entries = entries;
+		ConceptName = conceptName;
 	}
 
 	/// <summary>The concept name (e.g., "Item", "Enemy").</summary>
-	public string ConceptName { get; internal set; } = "";
+	public string ConceptName { get; }
 
 	/// <summary>All entries in this concept domain.</summary>
 	public IReadOnlyDictionary<string, DataEntry> Entries { get; }

@@ -22,6 +22,8 @@ public readonly record struct MoneyConcept;
 public readonly record struct TestItemConcept;
 public readonly record struct TestEnemyConcept;
 public readonly record struct TestMoneyConcept;
+public readonly record struct TestKindA;
+public readonly record struct TestKindB;
 
 public class GameConceptTests : IDisposable {
 	private readonly string _tempDir;
@@ -94,19 +96,19 @@ public class GameConceptTests : IDisposable {
 	[Fact]
 	public void ConceptRegistry_ResolveKind_ReturnsKind() {
 		var registry = new ConceptRegistry();
-		registry.Register<TestItemConcept>("Item", kind: "object");
+		registry.Register<TestItemConcept>("Item", kind: typeof(TestKindA));
 
 		var kind = registry.ResolveKind<TestItemConcept>();
-		kind.Should().Be("object");
+		kind.Should().Be(typeof(TestKindA));
 	}
 
 	[Fact]
 	public void ConceptRegistry_GetByKind_ReturnsMatchingTypes() {
 		var registry = new ConceptRegistry();
-		registry.Register<TestItemConcept>("Item", kind: "object");
-		registry.Register<TestEnemyConcept>("Enemy", kind: "actor");
+		registry.Register<TestItemConcept>("Item", kind: typeof(TestKindA));
+		registry.Register<TestEnemyConcept>("Enemy", kind: typeof(TestKindB));
 
-		var objects = registry.GetByKind("object");
+		var objects = registry.GetByKind<TestKindA>();
 		objects.Should().Contain(typeof(TestItemConcept));
 		objects.Should().NotContain(typeof(TestEnemyConcept));
 	}

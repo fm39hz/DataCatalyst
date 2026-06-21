@@ -20,8 +20,8 @@ Container for a logical group of states (e.g. `"GuardAI"`):
 
 - `GroupId` (`string`): Unique group identifier.
 - `PriorityTier` (`int`): Global tier priority.
-- `TierScale` (`int`): Priority scaling multiplier (defaults to `10000`).
-- `DepthPenalty` (`int`): Priority penalty per hierarchy depth level (defaults to `1000`).
+- `TierScale` (`int`): Priority scaling multiplier (default `StateGroup.DefaultTierScale` = `10000`).
+- `DepthPenalty` (`int`): Priority penalty per hierarchy depth level (default `StateGroup.DefaultDepthPenalty` = `1000`).
 - `DefaultState` (`string`): Fallback state.
 - `States` (`Dictionary<string, StateDefinition>`): State definitions.
 

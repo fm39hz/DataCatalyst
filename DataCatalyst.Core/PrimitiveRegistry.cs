@@ -18,7 +18,7 @@ public class PrimitiveRegistry {
 	}
 
 	/// <summary>Registers a batch of compile-time generated discriminator mappings.</summary>
-	public void RegisterIds(Dictionary<string, Type> ids) {
+	public void RegisterIds(IReadOnlyDictionary<string, Type> ids) {
 		foreach (var (k, v) in ids) {
 			_ids[k] = v;
 		}
@@ -26,6 +26,9 @@ public class PrimitiveRegistry {
 
 	/// <summary>Resolves a JSON discriminator to a component type.</summary>
 	public bool TryResolveId(string id, out Type? type) => _ids.TryGetValue(id, out type);
+
+	/// <summary>Resolves a JSON discriminator to a component type, or null if not found.</summary>
+	public Type? ResolveId(string id) => _ids.TryGetValue(id, out var type) ? type : null;
 
 	/// <summary>Checks if a type is a registered primitive.</summary>
 	public bool IsRegistered(Type type) => _types.Contains(type);

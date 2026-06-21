@@ -89,7 +89,7 @@ public static class StateEngineBaker {
 				Transitions = [.. bakedTransitionsList]
 			};
 
-			bakedGroup.States[stateId] = bakedState;
+			bakedGroup.MutableStates[stateId] = bakedState;
 		}
 
 		return bakedGroup;
@@ -105,8 +105,13 @@ public static class StateEngineBaker {
 		Dictionary<string, StateDefinition> allStates) {
 		var result = new List<StateDefinition>();
 		var visited = new HashSet<string>();
-		var current = name;
-		while (current != null && allStates.TryGetValue(current, out var def)) {
+		var current = (string?)name;
+		while (current != null) {
+			if (!allStates.TryGetValue(current, out var def)) {
+				throw new KeyNotFoundException(
+					$"State hierarchy: '{current}' (ancestor of '{name}') not found in state group.");
+			}
+
 			if (!visited.Add(current)) {
 				throw new InvalidOperationException(
 					$"Cycle detected in state hierarchy: '{current}' appears more than once.");

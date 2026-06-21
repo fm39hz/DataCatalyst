@@ -7,7 +7,7 @@ using System.Linq;
 
 /// <summary>
 /// Registry mapping concept tag types to concept names.
-/// Optionally stores a Kind string for runtime filtering.
+/// Optionally stores a Kind marker Type for plugin-specific processing.
 /// </summary>
 public sealed class ConceptRegistry : IEnumerable<KeyValuePair<Type, string>> {
 	/// <summary>Default instance for backward compatibility.</summary>
@@ -15,10 +15,10 @@ public sealed class ConceptRegistry : IEnumerable<KeyValuePair<Type, string>> {
 
 	private readonly Dictionary<string, Type> _nameToTag = [];
 	private readonly Dictionary<Type, string> _tagToName = [];
-	private readonly Dictionary<Type, string> _tagToKind = [];
+	private readonly Dictionary<Type, Type> _tagToKind = [];
 
-	/// <summary>Register a concept: tag type to name, with optional kind.</summary>
-	public void Register<TConcept>(string name, string? kind = null) where TConcept : struct {
+	/// <summary>Register a concept: tag type to name, with optional kind marker type.</summary>
+	public void Register<TConcept>(string name, Type? kind = null) where TConcept : struct {
 		_nameToTag[name] = typeof(TConcept);
 		_tagToName[typeof(TConcept)] = name;
 		if (kind != null)
@@ -37,17 +37,21 @@ public sealed class ConceptRegistry : IEnumerable<KeyValuePair<Type, string>> {
 	public string? ResolveName(Type tagType) =>
 		_tagToName.TryGetValue(tagType, out var name) ? name : null;
 
-	/// <summary>Resolve tag type to kind string.</summary>
-	public string? ResolveKind<TConcept>() where TConcept : struct =>
+	/// <summary>Resolve tag type to kind marker type (null = unset).</summary>
+	public Type? ResolveKind<TConcept>() where TConcept : struct =>
 		_tagToKind.TryGetValue(typeof(TConcept), out var kind) ? kind : null;
 
-	/// <summary>Resolve tag type to kind string.</summary>
-	public string? ResolveKind(Type tagType) =>
+	/// <summary>Resolve tag type to kind marker type (null = unset).</summary>
+	public Type? ResolveKind(Type tagType) =>
 		_tagToKind.TryGetValue(tagType, out var kind) ? kind : null;
 
-	/// <summary>All tag types registered with the given kind.</summary>
-	public IReadOnlyCollection<Type> GetByKind(string kind) =>
-		_tagToKind.Where(kv => kv.Value == kind).Select(kv => kv.Key).ToList();
+	/// <summary>All tag types registered with the given kind marker type.</summary>
+	public IReadOnlyCollection<Type> GetByKind<TKind>() where TKind : struct =>
+		_tagToKind.Where(kv => kv.Value == typeof(TKind)).Select(kv => kv.Key).ToList();
+
+	/// <summary>All tag types registered with the given kind marker type.</summary>
+	public IReadOnlyCollection<Type> GetByKind(Type kindType) =>
+		_tagToKind.Where(kv => kv.Value == kindType).Select(kv => kv.Key).ToList();
 
 	/// <summary>Check if concept is registered.</summary>
 	public bool IsRegistered<TConcept>() where TConcept : struct =>

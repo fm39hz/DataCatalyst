@@ -13,23 +13,16 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 [Generator]
 public sealed class StateMachineGenerator : IIncrementalGenerator {
-	private static readonly DiagnosticDescriptor EnumRequiredError = new(
-		id: "DC020",
-		title: "DataConcept with Kind=State/Sensor must be an enum",
-		messageFormat: "[DataConcept(Kind=State)] and [DataConcept(Kind=Sensor)] on '{0}' are only valid on enum types",
-		category: "DataCatalyst.StateEngine",
-		defaultSeverity: DiagnosticSeverity.Error,
-		isEnabledByDefault: true);
-
 	private static readonly DiagnosticDescriptor EmptyEnumWarning = new(
 		id: "DC021",
 		title: "Enum has no members",
-		messageFormat: "[DataConcept(Kind=State)] or [DataConcept(Kind=Sensor)] on '{0}' enum has no members. Mapper will have no valid mappings.",
+		messageFormat: "[DataConcept] on '{0}' enum has no members. Mapper will have no valid mappings.",
 		category: "DataCatalyst.StateEngine",
 		defaultSeverity: DiagnosticSeverity.Warning,
 		isEnabledByDefault: true);
 
 	private const string DataConceptAttr = "DataCatalyst.Plugins.GameConcept.DataConceptAttribute";
+	private const string SpecialEnumBackingField = "value__";
 
 	public void Initialize(IncrementalGeneratorInitializationContext context) {
 		var enums = context.SyntaxProvider.ForAttributeWithMetadataName(
@@ -37,126 +30,52 @@ public sealed class StateMachineGenerator : IIncrementalGenerator {
 			static (node, _) => node is EnumDeclarationSyntax,
 			static (ctx, _) => {
 				var t = (INamedTypeSymbol)ctx.TargetSymbol;
-				var isValid = t.TypeKind == TypeKind.Enum;
 				var members = t.GetMembers().OfType<IFieldSymbol>()
-					.Where(f => f.ConstantValue != null && !f.Name.StartsWith("value__"))
+					.Where(f => f.ConstantValue != null && !f.Name.StartsWith(SpecialEnumBackingField))
 					.Select(f => f.Name)
 					.ToArray();
 				var fullType = t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-				var shortName = GetShortName(fullType);
-
-				// Extract Kind from attribute (string)
-				var kind = "";
-				var attrClass = ctx.SemanticModel.Compilation.GetTypeByMetadataName(DataConceptAttr);
-				if (attrClass != null) {
-					foreach (var a in t.GetAttributes()) {
-						if (!SymbolEqualityComparer.Default.Equals(a.AttributeClass, attrClass)) continue;
-						foreach (var n in a.NamedArguments) {
-							if (n.Key == "Kind" && n.Value.Value is string kindStr) {
-								kind = kindStr;
-							}
-						}
-						break;
-					}
-				}
-
-				return new EnumResult(fullType, shortName, isValid, ctx.TargetNode.GetLocation(), members, kind);
+				return new EnumInfo(fullType, GetShortName(fullType), members);
 			}).Collect();
 
 		context.RegisterSourceOutput(enums,
 			static (spc, results) => {
-				var states = results.Where(r => r.Kind == "state").ToImmutableArray();
-				var sensors = results.Where(r => r.Kind == "sensor").ToImmutableArray();
-
-				foreach (var r in results) {
-					if (!r.IsValid)
-						spc.ReportDiagnostic(Diagnostic.Create(EnumRequiredError, r.Location, r.FullType));
-					else if (r.Members.Length == 0)
-						spc.ReportDiagnostic(Diagnostic.Create(EmptyEnumWarning, r.Location, r.FullType));
-				}
-
-				Emit(spc, states, sensors);
+				var valid = results.Where(r => r.Members.Length > 0).ToImmutableArray();
+				if (valid.Length == 0) return;
+				Emit(spc, valid);
 			});
 	}
 
-	private readonly struct EnumResult(string fullType, string simpleName, bool isValid, Location location, string[] members, string kind) {
+	private readonly struct EnumInfo(string fullType, string shortName, string[] members) {
 		public readonly string FullType = fullType;
-		public readonly string SimpleName = simpleName;
-		public readonly bool IsValid = isValid;
-		public readonly Location Location = location;
+		public readonly string ShortName = shortName;
 		public readonly string[] Members = members;
-		public readonly string Kind = kind;
 	}
 
 	private static void Emit(SourceProductionContext spc,
-		ImmutableArray<EnumResult> stateResults,
-		ImmutableArray<EnumResult> sensorResults) {
+		ImmutableArray<EnumInfo> enums) {
 
-		foreach (var r in stateResults) {
-			if (!r.IsValid) {
-				spc.ReportDiagnostic(Diagnostic.Create(EnumRequiredError, r.Location, r.FullType));
-			}
-			else if (r.Members.Length == 0) {
-				spc.ReportDiagnostic(Diagnostic.Create(EmptyEnumWarning, r.Location, r.FullType));
-			}
-		}
-
-		foreach (var r in sensorResults) {
-			if (!r.IsValid) {
-				spc.ReportDiagnostic(Diagnostic.Create(EnumRequiredError, r.Location, r.FullType));
-			}
-			else if (r.Members.Length == 0) {
-				spc.ReportDiagnostic(Diagnostic.Create(EmptyEnumWarning, r.Location, r.FullType));
-			}
-		}
-
-		var validStates = stateResults.Where(r => r.IsValid && r.Members.Length > 0).ToList();
-		var validSensors = sensorResults.Where(r => r.IsValid && r.Members.Length > 0).ToList();
-
-		if (validStates.Count == 0 && validSensors.Count == 0) {
-			return;
-		}
-
-		var initStatements = new List<StatementSyntax>();
 		var members = new List<MemberDeclarationSyntax>();
+		var initStatements = new List<StatementSyntax>();
 
-		// Build mapper classes
-		foreach (var st in validStates) {
-			var cls = BuildMapperClass(st, true);
-			members.Add(cls);
+		foreach (var info in enums) {
+			members.Add(BuildStateMapper(info));
+			members.Add(BuildSensorMapper(info));
 
-			var mapperType = $"{st.SimpleName}StateMapper";
-			var interfaceType = ParseTypeName($"global::DataCatalyst.Plugins.StateEngine.Contracts.IStateMapper<{st.FullType}>");
-			initStatements.Add(RegisterMapper(interfaceType, mapperType));
+			var stateIface = ParseTypeName($"global::DataCatalyst.Plugins.StateEngine.Contracts.IStateMapper<{info.FullType}>");
+			var sensorIface = ParseTypeName($"global::DataCatalyst.Plugins.StateEngine.Contracts.ISensorMapper<{info.FullType}>");
+			initStatements.Add(RegisterMapper(stateIface, $"{info.ShortName}StateMapper"));
+			initStatements.Add(RegisterMapper(sensorIface, $"{info.ShortName}SensorMapper"));
 		}
 
-		foreach (var se in validSensors) {
-			var cls = BuildMapperClass(se, false);
-			members.Add(cls);
-
-			var mapperType = $"{se.SimpleName}SensorMapper";
-			var interfaceType = ParseTypeName($"global::DataCatalyst.Plugins.StateEngine.Contracts.ISensorMapper<{se.FullType}>");
-			initStatements.Add(RegisterMapper(interfaceType, mapperType));
-		}
-
-		// Build ModuleInitializer class
 		members.Add(
 			ClassDeclaration("StateEngineRegistrations")
-				.WithModifiers(TokenList(
-					Token(SyntaxKind.StaticKeyword)))
+				.WithModifiers(TokenList(Token(SyntaxKind.StaticKeyword)))
 				.AddMembers(
-					MethodDeclaration(
-							PredefinedType(Token(SyntaxKind.VoidKeyword)),
-							Identifier("Init"))
-						.WithAttributeLists(
-							SingletonList(
-								AttributeList(
-									SingletonSeparatedList(
-										Attribute(
-											ParseName("System.Runtime.CompilerServices.ModuleInitializer"))))))
-						.WithModifiers(TokenList(
-							Token(SyntaxKind.InternalKeyword),
-							Token(SyntaxKind.StaticKeyword)))
+					MethodDeclaration(PredefinedType(Token(SyntaxKind.VoidKeyword)), Identifier("Init"))
+						.WithAttributeLists(SingletonList(AttributeList(SingletonSeparatedList(
+							Attribute(ParseName("System.Runtime.CompilerServices.ModuleInitializer"))))))
+						.WithModifiers(TokenList(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.StaticKeyword)))
 						.WithBody(Block(initStatements))));
 
 		var cu = CompilationUnit()
@@ -175,162 +94,90 @@ public sealed class StateMachineGenerator : IIncrementalGenerator {
 				MemberAccessExpression(
 					SyntaxKind.SimpleMemberAccessExpression,
 					ParseExpression("global::DataCatalyst.Core.MapperRegistry.Default"),
-					GenericName("Register")
-						.WithTypeArgumentList(
-							TypeArgumentList(
-								SingletonSeparatedList(interfaceType)))))
-				.WithArgumentList(
-					ArgumentList(
-						SingletonSeparatedList(
-							Argument(
-								ObjectCreationExpression(
-									ParseTypeName(mapperType))
-								.WithArgumentList(ArgumentList()))))));
+					GenericName("Register").WithTypeArgumentList(TypeArgumentList(SingletonSeparatedList(interfaceType)))))
+				.WithArgumentList(ArgumentList(SingletonSeparatedList(Argument(
+					ObjectCreationExpression(ParseTypeName(mapperType)).WithArgumentList(ArgumentList()))))));
 
-	private static MemberDeclarationSyntax BuildMapperClass(EnumResult result, bool isState) {
-		var className = $"{result.SimpleName}{(isState ? "StateMapper" : "SensorMapper")}";
-		var interfacePrefix = isState ? "IStateMapper" : "ISensorMapper";
-		var methodName = isState ? "MapState" : "MapSensor";
-		var interfaceType = ParseTypeName($"global::DataCatalyst.Plugins.StateEngine.Contracts.{interfacePrefix}<{result.FullType}>");
-		var returnType = ParseTypeName(result.FullType);
+	private static MemberDeclarationSyntax BuildStateMapper(EnumInfo info) {
+		var className = $"{info.ShortName}StateMapper";
+		var iface = ParseTypeName($"global::DataCatalyst.Plugins.StateEngine.Contracts.IStateMapper<{info.FullType}>");
+		var retType = ParseTypeName(info.FullType);
+		var switchArms = BuildSwitchArms(info, retType);
+		switchArms.Add(DefaultSwitchSection(className, "name"));
 
-		// Build switch cases
-		var switchArms = new List<SwitchSectionSyntax>();
-		foreach (var m in result.Members) {
-			switchArms.Add(
-				SwitchSection()
-					.AddLabels(
-						CaseSwitchLabel(
-							LiteralExpression(
-								SyntaxKind.StringLiteralExpression,
-								Literal(m))))
-					.AddStatements(
-						ReturnStatement(
-							MemberAccessExpression(
-								SyntaxKind.SimpleMemberAccessExpression,
-								returnType,
-								IdentifierName(m)))));
-		}
+		var body = new List<StatementSyntax>();
+		// var dot = stateKey.IndexOf('.');
+		body.Add(LocalDeclarationStatement(VariableDeclaration(IdentifierName("var"))
+			.WithVariables(SingletonSeparatedList(VariableDeclarator(Identifier("dot"))
+				.WithInitializer(EqualsValueClause(InvocationExpression(
+					MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, IdentifierName("stateKey"), IdentifierName("IndexOf")))
+					.WithArgumentList(ArgumentList(SingletonSeparatedList(Argument(
+						LiteralExpression(SyntaxKind.StringLiteralExpression, Literal("."))))))))))));
+		// var name = dot >= 0 ? stateKey.Substring(dot + 1) : stateKey;
+		body.Add(LocalDeclarationStatement(VariableDeclaration(IdentifierName("var"))
+			.WithVariables(SingletonSeparatedList(VariableDeclarator(Identifier("name"))
+				.WithInitializer(EqualsValueClause(ConditionalExpression(
+					BinaryExpression(SyntaxKind.GreaterThanOrEqualExpression, IdentifierName("dot"),
+						LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(0))),
+					InvocationExpression(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+						IdentifierName("stateKey"), IdentifierName("Substring")))
+						.WithArgumentList(ArgumentList(SingletonSeparatedList(Argument(
+							BinaryExpression(SyntaxKind.AddExpression, IdentifierName("dot"),
+								LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(1))))))),
+					IdentifierName("stateKey"))))))));
+		body.Add(SwitchStatement(IdentifierName("name")).AddSections([.. switchArms]));
 
-		// Default: throw
-		var valueName = isState ? "name" : "signal";
-		switchArms.Add(
-			SwitchSection()
-				.AddLabels(
-					DefaultSwitchLabel())
-				.AddStatements(
-					ThrowStatement(
-						ObjectCreationExpression(
-							ParseTypeName("global::System.ArgumentException"))
-						.WithArgumentList(
-							ArgumentList(
-								SingletonSeparatedList(
-									Argument(
-										BinaryExpression(
-											SyntaxKind.AddExpression,
-											LiteralExpression(
-												SyntaxKind.StringLiteralExpression,
-												Literal($"Unknown {className}: ")),
-											IdentifierName(valueName)))))))));
-
-		// Build method body
-		var bodyStatements = new List<StatementSyntax>();
-
-		if (isState) {
-			// var dot = stateKey.IndexOf('.');
-			bodyStatements.Add(
-				LocalDeclarationStatement(
-					VariableDeclaration(
-						IdentifierName("var"))
-						.WithVariables(
-							SingletonSeparatedList(
-								VariableDeclarator(Identifier("dot"))
-									.WithInitializer(
-										EqualsValueClause(
-											InvocationExpression(
-												MemberAccessExpression(
-													SyntaxKind.SimpleMemberAccessExpression,
-													IdentifierName("stateKey"),
-													IdentifierName("IndexOf")))
-												.WithArgumentList(
-													ArgumentList(
-														SingletonSeparatedList(
-															Argument(
-																LiteralExpression(
-																	SyntaxKind.StringLiteralExpression,
-																	Literal("."))))))))))));
-
-			// var name = dot >= 0 ? stateKey.Substring(dot + 1) : stateKey;
-			bodyStatements.Add(
-				LocalDeclarationStatement(
-					VariableDeclaration(
-						IdentifierName("var"))
-						.WithVariables(
-							SingletonSeparatedList(
-								VariableDeclarator(Identifier("name"))
-									.WithInitializer(
-										EqualsValueClause(
-											ConditionalExpression(
-												BinaryExpression(
-													SyntaxKind.GreaterThanOrEqualExpression,
-													IdentifierName("dot"),
-													LiteralExpression(
-														SyntaxKind.NumericLiteralExpression,
-														Literal(0))),
-												InvocationExpression(
-													MemberAccessExpression(
-														SyntaxKind.SimpleMemberAccessExpression,
-														IdentifierName("stateKey"),
-														IdentifierName("Substring")))
-													.WithArgumentList(
-														ArgumentList(
-															SingletonSeparatedList(
-																Argument(
-																	BinaryExpression(
-																		SyntaxKind.AddExpression,
-																		IdentifierName("dot"),
-																		LiteralExpression(
-																			SyntaxKind.NumericLiteralExpression,
-																			Literal(1))))))),
-												IdentifierName("stateKey"))))))));
-		}
-
-		// switch (name/signal) { ... }
-		var switchExpr = isState ? (ExpressionSyntax)IdentifierName("name") : IdentifierName("signal");
-		bodyStatements.Add(SwitchStatement(switchExpr).AddSections([.. switchArms]));
-
-		// Build method parameters
-		var paramList = isState
-			? ParameterList(
-				SeparatedList([
-					Parameter(Identifier("stateKey"))
-						.WithType(PredefinedType(Token(SyntaxKind.StringKeyword))),
-					Parameter(Identifier("groupId"))
-						.WithType(PredefinedType(Token(SyntaxKind.StringKeyword)))
-				]))
-			: ParameterList(
-				SingletonSeparatedList(
-					Parameter(Identifier("signal"))
-						.WithType(PredefinedType(Token(SyntaxKind.StringKeyword)))));
-
-		return ClassDeclaration(className)
-			.WithModifiers(TokenList(
-				Token(SyntaxKind.SealedKeyword)))
-			.AddBaseListTypes(
-				SimpleBaseType(interfaceType))
-			.AddMembers(
-				MethodDeclaration(returnType, Identifier(methodName))
-					.WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword)))
-					.WithParameterList(paramList)
-					.WithBody(Block(bodyStatements)));
+		return ClassDeclaration(className).WithModifiers(TokenList(Token(SyntaxKind.SealedKeyword)))
+			.AddBaseListTypes(SimpleBaseType(iface))
+			.AddMembers(MethodDeclaration(retType, Identifier("MapState"))
+				.WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword)))
+				.WithParameterList(ParameterList(SeparatedList([
+					Parameter(Identifier("stateKey")).WithType(PredefinedType(Token(SyntaxKind.StringKeyword))),
+					Parameter(Identifier("groupId")).WithType(PredefinedType(Token(SyntaxKind.StringKeyword)))
+				])))
+				.WithBody(Block(body)));
 	}
+
+	private static MemberDeclarationSyntax BuildSensorMapper(EnumInfo info) {
+		var className = $"{info.ShortName}SensorMapper";
+		var iface = ParseTypeName($"global::DataCatalyst.Plugins.StateEngine.Contracts.ISensorMapper<{info.FullType}>");
+		var retType = ParseTypeName(info.FullType);
+		var switchArms = BuildSwitchArms(info, retType);
+		switchArms.Add(DefaultSwitchSection(className, "signal"));
+
+		return ClassDeclaration(className).WithModifiers(TokenList(Token(SyntaxKind.SealedKeyword)))
+			.AddBaseListTypes(SimpleBaseType(iface))
+			.AddMembers(MethodDeclaration(retType, Identifier("MapSensor"))
+				.WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword)))
+				.WithParameterList(ParameterList(SingletonSeparatedList(
+					Parameter(Identifier("signal")).WithType(PredefinedType(Token(SyntaxKind.StringKeyword))))))
+				.WithBody(Block(SingletonList<StatementSyntax>(SwitchStatement(IdentifierName("signal")).AddSections([.. switchArms])))));
+	}
+
+	private static List<SwitchSectionSyntax> BuildSwitchArms(EnumInfo info, TypeSyntax retType) {
+		var arms = new List<SwitchSectionSyntax>();
+		foreach (var m in info.Members) {
+			arms.Add(SwitchSection().AddLabels(CaseSwitchLabel(LiteralExpression(
+				SyntaxKind.StringLiteralExpression, Literal(m))))
+				.AddStatements(ReturnStatement(MemberAccessExpression(
+					SyntaxKind.SimpleMemberAccessExpression, retType, IdentifierName(m)))));
+		}
+		return arms;
+	}
+
+	private static SwitchSectionSyntax DefaultSwitchSection(string className, string varName) =>
+		SwitchSection().AddLabels(DefaultSwitchLabel())
+			.AddStatements(ThrowStatement(ObjectCreationExpression(ParseTypeName("global::System.ArgumentException"))
+				.WithArgumentList(ArgumentList(SingletonSeparatedList(Argument(BinaryExpression(
+					SyntaxKind.AddExpression,
+					BinaryExpression(SyntaxKind.AddExpression,
+						LiteralExpression(SyntaxKind.StringLiteralExpression, Literal($"Unknown {className}: ")),
+						IdentifierName(varName)),
+					LiteralExpression(SyntaxKind.StringLiteralExpression, Literal("")))))))));
 
 	private static string GetShortName(string fullType) {
 		var name = fullType;
-		if (name.StartsWith("global::")) {
-			name = name.Substring(8);
-		}
-
+		if (name.StartsWith("global::")) name = name.Substring(8);
 		var lastDot = name.LastIndexOf('.');
 		return lastDot >= 0 ? name.Substring(lastDot + 1) : name;
 	}

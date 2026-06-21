@@ -12,6 +12,7 @@ public sealed class PluginRegistry {
 
 	private readonly Dictionary<string, IPlugin> _plugins = [];
 	private readonly Dictionary<Type, Type[]?> _dependsOn = [];
+	private readonly List<string> _diags = [];
 
 	/// <summary>Registers and instantiates a plugin type (parameterless constructor).</summary>
 	public void Register<T>() where T : IPlugin, new() {
@@ -22,12 +23,26 @@ public sealed class PluginRegistry {
 
 	/// <summary>Registers a pre-configured plugin instance (supports DI).</summary>
 	public void Register(Type type, IPlugin plugin) {
+#if NET6_0_OR_GREATER
+		ArgumentNullException.ThrowIfNull(type);
+		ArgumentNullException.ThrowIfNull(plugin);
+#else
+		if (type == null) throw new ArgumentNullException(nameof(type));
+		if (plugin == null) throw new ArgumentNullException(nameof(plugin));
+#endif
 		CacheDependsOn(type);
 		RegisterInstance(type.FullName ?? type.Name, plugin);
 	}
 
 	/// <summary>Registers a pre-configured plugin instance by explicit key.</summary>
 	public void Register(string key, IPlugin plugin) {
+#if NET6_0_OR_GREATER
+		ArgumentNullException.ThrowIfNull(key);
+		ArgumentNullException.ThrowIfNull(plugin);
+#else
+		if (key == null) throw new ArgumentNullException(nameof(key));
+		if (plugin == null) throw new ArgumentNullException(nameof(plugin));
+#endif
 		CacheDependsOn(plugin.GetType());
 		RegisterInstance(key, plugin);
 	}
@@ -75,7 +90,13 @@ public sealed class PluginRegistry {
 	}
 
 	/// <summary>Clears all registered plugins.</summary>
-	public void Clear() => _plugins.Clear();
+	public void Clear() {
+		_plugins.Clear();
+		_diags.Clear();
+	}
+
+	/// <summary>Diagnostic messages collected during plugin resolution (e.g. missing dependencies).</summary>
+	public IReadOnlyList<string> Diagnostics => _diags;
 
 	/// <summary>Gets a plugin by type.</summary>
 	public T? Get<T>() where T : class, IPlugin =>
@@ -100,6 +121,9 @@ public sealed class PluginRegistry {
 				if (map.ContainsKey(dep)) {
 					edges[dep].Add(p.GetType());
 					indeg[p.GetType()]++;
+				}
+				else {
+					_diags.Add($"Plugin '{p.GetType().Name}' depends on '{dep.Name}' which is not registered. Order may be incorrect.");
 				}
 			}
 		}

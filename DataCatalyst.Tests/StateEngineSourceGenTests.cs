@@ -11,11 +11,11 @@ using DataCatalyst.Plugins.StateEngine.Models;
 using FluentAssertions;
 using Xunit;
 
-// SourceGen auto-generates mappers for these enums via [DataConcept(Kind = State)] and [DataConcept(Kind = Sensor)]
-[DataConcept("PlayerState", Kind = ConceptKinds.State)]
+// SourceGen auto-generates mappers for these enums via [DataConcept]
+[DataConcept("PlayerState")]
 public enum PlayerState { Idle, Run, Jump, Attack, Patrol }
 
-[DataConcept("PlayerSensor", Kind = ConceptKinds.Sensor)]
+[DataConcept("PlayerSensor")]
 public enum PlayerSensor { Speed, IsGrounded, Health, Alert }
 
 public class StateEngineSourceGenTests {

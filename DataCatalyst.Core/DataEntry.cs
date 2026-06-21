@@ -8,12 +8,12 @@ using System.Collections.Frozen;
 #endif
 
 /// <summary>Data entry with typed components and inheritance.</summary>
-public sealed class DataEntry(string key, Dictionary<Type, object>? components = null, List<string>? inherits = null, string? conceptName = null) {
+public sealed class DataEntry(string key, Dictionary<Type, object>? components = null, IReadOnlyList<string>? inherits = null, string? conceptName = null) {
 	/// <summary>Unique identifier for this entry.</summary>
 	public string Key { get; } = key;
 
 	/// <summary>Parent entry keys to inherit components from.</summary>
-	public List<string>? Inherits { get; internal set; } = inherits;
+	public IReadOnlyList<string>? Inherits { get; internal set; } = inherits;
 
 	/// <summary>Component data indexed by type. Frozen after construction.</summary>
 	public IReadOnlyDictionary<Type, object> Components { get; } = components is null

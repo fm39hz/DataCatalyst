@@ -63,19 +63,13 @@ public sealed class GameConceptPlugin : ICatalogPlugin {
 
 	private object? CreateConceptCatalog(Type tagType, Dictionary<string, DataEntry> entries) {
 		var catalogType = typeof(ConceptCatalog<>).MakeGenericType(tagType);
-		var instance = Activator.CreateInstance(catalogType,
+		var conceptName = ConceptRegistry.Default.ResolveName(tagType);
+		if (conceptName == null) return null;
+
+		return Activator.CreateInstance(catalogType,
 			System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
 			null,
-			[entries],
+			[entries, conceptName],
 			null);
-
-		if (instance != null) {
-			var nameProp = catalogType.GetProperty(nameof(ConceptCatalog<int>.ConceptName));
-			if (nameProp != null && ConceptRegistry.Default.ResolveName(tagType) is { } conceptName) {
-				nameProp.SetValue(instance, conceptName);
-			}
-		}
-
-		return instance;
 	}
 }

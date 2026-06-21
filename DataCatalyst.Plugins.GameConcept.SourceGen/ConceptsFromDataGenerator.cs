@@ -6,6 +6,7 @@ using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -15,12 +16,14 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 [Generator]
 public sealed class ConceptsFromDataGenerator : IIncrementalGenerator {
+	private const string ConceptsFileName = "concepts";
+	private const string DescriptionProp = "description";
 	public void Initialize(IncrementalGeneratorInitializationContext context) {
 		var jsonFiles = context.AdditionalTextsProvider
 			.Where(static f => f.Path.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
 			.Select(static (f, _) => {
 				var key = Path.GetFileNameWithoutExtension(f.Path);
-				var text = f.GetText()?.ToString() ?? "";
+				var text = f.GetText()?.ToString() ?? string.Empty;
 				return (FileName: key, Text: text);
 			})
 			.Where(static t => !string.IsNullOrEmpty(t.Text))
@@ -30,7 +33,7 @@ public sealed class ConceptsFromDataGenerator : IIncrementalGenerator {
 			var entries = new List<(string Name, string Description)>();
 
 			foreach (var file in files) {
-				if (file.FileName == "concepts") {
+				if (file.FileName == ConceptsFileName) {
 					entries.AddRange(ParseConcepts(file.Text));
 				}
 			}
@@ -83,41 +86,19 @@ public sealed class ConceptsFromDataGenerator : IIncrementalGenerator {
 
 	private static List<(string Name, string Description)> ParseConcepts(string json) {
 		var result = new List<(string Name, string Description)>();
-		var idx = 0;
 
-		while (idx < json.Length) {
-			var keyStart = json.IndexOf('"', idx);
-			if (keyStart < 0) break;
-			var keyEnd = json.IndexOf('"', keyStart + 1);
-			if (keyEnd < 0) break;
-			var key = json.Substring(keyStart + 1, keyEnd - keyStart - 1);
+		using var doc = JsonDocument.Parse(json);
+		foreach (var prop in doc.RootElement.EnumerateObject()) {
+			var name = prop.Name;
+			var desc = string.Empty;
 
-			idx = keyEnd + 1;
-			while (idx < json.Length && (json[idx] == ':' || char.IsWhiteSpace(json[idx]))) idx++;
-
-			var desc = "";
-			if (idx < json.Length && json[idx] == '{') {
-				var descIdx = json.IndexOf("\"description\"", idx);
-				if (descIdx >= 0) {
-					var valStart = json.IndexOf('"', descIdx + 13);
-					if (valStart >= 0) {
-						var valEnd = json.IndexOf('"', valStart + 1);
-						if (valEnd > valStart)
-							desc = json.Substring(valStart + 1, valEnd - valStart - 1);
-					}
+			if (prop.Value.ValueKind == JsonValueKind.Object) {
+				if (prop.Value.TryGetProperty(DescriptionProp, out var descEl) && descEl.ValueKind == JsonValueKind.String) {
+					desc = descEl.GetString() ?? string.Empty;
 				}
-				var braceEnd = json.IndexOf('}', idx);
-				if (braceEnd >= 0) idx = braceEnd + 1;
-				else break;
 			}
-			else if (idx < json.Length && json[idx] == '[') {
-				var arrEnd = json.IndexOf(']', idx);
-				if (arrEnd >= 0) idx = arrEnd + 1;
-				else break;
-			}
-			else break;
 
-			result.Add((key, desc));
+			result.Add((name, desc));
 		}
 
 		return result;
