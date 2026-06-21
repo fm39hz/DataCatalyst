@@ -46,10 +46,11 @@ public static class DataGraphBuilder {
 					foreach (var (type, val) in entry.Components) {
 						merged[type] = val;
 					}
-					graph.Entries[entry.Key] = new DataEntry(entry.Key, merged, entry.Inherits ?? existing.Inherits) {
-						SourceFile = entry.SourceFile ?? existing.SourceFile,
-						Layer = entry.Layer
-					};
+				graph.Entries[entry.Key] = new DataEntry(entry.Key, merged,
+					entry.Inherits ?? existing.Inherits, entry.ConceptName ?? existing.ConceptName) {
+					SourceFile = entry.SourceFile ?? existing.SourceFile,
+					Layer = entry.Layer
+				};
 				}
 			}
 			else {

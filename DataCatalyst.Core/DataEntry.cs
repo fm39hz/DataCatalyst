@@ -8,7 +8,7 @@ using System.Collections.Frozen;
 #endif
 
 /// <summary>Data entry with typed components and inheritance.</summary>
-public sealed class DataEntry(string key, Dictionary<Type, object>? components = null, List<string>? inherits = null) {
+public sealed class DataEntry(string key, Dictionary<Type, object>? components = null, List<string>? inherits = null, string? conceptName = null) {
 	/// <summary>Unique identifier for this entry.</summary>
 	public string Key { get; } = key;
 
@@ -29,6 +29,9 @@ public sealed class DataEntry(string key, Dictionary<Type, object>? components =
 
 	/// <summary>Patch layer priority. Higher layers override lower layers during merge.</summary>
 	public int Layer { get; init; }
+
+	/// <summary>Concept this entry belongs to (e.g. "Enemy"). Set by loaders from data.</summary>
+	public string? ConceptName { get; } = conceptName;
 
 	/// <summary>Retrieves a component by type. Throws if missing.</summary>
 	public T Get<T>() where T : struct {

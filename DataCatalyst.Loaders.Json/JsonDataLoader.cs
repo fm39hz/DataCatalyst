@@ -19,6 +19,7 @@ public sealed class LoadResult {
 /// <summary>Loads data entries from JSON files using component discriminators registered in PrimitiveRegistry.</summary>
 public static class JsonDataLoader {
 	private const string PropInherits = "inherits";
+	private const string PropConcept = "concept";
 	private const string JsonFilter = "*.json";
 
 	private static Type? ResolveComponent(string name, PrimitiveRegistry primitives) => primitives.TryResolveId(name, out var type) ? type : null;
@@ -56,10 +57,14 @@ public static class JsonDataLoader {
 					}
 				}
 
+				string? conceptName = null;
+				if (root.TryGetProperty(PropConcept, out var conceptEl) && conceptEl.ValueKind == JsonValueKind.String) {
+					conceptName = conceptEl.GetString();
+				}
+
 				var components = new Dictionary<Type, object>();
-				var rawComponents = new Dictionary<Type, string>();
 				foreach (var prop in root.EnumerateObject()) {
-					if (prop.Name == PropInherits) {
+					if (prop.Name == PropInherits || prop.Name == PropConcept) {
 						continue;
 					}
 
@@ -75,12 +80,10 @@ public static class JsonDataLoader {
 					}
 
 					try {
-						var rawText = prop.Value.GetRawText();
 						var typeInfo = options.GetTypeInfo(type);
-						var deserialized = JsonSerializer.Deserialize(rawText, typeInfo);
+						var deserialized = JsonSerializer.Deserialize(prop.Value.GetRawText(), typeInfo);
 						if (deserialized != null) {
 							components[type] = deserialized;
-							rawComponents[type] = rawText;
 						}
 						else {
 							result.Diagnostics.Add(
@@ -93,7 +96,9 @@ public static class JsonDataLoader {
 					}
 				}
 
-				result.Entries.Add(new DataEntry(key, components, inherits) { SourceFile = file });
+				result.Entries.Add(new DataEntry(key, components, inherits, conceptName) {
+					SourceFile = file
+				});
 			}
 			catch (Exception ex) {
 				result.Diagnostics.Add($"Failed to load file '{file}': {ex.Message}");
@@ -162,10 +167,14 @@ public static class JsonDataLoader {
 					}
 				}
 
+				string? conceptName = null;
+				if (element.TryGetProperty(PropConcept, out var conceptEl) && conceptEl.ValueKind == JsonValueKind.String) {
+					conceptName = conceptEl.GetString();
+				}
+
 				var components = new Dictionary<Type, object>();
-				var rawComponents = new Dictionary<Type, string>();
 				foreach (var prop in element.EnumerateObject()) {
-					if (prop.Name == PropInherits || prop.Name == keyField) {
+					if (prop.Name == PropInherits || prop.Name == keyField || prop.Name == PropConcept) {
 						continue;
 					}
 
@@ -181,12 +190,10 @@ public static class JsonDataLoader {
 					}
 
 					try {
-						var rawText = prop.Value.GetRawText();
 						var typeInfo = options.GetTypeInfo(type);
-						var deserialized = JsonSerializer.Deserialize(rawText, typeInfo);
+						var deserialized = JsonSerializer.Deserialize(prop.Value.GetRawText(), typeInfo);
 						if (deserialized != null) {
 							components[type] = deserialized;
-							rawComponents[type] = rawText;
 						}
 						else {
 							result.Diagnostics.Add(
@@ -199,7 +206,9 @@ public static class JsonDataLoader {
 					}
 				}
 
-				result.Entries.Add(new DataEntry(key, components, inherits) { SourceFile = filePath });
+				result.Entries.Add(new DataEntry(key, components, inherits, conceptName) {
+					SourceFile = filePath
+				});
 				index++;
 			}
 		}

@@ -45,15 +45,20 @@ public sealed class ConceptGenerator : IIncrementalGenerator {
 				var fullType = t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
 
 				string? conceptName = null;
+				string? conceptKind = null;
 				var attrClass = ctx.SemanticModel.Compilation.GetTypeByMetadataName(DataConceptAttr);
 				foreach (var a in t.GetAttributes()) {
 					if (!SymbolEqualityComparer.Default.Equals(a.AttributeClass, attrClass)) continue;
-					if (a.ConstructorArguments.Length > 0 && a.ConstructorArguments[0].Value is string name)
-						conceptName = name;
+					foreach (var arg in a.ConstructorArguments) {
+						if (arg.Value is string name) conceptName = name;
+					}
+					foreach (var n in a.NamedArguments) {
+						if (n.Key == "Kind" && n.Value.Value is string kind) conceptKind = kind;
+					}
 					break;
 				}
 
-				return new ConceptResult(fullType, conceptName, errorLoc);
+				return new ConceptResult(fullType, conceptName, conceptKind, errorLoc);
 			}).Collect();
 
 		context.RegisterSourceOutput(conceptTypes,
@@ -65,29 +70,30 @@ public sealed class ConceptGenerator : IIncrementalGenerator {
 
 				var validTypes = cr
 					.Where(c => c.FullType != null && c.ConceptName != null)
-					.Select(c => (c.FullType!, c.ConceptName!))
+					.Select(c => (c.FullType!, c.ConceptName!, c.ConceptKind))
 					.ToList();
 
 				Emit(spc, validTypes);
 			});
 	}
 
-	private readonly struct ConceptResult(string? fullType, string? conceptName, Location? errorLocation) {
+	private readonly struct ConceptResult(string? fullType, string? conceptName, string? conceptKind, Location? errorLocation) {
 		public readonly string? FullType = fullType;
 		public readonly string? ConceptName = conceptName;
+		public readonly string? ConceptKind = conceptKind;
 		public readonly Location? ErrorLocation = errorLocation;
 	}
 
 	private static void Emit(SourceProductionContext spc,
-		List<(string FullType, string ConceptName)> validTypes) {
+		List<(string FullType, string ConceptName, string? Kind)> validTypes) {
 
 		// Generate registrations (ModuleInitializer)
 		if (validTypes.Count > 0) {
 			var initBody = new List<StatementSyntax>();
-			foreach (var (ft, name) in validTypes) {
+			foreach (var (ft, name, kind) in validTypes) {
 				initBody.Add(BuildRegisterCall(
 					"global::DataCatalyst.Plugins.GameConcept.ConceptRegistry.Default",
-					ft, name));
+					ft, name, kind));
 			}
 
 			var cu = CompilationUnit()
@@ -122,7 +128,14 @@ public sealed class ConceptGenerator : IIncrementalGenerator {
 
 	}
 
-	private static StatementSyntax BuildRegisterCall(string target, string fullType, string conceptName) => ExpressionStatement(
+	private static StatementSyntax BuildRegisterCall(string target, string fullType, string conceptName, string? kind = null) {
+		var args = new List<ArgumentSyntax> {
+			Argument(LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(conceptName)))
+		};
+		if (kind != null) {
+			args.Add(Argument(LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(kind))));
+		}
+		return ExpressionStatement(
 			InvocationExpression(
 				MemberAccessExpression(
 					SyntaxKind.SimpleMemberAccessExpression,
@@ -131,12 +144,7 @@ public sealed class ConceptGenerator : IIncrementalGenerator {
 						.WithTypeArgumentList(
 							TypeArgumentList(
 								SingletonSeparatedList(ParseTypeName(fullType))))))
-				.WithArgumentList(
-					ArgumentList(
-						SingletonSeparatedList(
-							Argument(
-								LiteralExpression(
-									SyntaxKind.StringLiteralExpression,
-									Literal(conceptName)))))));
+				.WithArgumentList(ArgumentList(SeparatedList(args))));
+	}
 
 }

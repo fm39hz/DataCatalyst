@@ -125,8 +125,8 @@ graph BT
 | `DataEntry`          | `Key`, `Inherits`, `Components`, `SourceFile`, `Layer`, `Get<T>()`, `TryGet<T>()` |
 | `DataGraph`          | `Entries` (mutable)                                                               |
 | `DataCatalog`        | `Entries` (read-only), `Get<T>(int)`, `Get<T>(string)`, `Bind<TKey,T>()`          |
-| `DataGraphBuilder`   | `Build(entries, diagnostics?, env?)` — layer-aware merge                          |
-| `DataCatalogBuilder` | `Resolve(graph, diagnostics?, env?)` — inheritance flatten + cycle detect         |
+| `DataGraphBuilder`   | `Build(entries, diagnostics?, env?)` - layer-aware merge                          |
+| `DataCatalogBuilder` | `Resolve(graph, diagnostics?, env?)` - inheritance flatten + cycle detect         |
 
 ```csharp
 var hp   = catalog.Get<Health>(Keys.Goblin);
@@ -147,7 +147,7 @@ var gobHp = all[Keys.Goblin];
 | ------------------- | --------------------------------------- | ---------------------------------- |
 | `PluginRegistry`    | SourceGen (topo-sorted via `DependsOn`) | `Register(type, instance)`         |
 | `PrimitiveRegistry` | SourceGen (`[DataComponent]`)           | `Register<T>()`                    |
-| `ServiceRegistry`   | —                                       | `Register<T>(service)`, `Get<T>()` |
+| `ServiceRegistry`   | -                                       | `Register<T>(service)`, `Get<T>()` |
 | `MapperRegistry`    | Plugin SourceGens                       | `Register<T>(mapper)`, `Get<T>()`  |
 
 ### Plugin System
@@ -187,63 +187,75 @@ public class DepPlugin : ICatalogPlugin;
 
 ## 🔌 GameConcept
 
-Game designers think in domains: "my game has **weapons**, **currency**, **skills**, **combat**." GameConcept lets you declare these as typed, data-driven groupings - not ECS tags, not Godot groups, not entity IDs.
+Game designers think in domains: "my game has **weapons**, **currency**, **skills**, **combat**." GameConcept lets you declare these as typed, data-driven groupings - not ECS tags, not Godot groups, not entity IDs: It is gdd as code.
 
 ### Plugin Attributes
 
-| Attribute               | Target            | Meaning          | Processed by          |
-| ----------------------- | ----------------- | ---------------- | --------------------- |
-| `[DataConcept("name")]` | `record struct`   | Concept grouping | GameConcept.SourceGen |
-| `[DataPlugin]`          | `class : IPlugin` | Pipeline hook    | PluginGenerator       |
+| Attribute                              | Target            | Meaning            | Processed by          |
+| -------------------------------------- | ----------------- | ------------------ | --------------------- |
+| `[DataConcept("name")]`                | `record struct`   | Concept grouping   | GameConcept.SourceGen |
+| `[DataConcept("name", Kind = "kind")]` | `enum`            | Typed enum concept | Plugin SourceGens     |
+| `[DataPlugin]`                         | `class : IPlugin` | Pipeline hook      | PluginGenerator       |
 
-`Kind` is an extensible string — plugins define their own constants. GameConcept processes struct concepts (Kind not set). Future plugins process their own kinds (e.g. StateEngine processes `Kind = "state"` and `Kind = "sensor"`).
+`Kind` is an extensible string - plugins define their own constants. GameConcept processes structs (Kind not set). StateEngine processes `Kind = "state"`/`"sensor"` enums.
 
-```csharp
-using DataCatalyst.Plugins.GameConcept;
+### Data-driven concept declaration
 
-[DataConcept("Weapon")]
-public readonly record struct WeaponConcept;
-
-[DataConcept("Currency")]
-public readonly record struct CurrencyConcept;
-```
-
-SourceGen auto-registers them in `ConceptRegistry.Default`. Map entries at runtime:
-
-```csharp
-var plugin = new GameConceptPlugin();
-plugin.RegisterEntries<WeaponConcept>(Keys.IronSword, Keys.BattleAxe);
-plugin.RegisterEntries<CurrencyConcept>(Keys.Gold, Keys.Silver);
-plugin.OnCatalogResolved(catalog, diagnostics);
-```
-
-Or load from JSON - designer-managed:
+Write `concepts.json` - SourceGen generates phantom structs automatically:
 
 ```json
 {
-	"Weapon": ["IronSword", "BattleAxe"],
-	"Currency": ["Gold", "Silver"]
+	"Weapon": { "description": "Equipable weapon" },
+	"Currency": { "description": "The currency concern in this game" }
 }
 ```
 
 ```csharp
-plugin.LoadConcepts("Data/concepts.json");
+// SourceGen generates:
+// [DataConcept("Weapon")] public readonly partial record struct WeaponConcept;
+// [DataConcept("Currency")] public readonly partial record struct CurrencyConcept;
+
+var weapons = catalog.GetConcept<WeaponConcept>();
 ```
 
-Access - scoped by concept:
+Or declare manually:
 
 ```csharp
+[DataConcept("Weapon")] public readonly record struct WeaponConcept;
+```
+
+Both paths register in `ConceptRegistry.Default`. Entry membership comes from the `"concept"` field in each entry file:
+
+```json
+{ "concept": "Enemy", "Health": { "Current": 50 } }
+```
+
+```csharp
+// Pipeline - plugin auto-detects from entry.ConceptName:
+var plugin = new GameConceptPlugin();
+plugin.OnCatalogResolved(catalog, diagnostics);
+
+// Access:
 var weapons   = catalog.GetConcept<WeaponConcept>();
-var currencies = catalog.GetConcept<CurrencyConcept>();
-var swordAtk = weapons.Get<CombatStats>(Keys.IronSword);
-var goldVal  = currencies.Get<Value>(Keys.Gold);
+var swordAtk  = weapons.Get<CombatStats>(Keys.IronSword);
+```
+
+### Kind filter
+
+Register with optional Kind string - filter at runtime:
+
+```csharp
+[DataConcept("GuardBehavior", Kind = "passive")]
+public readonly record struct GuardConcept;
+
+var kinds = registry.GetByKind("passive"); // [typeof(GuardConcept)]
 ```
 
 ---
 
 ## 🔌 StateEngine
 
-Data-driven hierarchical FSM. Uses `[DataConcept(Kind = State/Sensor)]` from GameConcept plugin - StateEngine.SourceGen consumes the attribute to generate mappers.
+Data-driven hierarchical FSM. Uses `[DataConcept(Kind = State/Sensor)]` from GameConcept - enums are concepts, SourceGen generates mappers.
 
 ```csharp
 using DataCatalyst.Plugins.GameConcept;
@@ -301,6 +313,27 @@ var result = StateEngineEvaluator<AIState, AISensor>.Evaluate(
     });
 
 if (result.HasValue) entity.TransitionTo(result.TargetStateId);
+```
+
+### Mix & Match - State + Concept
+
+```csharp
+// Consumer define concept mapping for state
+public static class AIStateHelper {
+    public static bool IsCombat(this AIState s) => s switch {
+        AIState.Attack or AIState.Flee => true,
+        _ => false
+    };
+}
+
+// Mix!
+if (result.HasValue && result.TargetStateId.IsCombat()) {
+    // handle combat transition
+}
+
+// Entry grouping + state machine usage
+var enemies  = catalog.GetConcept<EnemyConcept>();
+var goblinHp = enemies.Get<Health>(Keys.Goblin);
 ```
 
 ---

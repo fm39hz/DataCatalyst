@@ -19,7 +19,7 @@ public static class DataCatalogBuilder {
 			}
 
 			var merged = CollectComponents(entry, graph, resolved, []);
-			resolved[entry.Key] = new DataEntry(entry.Key, merged, null) { SourceFile = entry.SourceFile };
+			resolved[entry.Key] = new DataEntry(entry.Key, merged, null, entry.ConceptName) { SourceFile = entry.SourceFile };
 		}
 
 		var catalog = new DataCatalog(resolved);

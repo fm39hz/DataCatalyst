@@ -63,9 +63,7 @@ public class GameConceptTests : IDisposable {
 		registry.Register<TestItemConcept>("Item");
 
 		var type = registry.ResolveType("Item");
-#pragma warning disable CA2263
 		type.Should().Be(typeof(TestItemConcept));
-#pragma warning restore CA2263
 	}
 
 	[Fact]
@@ -94,12 +92,34 @@ public class GameConceptTests : IDisposable {
 	}
 
 	[Fact]
+	public void ConceptRegistry_ResolveKind_ReturnsKind() {
+		var registry = new ConceptRegistry();
+		registry.Register<TestItemConcept>("Item", kind: "object");
+
+		var kind = registry.ResolveKind<TestItemConcept>();
+		kind.Should().Be("object");
+	}
+
+	[Fact]
+	public void ConceptRegistry_GetByKind_ReturnsMatchingTypes() {
+		var registry = new ConceptRegistry();
+		registry.Register<TestItemConcept>("Item", kind: "object");
+		registry.Register<TestEnemyConcept>("Enemy", kind: "actor");
+
+		var objects = registry.GetByKind("object");
+		objects.Should().Contain(typeof(TestItemConcept));
+		objects.Should().NotContain(typeof(TestEnemyConcept));
+	}
+
+	[Fact]
 	public void GameConceptPlugin_OnCatalogResolved_BuildsConceptCatalogs() {
-		// Arrange
+		// Arrange — entries declare concept via "concept" field
 		File.WriteAllText(Path.Combine(_tempDir, "Sword.json"), /*lang=json,strict*/ @"{
+			""concept"": ""Item"",
 			""GameComponent"": { ""Value"": 100 }
 		}");
 		File.WriteAllText(Path.Combine(_tempDir, "Shield.json"), /*lang=json,strict*/ @"{
+			""concept"": ""Item"",
 			""GameComponent"": { ""Value"": 50 }
 		}");
 
@@ -109,79 +129,28 @@ public class GameConceptTests : IDisposable {
 
 		var plugin = new GameConceptPlugin();
 		plugin.Registry.Register<TestItemConcept>("Item");
-		plugin.RegisterEntries<TestItemConcept>("Sword", "Shield");
-
 		var diags = new List<string>();
 
 		// Act
 		plugin.OnCatalogResolved(catalog, diags);
 
 		// Assert
-		diags.Should().NotContain(d => d.Contains("Item"));
 		var items = plugin.GetConcept<TestItemConcept>();
 		items.Count.Should().Be(2);
+		items.ContainsKey("Sword").Should().BeTrue();
+		items.ContainsKey("Shield").Should().BeTrue();
 	}
 
 	[Fact]
-	public void GameConceptPlugin_OnCatalogResolved_DiagnosesMissingEntries() {
+	public void GameConceptPlugin_OnCatalogResolved_HandlesMultipleConcepts() {
 		// Arrange
 		File.WriteAllText(Path.Combine(_tempDir, "Sword.json"), /*lang=json,strict*/ @"{
+			""concept"": ""Item"",
 			""GameComponent"": { ""Value"": 100 }
-		}");
-
-		var loadResult = JsonDataLoader.LoadDirectory(_tempDir, CreateOptions(), _env);
-		var graph = DataGraphBuilder.Build(loadResult.Entries, env: _env);
-		var catalog = DataCatalogBuilder.Resolve(graph, env: _env);
-
-		var plugin = new GameConceptPlugin();
-		plugin.Registry.Register<TestItemConcept>("Item");
-		plugin.RegisterEntries<TestItemConcept>("Sword", "NonExistent");
-
-		var diags = new List<string>();
-
-		// Act
-		plugin.OnCatalogResolved(catalog, diags);
-
-		// Assert
-		diags.Should().Contain(d => d.Contains("NonExistent") && d.Contains("not found"));
-	}
-
-	[Fact]
-	public void GameConceptPlugin_OnCatalogResolved_DiagnosesUnregisteredConcepts() {
-		// Arrange
-		var loadResult = JsonDataLoader.LoadDirectory(_tempDir, CreateOptions(), _env);
-		var graph = DataGraphBuilder.Build(loadResult.Entries, env: _env);
-		var catalog = DataCatalogBuilder.Resolve(graph, env: _env);
-
-		var plugin = new GameConceptPlugin();
-		plugin.Registry.Register<TestItemConcept>("Item");
-
-		var diags = new List<string>();
-
-		// Act
-		plugin.OnCatalogResolved(catalog, diags);
-
-		// Assert
-		diags.Should().Contain(d => d.Contains("Item") && d.Contains("has no entries"));
-	}
-
-	[Fact]
-	public void GameConceptPlugin_LoadConcepts_LoadsFromFile() {
-		// Arrange
-		File.WriteAllText(Path.Combine(_tempDir, "Sword.json"), /*lang=json,strict*/ @"{
-			""GameComponent"": { ""Value"": 100 }
-		}");
-		File.WriteAllText(Path.Combine(_tempDir, "Shield.json"), /*lang=json,strict*/ @"{
-			""GameComponent"": { ""Value"": 50 }
 		}");
 		File.WriteAllText(Path.Combine(_tempDir, "Goblin.json"), /*lang=json,strict*/ @"{
-			""GameComponent"": { ""Value"": 25 }
-		}");
-
-		var conceptsFile = Path.Combine(_tempDir, "concepts.json");
-		File.WriteAllText(conceptsFile, /*lang=json,strict*/ @"{
-			""Item"": [""Sword"", ""Shield""],
-			""Enemy"": [""Goblin""]
+			""concept"": ""Enemy"",
+			""GameComponent"": { ""Value"": 99 }
 		}");
 
 		var loadResult = JsonDataLoader.LoadDirectory(_tempDir, CreateOptions(), _env);
@@ -191,16 +160,37 @@ public class GameConceptTests : IDisposable {
 		var plugin = new GameConceptPlugin();
 		plugin.Registry.Register<TestItemConcept>("Item");
 		plugin.Registry.Register<TestEnemyConcept>("Enemy");
-		plugin.LoadConcepts(conceptsFile);
-
 		var diags = new List<string>();
 
 		// Act
 		plugin.OnCatalogResolved(catalog, diags);
 
 		// Assert
-		var items = plugin.GetConcept<TestItemConcept>();
-		items.Count.Should().Be(2);
+		plugin.GetConcept<TestItemConcept>().Count.Should().Be(1);
+		plugin.GetConcept<TestEnemyConcept>().Count.Should().Be(1);
+	}
+
+	[Fact]
+	public void GameConceptPlugin_OnCatalogResolved_IgnoresEntriesWithoutConcept() {
+		// Arrange — entry without "concept" field
+		File.WriteAllText(Path.Combine(_tempDir, "Sword.json"), /*lang=json,strict*/ @"{
+			""GameComponent"": { ""Value"": 100 }
+		}");
+
+		var loadResult = JsonDataLoader.LoadDirectory(_tempDir, CreateOptions(), _env);
+		var graph = DataGraphBuilder.Build(loadResult.Entries, env: _env);
+		var catalog = DataCatalogBuilder.Resolve(graph, env: _env);
+
+		var plugin = new GameConceptPlugin();
+		plugin.Registry.Register<TestItemConcept>("Item");
+		var diags = new List<string>();
+
+		// Act
+		plugin.OnCatalogResolved(catalog, diags);
+
+		// Assert — no concept catalog built (no entries with matching concept)
+		// Should not throw, just do nothing
+		diags.Should().BeEmpty();
 	}
 
 	[Fact]
@@ -214,7 +204,6 @@ public class GameConceptTests : IDisposable {
 
 	[Fact]
 	public void SourceGen_AutoRegistersConcepts() {
-		// SourceGen should auto-register ItemConcept, EnemyConcept, MoneyConcept via [DataConcept] attribute
 		ConceptRegistry.Default.IsRegistered<ItemConcept>().Should().BeTrue();
 		ConceptRegistry.Default.IsRegistered<EnemyConcept>().Should().BeTrue();
 		ConceptRegistry.Default.IsRegistered<MoneyConcept>().Should().BeTrue();
