@@ -57,6 +57,7 @@ public static class JsonDataLoader {
 				}
 
 				var components = new Dictionary<Type, object>();
+				var rawComponents = new Dictionary<Type, string>();
 				foreach (var prop in root.EnumerateObject()) {
 					if (prop.Name == PropInherits) {
 						continue;
@@ -74,10 +75,12 @@ public static class JsonDataLoader {
 					}
 
 					try {
+						var rawText = prop.Value.GetRawText();
 						var typeInfo = options.GetTypeInfo(type);
-						var deserialized = JsonSerializer.Deserialize(prop.Value.GetRawText(), typeInfo);
+						var deserialized = JsonSerializer.Deserialize(rawText, typeInfo);
 						if (deserialized != null) {
 							components[type] = deserialized;
+							rawComponents[type] = rawText;
 						}
 						else {
 							result.Diagnostics.Add(
@@ -160,6 +163,7 @@ public static class JsonDataLoader {
 				}
 
 				var components = new Dictionary<Type, object>();
+				var rawComponents = new Dictionary<Type, string>();
 				foreach (var prop in element.EnumerateObject()) {
 					if (prop.Name == PropInherits || prop.Name == keyField) {
 						continue;
@@ -177,10 +181,12 @@ public static class JsonDataLoader {
 					}
 
 					try {
+						var rawText = prop.Value.GetRawText();
 						var typeInfo = options.GetTypeInfo(type);
-						var deserialized = JsonSerializer.Deserialize(prop.Value.GetRawText(), typeInfo);
+						var deserialized = JsonSerializer.Deserialize(rawText, typeInfo);
 						if (deserialized != null) {
 							components[type] = deserialized;
+							rawComponents[type] = rawText;
 						}
 						else {
 							result.Diagnostics.Add(

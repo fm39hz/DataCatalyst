@@ -41,8 +41,7 @@ public static class DataCatalogBuilder {
 			throw new InvalidOperationException($"Cycle detected: {entry.Key}");
 		}
 
-		// Start with own components
-			var merged = new Dictionary<Type, object>(entry.Components);
+		var merged = new Dictionary<Type, object>(entry.Components);
 
 		if (entry.Inherits != null) {
 			foreach (var parentKey in entry.Inherits) {
@@ -63,7 +62,13 @@ public static class DataCatalogBuilder {
 
 	private static void CopyMissing(Dictionary<Type, object> target, IReadOnlyDictionary<Type, object> source) {
 		foreach (var (type, val) in source) {
-			if (!target.ContainsKey(type)) {
+			if (target.ContainsKey(type)) {
+				// Field-level merge: apply non-default child fields on top of parent
+				if (ComponentMerger.TryMerge(type, target[type], val, out var merged)) {
+					target[type] = merged;
+				}
+			}
+			else {
 				target[type] = val;
 			}
 		}
