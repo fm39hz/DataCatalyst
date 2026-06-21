@@ -11,25 +11,39 @@ public sealed class PluginRegistry {
 	public static readonly PluginRegistry Default = new();
 
 	private readonly Dictionary<string, IPlugin> _plugins = [];
+	private readonly Dictionary<Type, Type[]?> _dependsOn = [];
 
 	/// <summary>Registers and instantiates a plugin type (parameterless constructor).</summary>
 	public void Register<T>() where T : IPlugin, new() {
 		var plugin = new T();
+		CacheDependsOn<T>();
 		RegisterInstance(typeof(T).FullName ?? typeof(T).Name, plugin);
 	}
 
 	/// <summary>Registers a pre-configured plugin instance (supports DI).</summary>
 	public void Register(Type type, IPlugin plugin) {
+		CacheDependsOn(type);
 		RegisterInstance(type.FullName ?? type.Name, plugin);
 	}
 
 	/// <summary>Registers a pre-configured plugin instance by explicit key.</summary>
 	public void Register(string key, IPlugin plugin) {
+		CacheDependsOn(plugin.GetType());
 		RegisterInstance(key, plugin);
 	}
 
 	private void RegisterInstance(string key, IPlugin plugin) {
 		_plugins[key] = plugin;
+	}
+
+	private void CacheDependsOn<T>() where T : IPlugin {
+		var attr = Attribute.GetCustomAttribute(typeof(T), typeof(DataPluginAttribute)) as DataPluginAttribute;
+		_dependsOn[typeof(T)] = attr?.DependsOn;
+	}
+
+	private void CacheDependsOn(Type type) {
+		var attr = Attribute.GetCustomAttribute(type, typeof(DataPluginAttribute)) as DataPluginAttribute;
+		_dependsOn[type] = attr?.DependsOn;
 	}
 
 	/// <summary>All registered plugin instances, sorted by topological dependencies.</summary>
@@ -67,7 +81,7 @@ public sealed class PluginRegistry {
 	public T? Get<T>() where T : class, IPlugin =>
 		_plugins.Values.OfType<T>().FirstOrDefault();
 
-	private static IReadOnlyList<IPlugin> TopoSort(IEnumerable<IPlugin> plugins) {
+	private List<IPlugin> TopoSort(IEnumerable<IPlugin> plugins) {
 		var list = plugins.ToList();
 		var map = new Dictionary<Type, IPlugin>();
 		var indeg = new Dictionary<Type, int>();
@@ -109,10 +123,6 @@ public sealed class PluginRegistry {
 		return result;
 	}
 
-	private static Type[]? GetDependsOn(Type type) {
-		var attr = type.GetCustomAttributes(typeof(DataPluginAttribute), inherit: true);
-		return attr.Length > 0 && attr[0] is DataPluginAttribute dpa
-			? dpa.DependsOn
-			: null;
-	}
+	private Type[]? GetDependsOn(Type type) =>
+		_dependsOn.TryGetValue(type, out var deps) ? deps : null;
 }
