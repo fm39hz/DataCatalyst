@@ -54,8 +54,8 @@ var catalog  = DataCatalogBuilder.Resolve(graph);
 var hp  = catalog.Get<Health>(Keys.Goblin);
 var atk = catalog.Get<CombatStats>(Keys.Goblin);
 
-// Or scoped by concept
-var enemies = catalog.GetConcept<EnemyConcept>();
+// Or scoped by concept — type `Concept.` for IntelliSense list
+var enemies = catalog.GetConcept<Concept.Enemy>();
 var gobHp   = enemies.Get<Health>(Keys.Goblin);    // get only Enemy entries
 ```
 
@@ -219,13 +219,15 @@ Write `concepts.json` - SourceGen generates phantom structs automatically:
 ```
 
 ```csharp
-var weapons = catalog.GetConcept<WeaponConcept>();
+var weapons = catalog.GetConcept<Concept.Weapon>();
 ```
 
-Or declare manually:
+Or declare manually — add to `public static partial class Concept { ... }`:
 
 ```csharp
-[DataConcept("Weapon")] public readonly record struct WeaponConcept;
+public static partial class Concept {
+    [DataConcept("Weapon")] public readonly partial struct Weapon;
+}
 ```
 
 Both paths register in `ConceptRegistry.Default`. Entry membership comes from the `"concept"` field in each entry file:
@@ -238,7 +240,7 @@ Both paths register in `ConceptRegistry.Default`. Entry membership comes from th
 var plugin = new GameConceptPlugin();
 plugin.OnCatalogResolved(catalog, diagnostics);
 
-var weapons   = catalog.GetConcept<WeaponConcept>();
+var weapons   = catalog.GetConcept<Concept.Weapon>();
 var swordAtk  = weapons.Get<CombatStats>(Keys.IronSword);
 ```
 
@@ -322,22 +324,12 @@ if (result.HasValue) entity.TransitionTo(result.TargetStateId);
 #### Mix & Match - State + Concept
 
 ```csharp
-// Consumer define concept mapping for state
-public static class AIStateHelper {
-    public static bool IsCombat(this AIState s) => s switch {
-        AIState.Attack or AIState.Flee => true,
-        _ => false
-    };
-}
+var baked   = StateEngineBaker.Bake<AIState, AISensor>(catalog.Get<StateGroup>(Keys.Locomotion));
+var enemies = catalog.GetConcept<Concept.Enemy>();
 
-// Mix!
-if (result.HasValue && result.TargetStateId.IsCombat()) {
-    // handle combat transition
-}
-
-// Entry grouping + state machine usage
-var enemies  = catalog.GetConcept<EnemyConcept>();
+// Use baked state + concept-scoped entries together
 var goblinHp = enemies.Get<Health>(Keys.Goblin);
+var result   = StateEngineEvaluator<AIState, AISensor>.Evaluate(AIState.Idle, baked, ...);
 ```
 
 ---
