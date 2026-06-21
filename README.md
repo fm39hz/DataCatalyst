@@ -132,12 +132,12 @@ graph BT
 
 ### Attributes
 
-| Attribute                                    | Target               | Meaning           | SourceGen                                    |
-| -------------------------------------------- | -------------------- | ----------------- | -------------------------------------------- |
-| `[DataComponent]`                            | `struct` with fields | Data schema       | `PrimitiveRegistry` registrations            |
-| `[DataConcept("name")]`                      | `record struct`      | Concept grouping  | `ConceptRegistry` registrations              |
-| `[DataConcept("name", Kind = State/Sensor)]` | `enum`               | State/sensor type | `IStateMapper<T>` / `ISensorMapper<T>`       |
-| `[DataPlugin]`                               | `class : IPlugin`    | Pipeline plugin   | `PluginRegistry` registrations (topo-sorted) |
+| Attribute                                    | Target               | Meaning           | SourceGen                              |
+| -------------------------------------------- | -------------------- | ----------------- | -------------------------------------- |
+| `[DataComponent]`                            | `struct` with fields | Data schema       | `PrimitiveRegistry` registrations      |
+| `[DataConcept("name")]`                      | `record struct`      | Concept grouping  | `ConceptRegistry` registrations        |
+| `[DataConcept("name", Kind = State/Sensor)]` | `enum`               | State/sensor type | `IStateMapper<T>` / `ISensorMapper<T>` |
+| `[DataPlugin]`                               | `class : IPlugin`    | Pipeline plugin   | `PluginRegistry` registrations         |
 
 ```csharp
 // Data schema
