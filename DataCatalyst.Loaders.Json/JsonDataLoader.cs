@@ -22,7 +22,7 @@ public sealed class LoadResult {
 /// <summary>Loads data entries from JSON files using component discriminators registered in PrimitiveRegistry.</summary>
 public static class JsonDataLoader {
 	private const string PropInherits = "inherits";
-	private const string PropConcept = "concept";
+	private const string PropConcept = "Concept";
 	private const string JsonFilter = "*.json";
 
 	private static Type? ResolveComponent(string name, PrimitiveRegistry primitives) => primitives.TryResolveId(name, out var type) ? type : null;

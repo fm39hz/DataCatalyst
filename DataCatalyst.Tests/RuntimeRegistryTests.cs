@@ -83,7 +83,7 @@ public class DataCatalogBuilderTests {
 		});
 		var graph = DataGraphBuilder.Build([e]);
 		var catalog = DataCatalogBuilder.Resolve(graph);
-		catalog.Get<TestStruct>("x").X.Should().Be(1);
+		catalog.Entries["x"].Get<TestStruct>().X.Should().Be(1);
 	}
 
 	[Fact]
@@ -116,7 +116,7 @@ public class DataCatalogBuilderTests {
 		var graph = DataGraphBuilder.Build([parent, child]);
 		var catalog = DataCatalogBuilder.Resolve(graph);
 
-		catalog.Get<TestStruct>("child").X.Should().Be(99);
+		catalog.Entries["child"].Get<TestStruct>().X.Should().Be(99);
 	}
 
 	[Fact]
@@ -132,8 +132,8 @@ public class DataCatalogBuilderTests {
 		var graph = DataGraphBuilder.Build([a, b, c]);
 		var catalog = DataCatalogBuilder.Resolve(graph);
 
-		catalog.Get<TestStruct>("c").X.Should().Be(1);
-		catalog.Get<OtherStruct>("c").Y.Should().Be(2);
+		catalog.Entries["c"].Get<TestStruct>().X.Should().Be(1);
+		catalog.Entries["c"].Get<OtherStruct>().Y.Should().Be(2);
 	}
 
 	[Fact]
@@ -154,7 +154,7 @@ public class DataCatalogBuilderTests {
 		var graph = DataGraphBuilder.Build([child]);
 		var catalog = DataCatalogBuilder.Resolve(graph);
 
-		catalog.Get<TestStruct>("child").X.Should().Be(5);
+		catalog.Entries["child"].Get<TestStruct>().X.Should().Be(5);
 	}
 
 	[Fact]
@@ -163,17 +163,17 @@ public class DataCatalogBuilderTests {
 			[typeof(TestStruct)] = new TestStruct { X = 7 }
 		});
 		var catalog = DataCatalogBuilder.Resolve(DataGraphBuilder.Build([e]));
-		catalog.TryGet<TestStruct>("x", out var v).Should().BeTrue();
+		catalog.Entries["x"].TryGet(out TestStruct v).Should().BeTrue();
 		v.X.Should().Be(7);
-		catalog.TryGet<OtherStruct>("x", out _).Should().BeFalse();
+		catalog.Entries["x"].TryGet(out OtherStruct _).Should().BeFalse();
 	}
 
 	[Fact]
 	public void ContainsKey_Works() {
 		var e = new DataEntry("x");
 		var catalog = DataCatalogBuilder.Resolve(DataGraphBuilder.Build([e]));
-		catalog.ContainsKey("x").Should().BeTrue();
-		catalog.ContainsKey("y").Should().BeFalse();
+		catalog.Entries.ContainsKey("x").Should().BeTrue();
+		catalog.Entries.ContainsKey("y").Should().BeFalse();
 	}
 }
 

@@ -35,7 +35,7 @@ public class DataCatalogExtensionsRelaxedTests {
 	}
 
 	[Fact]
-	public void Bind_WithStringKey_Succeeds() {
+	public void Bind_WithCustomKey_Succeeds() {
 		// Arrange
 		var entry1 = new DataEntry("H2O", new() {
 			[typeof(TestComponent)] = new TestComponent { Name = "H2O", Value = 18 }
@@ -45,10 +45,10 @@ public class DataCatalogExtensionsRelaxedTests {
 		var catalog = DataCatalogBuilder.Resolve(graph);
 
 		// Act
-		var bound = catalog.Bind<string, TestComponent>(c => c.Name);
+		var bound = catalog.Bind<DataKey<TestComponent>, TestComponent>(c => new DataKey<TestComponent>(c.Name));
 
 		// Assert
 		bound.Count.Should().Be(1);
-		bound["H2O"].Value.Should().Be(18);
+		bound[new DataKey<TestComponent>("H2O")].Value.Should().Be(18);
 	}
 }

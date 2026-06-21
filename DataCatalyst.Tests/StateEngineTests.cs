@@ -1,6 +1,7 @@
 namespace DataCatalyst.Tests;
 
 using System.Collections.Generic;
+using DataCatalyst.Core;
 using DataCatalyst.Extensions.Composition;
 using DataCatalyst.Plugins.StateEngine.Core;
 using DataCatalyst.Plugins.StateEngine.Models;
@@ -31,16 +32,18 @@ public class StateEngineTests {
 			}
 		};
 
-		var baked = StateEngineBaker.Bake(rawGroup);
+		var speedEntry = new DataEntry("Speed");
+		var graph = DataGraphBuilder.Build([speedEntry]);
+		var catalog = DataCatalogBuilder.Resolve(graph);
+
+		var baked = StateEngineBaker.Bake(rawGroup, catalog);
 
 		baked.GroupId.Should().Be("Locomotion");
-		// States sorted alphabetically: Idle=0, Patrol=1
-		baked.DefaultStateId.Should().Be(0); // Idle
-		baked.States.Should().ContainKey(0); // Idle
+		baked.DefaultStateId.Should().Be(0);
+		baked.States.Should().ContainKey(0);
 
 		var idleState = baked.States[0];
 		idleState.Transitions.Length.Should().Be(1);
-		// Target = Patrol = index 1
 		idleState.Transitions[0].TargetStateId.Should().Be(1);
 	}
 
@@ -67,17 +70,21 @@ public class StateEngineTests {
 			}
 		};
 
-		var baked = StateEngineBaker.Bake(rawGroup);
-		var viable = new HashSet<int> { 1 }; // Patrol = index 1
+		var speedEntry = new DataEntry("Speed");
+		var graph = DataGraphBuilder.Build([speedEntry]);
+		var catalog = DataCatalogBuilder.Resolve(graph);
 
-		var sensorIdMap = new Dictionary<string, int> { ["Speed"] = 0 };
+		var baked = StateEngineBaker.Bake(rawGroup, catalog);
+		var viable = new HashSet<int> { 1 };
+
+		var speedId = catalog.GetEntryId("Speed");
 
 		var resultSlow = StateEngineEvaluator.Evaluate(
-			0, baked, viable, signal => signal == 0 ? 0f : 0f);
+			0, baked, viable, signal => signal == speedId ? 0f : 0f);
 		resultSlow.HasValue.Should().BeFalse();
 
 		var resultFast = StateEngineEvaluator.Evaluate(
-			0, baked, viable, signal => signal == 0 ? 1f : 0f);
+			0, baked, viable, signal => signal == speedId ? 1f : 0f);
 		resultFast.HasValue.Should().BeTrue();
 		resultFast.TargetStateId.Should().Be(1);
 	}
@@ -105,8 +112,12 @@ public class StateEngineTests {
 			}
 		};
 
-		var baked = StateEngineBaker.Bake(rawGroup);
-		var viable = new HashSet<int> { 1 }; // Patrol = index 1
+		var speedEntry = new DataEntry("Speed");
+		var graph = DataGraphBuilder.Build([speedEntry]);
+		var catalog = DataCatalogBuilder.Resolve(graph);
+
+		var baked = StateEngineBaker.Bake(rawGroup, catalog);
+		var viable = new HashSet<int> { 1 };
 
 		var result = StateEngineEvaluator.Evaluate(
 			0, baked, viable, signal => 0f);

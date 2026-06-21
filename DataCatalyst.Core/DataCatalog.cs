@@ -34,13 +34,6 @@ public sealed class DataCatalog {
 		return _byId[entryId]!.Get<T>();
 	}
 
-	/// <summary>Gets a component by string entry key (slower path — hash lookup).</summary>
-	public T Get<T>(string key) where T : struct {
-		if (_keyToId.TryGetValue(key, out var id))
-			return _byId[id]!.Get<T>();
-		throw new KeyNotFoundException($"Entry '{key}' not found");
-	}
-
 	/// <summary>Attempts to get a component by int entry id.</summary>
 	public bool TryGet<T>(int entryId, out T value) where T : struct {
 		if (entryId >= 0 && entryId < _byId.Count && _byId[entryId] != null) {
@@ -50,17 +43,9 @@ public sealed class DataCatalog {
 		return false;
 	}
 
-	/// <summary>Attempts to get a component by string entry key.</summary>
-	public bool TryGet<T>(string key, out T value) where T : struct {
-		if (_keyToId.TryGetValue(key, out var id))
-			return _byId[id]!.TryGet<T>(out value);
-		value = default;
-		return false;
-	}
-
-	/// <summary>Checks if a key exists in the catalog.</summary>
-	public bool ContainsKey(string key) => _entries.ContainsKey(key);
-
 	/// <summary>Checks if an entry id exists in the catalog.</summary>
 	public bool ContainsKey(int entryId) => entryId >= 0 && entryId < _byId.Count && _byId[entryId] != null;
+
+	/// <summary>Resolves a string entry key to its int entry id. Returns -1 if not found.</summary>
+	public int GetEntryId(string key) => _keyToId.TryGetValue(key, out var id) ? id : -1;
 }

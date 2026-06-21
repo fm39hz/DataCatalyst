@@ -1,7 +1,6 @@
 {
 	"Locomotion": {
 		"Concept": "Locomotion",
-		"GroupId": "Locomotion",
 		"DefaultState": "Idle",
 		"States": {
 			"Idle": {

@@ -18,6 +18,8 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 public sealed class ConceptsFromDataGenerator : IIncrementalGenerator {
 	private const string ConceptsFileName = "concepts";
 	private const string DescriptionProp = "description";
+	private const string KindProp = "kind";
+	private const string ConceptProp = "Concept";
 
 	public void Initialize(IncrementalGeneratorInitializationContext context) {
 		var jsonFiles = context.AdditionalTextsProvider
@@ -32,57 +34,54 @@ public sealed class ConceptsFromDataGenerator : IIncrementalGenerator {
 
 		context.RegisterSourceOutput(jsonFiles, static (spc, files) => {
 			var concepts = new List<ConceptInfo>();
-			var machineStates = new Dictionary<string, HashSet<string>>();
+			var conceptMembers = new Dictionary<string, List<string>>();
 
 			foreach (var file in files) {
 				if (file.FileName == ConceptsFileName) {
 					concepts.AddRange(ParseConcepts(file.Text));
 				}
 				else {
-					ParseStateGroup(file.Text, machineStates);
+					ParseConceptMembers(file.Text, conceptMembers);
 				}
 			}
 
-			Emit(spc, concepts, machineStates);
+			Emit(spc, concepts, conceptMembers);
 		});
 	}
 
-	private static void ParseStateGroup(string text,
-		Dictionary<string, HashSet<string>> machineStates) {
+	private static void ParseConceptMembers(string text,
+		Dictionary<string, List<string>> conceptMembers) {
 		using var doc = JsonDocument.Parse(text);
 		foreach (var prop in doc.RootElement.EnumerateObject()) {
 			if (prop.Value.ValueKind != JsonValueKind.Object) continue;
-			var groupId = prop.Value.TryGetProperty("GroupId", out var gid) && gid.ValueKind == JsonValueKind.String
-				? gid.GetString() : null;
-			if (string.IsNullOrEmpty(groupId)) continue;
+			if (!prop.Value.TryGetProperty(ConceptProp, out var conceptEl) || conceptEl.ValueKind != JsonValueKind.String)
+				continue;
 
-			if (prop.Value.TryGetProperty("States", out var states) && states.ValueKind == JsonValueKind.Object) {
-				if (!machineStates.TryGetValue(groupId!, out var set)) {
-					set = new HashSet<string>();
-					machineStates[groupId!] = set;
-				}
-				foreach (var s in states.EnumerateObject()) set.Add(s.Name);
+			var conceptName = conceptEl.GetString();
+			if (string.IsNullOrEmpty(conceptName)) continue;
+
+			if (!conceptMembers.TryGetValue(conceptName, out var list)) {
+				list = new List<string>();
+				conceptMembers[conceptName] = list;
 			}
+			list.Add(prop.Name);
 		}
 	}
 
 	private static void Emit(SourceProductionContext spc,
 		List<ConceptInfo> concepts,
-		Dictionary<string, HashSet<string>> machineStates) {
+		Dictionary<string, List<string>> conceptMembers) {
 
 		var members = new List<MemberDeclarationSyntax>();
 		var initBody = new List<StatementSyntax>();
 
 		foreach (var c in concepts.OrderBy(c => c.Name)) {
-			var conceptMembers = new List<MemberDeclarationSyntax>();
+			var conceptMembersList = new List<MemberDeclarationSyntax>();
 
-			if (machineStates.TryGetValue(c.Name, out var states) && states.Count > 0) {
-				var sorted = states.OrderBy(s => s).ToList();
-				// Default state = first alphabetically (index 0)
-				conceptMembers.Add(GenerateIntConstant("Default", 0));
-				// State constants: 0, 1, 2, ... (skip 0 since it's Default)
-				for (int i = 1; i < sorted.Count; i++) {
-					conceptMembers.Add(GenerateIntConstant(sorted[i], i));
+			if (conceptMembers.TryGetValue(c.Name, out var entryNames) && entryNames.Count > 0) {
+				var sorted = entryNames.OrderBy(s => s).ToList();
+				for (int i = 0; i < sorted.Count; i++) {
+					conceptMembersList.Add(GenerateIntConstant(sorted[i], i));
 				}
 			}
 
@@ -98,7 +97,7 @@ public sealed class ConceptsFromDataGenerator : IIncrementalGenerator {
 							AttributeArgumentList(SingletonSeparatedList(
 								AttributeArgument(
 									LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(c.Name))))))))))
-				.AddMembers(conceptMembers.ToArray());
+				.AddMembers(conceptMembersList.ToArray());
 
 			if (!string.IsNullOrEmpty(c.Description))
 				structDecl = structDecl.WithLeadingTrivia(TriviaList(Comment($"/// <summary>{c.Description}</summary>\n")));
@@ -152,7 +151,7 @@ public sealed class ConceptsFromDataGenerator : IIncrementalGenerator {
 				Argument(LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(displayName)))))));
 	}
 
-	private readonly record struct ConceptInfo(string Name, string Description);
+	private readonly record struct ConceptInfo(string Name, string Description, string Kind);
 
 	private static List<ConceptInfo> ParseConcepts(string json) {
 		var result = new List<ConceptInfo>();
@@ -160,11 +159,14 @@ public sealed class ConceptsFromDataGenerator : IIncrementalGenerator {
 		foreach (var prop in doc.RootElement.EnumerateObject()) {
 			if (prop.Value.ValueKind != JsonValueKind.Object) continue;
 			string desc = string.Empty;
+			string kind = string.Empty;
 			foreach (var p in prop.Value.EnumerateObject()) {
 				if (p.Name == DescriptionProp && p.Value.ValueKind == JsonValueKind.String)
 					desc = p.Value.GetString() ?? string.Empty;
+				if (p.Name == KindProp && p.Value.ValueKind == JsonValueKind.String)
+					kind = p.Value.GetString() ?? string.Empty;
 			}
-			result.Add(new ConceptInfo(prop.Name, desc));
+			result.Add(new ConceptInfo(prop.Name, desc, kind));
 		}
 		return result;
 	}

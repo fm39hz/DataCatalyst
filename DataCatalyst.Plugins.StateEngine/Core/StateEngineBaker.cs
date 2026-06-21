@@ -3,16 +3,16 @@ namespace DataCatalyst.Plugins.StateEngine.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using DataCatalyst.Core;
 using DataCatalyst.Extensions.Compare;
 using DataCatalyst.Extensions.Composition;
 using Models;
 
-/// <summary>Bakes string-based StateGroup data into a flat BakedStateGroup using incremental int IDs.</summary>
+/// <summary>Bakes string-based StateGroup data into a flat BakedStateGroup using int entry IDs from the catalog.</summary>
 public static class StateEngineBaker {
 
-	/// <summary>Bakes a StateGroup. State/sensor names are mapped to int IDs (0, 1, 2, ...).</summary>
-	public static BakedStateGroup Bake(StateGroup group) {
-		// Collect all state names and sensor signal names, assign incremental IDs
+	/// <summary>Bakes a StateGroup. Signal names are resolved to int entry IDs via the catalog.</summary>
+	public static BakedStateGroup Bake(StateGroup group, DataCatalog catalog) {
 		var stateNames = new HashSet<string>(group.States.Keys);
 		var sensorNames = new HashSet<string>();
 
@@ -31,17 +31,17 @@ public static class StateEngineBaker {
 		}
 
 		var stateNameList = stateNames.Where(s => !string.IsNullOrEmpty(s)).OrderBy(s => s).ToList();
-		var sensorNameList = sensorNames.OrderBy(s => s).ToList();
 
 		var stateIdMap = new Dictionary<string, int>();
 		for (int i = 0; i < stateNameList.Count; i++)
 			stateIdMap[stateNameList[i]] = i;
 
 		var sensorIdMap = new Dictionary<string, int>();
-		for (int i = 0; i < sensorNameList.Count; i++)
-			sensorIdMap[sensorNameList[i]] = i;
+		foreach (var name in sensorNames) {
+			var id = catalog.GetEntryId(name);
+			if (id >= 0) sensorIdMap[name] = id;
+		}
 
-		// Build default state ID
 		var defaultStateId = 0;
 		if (!string.IsNullOrEmpty(group.DefaultState) && stateIdMap.TryGetValue(group.DefaultState, out var defId))
 			defaultStateId = defId;

@@ -40,11 +40,19 @@ public sealed class GameConceptPlugin : ICatalogPlugin {
 	/// by grouping entries by their ConceptName field.
 	/// </summary>
 	public void OnCatalogResolved(DataCatalog catalog, List<string> diagnostics) {
-		// Group entries by their declared concept name
-		var conceptGroups = catalog.Entries.Values
-			.Where(e => !string.IsNullOrEmpty(e.ConceptName))
-			.GroupBy(e => e.ConceptName!, StringComparer.Ordinal)
-			.ToDictionary(g => g.Key, g => g.ToDictionary(e => e.Key, e => e));
+		var conceptGroups = new Dictionary<string, Dictionary<int, DataEntry>>();
+
+		foreach (var entry in catalog.Entries.Values) {
+			if (string.IsNullOrEmpty(entry.ConceptName)) continue;
+
+			if (!conceptGroups.TryGetValue(entry.ConceptName!, out var group)) {
+				group = new Dictionary<int, DataEntry>();
+				conceptGroups[entry.ConceptName!] = group;
+			}
+
+			var entryId = catalog.GetEntryId(entry.Key);
+			if (entryId >= 0) group[entryId] = entry;
+		}
 
 		foreach (var kv in ConceptRegistry.Default) {
 			var tagType = kv.Key;
@@ -54,17 +62,15 @@ public sealed class GameConceptPlugin : ICatalogPlugin {
 				continue;
 			}
 
-			var conceptCatalog = CreateConceptCatalog(tagType, entries);
+			var conceptCatalog = CreateConceptCatalog(tagType, entries, name);
 			if (conceptCatalog != null) {
 				_conceptCatalogs[tagType] = conceptCatalog;
 			}
 		}
 	}
 
-	private object? CreateConceptCatalog(Type tagType, Dictionary<string, DataEntry> entries) {
+	private static object? CreateConceptCatalog(Type tagType, Dictionary<int, DataEntry> entries, string conceptName) {
 		var catalogType = typeof(ConceptCatalog<>).MakeGenericType(tagType);
-		var conceptName = ConceptRegistry.Default.ResolveName(tagType);
-		if (conceptName == null) return null;
 
 		return Activator.CreateInstance(catalogType,
 			System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,

@@ -66,9 +66,9 @@ public class IntegrationTests : IDisposable {
 		var catalog = DataCatalogBuilder.Resolve(graph, env: _env);
 
 		// Assert
-		catalog.ContainsKey("Goblin").Should().BeTrue();
-		catalog.ContainsKey("BaseMonster").Should().BeTrue();
-		catalog.ContainsKey("BaseEntity").Should().BeTrue();
+		catalog.Entries.ContainsKey("Goblin").Should().BeTrue();
+		catalog.Entries.ContainsKey("BaseMonster").Should().BeTrue();
+		catalog.Entries.ContainsKey("BaseEntity").Should().BeTrue();
 
 		// Goblin should have merged components
 		var goblin = catalog.Entries["Goblin"];
@@ -164,8 +164,8 @@ public class IntegrationTests : IDisposable {
 		var catalog = DataCatalogBuilder.Resolve(graph, env: _env);
 
 		// Assert
-		catalog.ContainsKey("Goblin").Should().BeTrue();
-		catalog.Get<GameComponent>("Goblin").Value.Should().Be(1);
+		catalog.Entries.ContainsKey("Goblin").Should().BeTrue();
+		catalog.Entries["Goblin"].Get<GameComponent>().Value.Should().Be(1);
 	}
 }
 

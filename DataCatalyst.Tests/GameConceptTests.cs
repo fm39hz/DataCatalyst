@@ -113,13 +113,13 @@ public class GameConceptTests : IDisposable {
 
 	[Fact]
 	public void GameConceptPlugin_OnCatalogResolved_BuildsConceptCatalogs() {
-		// Arrange — entries declare concept via "concept" field
+		// Arrange — entries declare concept via "Concept" field
 		File.WriteAllText(Path.Combine(_tempDir, "Sword.json"), /*lang=json,strict*/ @"{
-			""concept"": ""Item"",
+			""Concept"": ""Item"",
 			""GameComponent"": { ""Value"": 100 }
 		}");
 		File.WriteAllText(Path.Combine(_tempDir, "Shield.json"), /*lang=json,strict*/ @"{
-			""concept"": ""Item"",
+			""Concept"": ""Item"",
 			""GameComponent"": { ""Value"": 50 }
 		}");
 
@@ -137,19 +137,19 @@ public class GameConceptTests : IDisposable {
 		// Assert
 		var items = plugin.GetConcept<TestItemConcept>();
 		items.Count.Should().Be(2);
-		items.ContainsKey("Sword").Should().BeTrue();
-		items.ContainsKey("Shield").Should().BeTrue();
+		items.ContainsKey(catalog.GetEntryId("Sword")).Should().BeTrue();
+		items.ContainsKey(catalog.GetEntryId("Shield")).Should().BeTrue();
 	}
 
 	[Fact]
 	public void GameConceptPlugin_OnCatalogResolved_HandlesMultipleConcepts() {
 		// Arrange
 		File.WriteAllText(Path.Combine(_tempDir, "Sword.json"), /*lang=json,strict*/ @"{
-			""concept"": ""Item"",
+			""Concept"": ""Item"",
 			""GameComponent"": { ""Value"": 100 }
 		}");
 		File.WriteAllText(Path.Combine(_tempDir, "Goblin.json"), /*lang=json,strict*/ @"{
-			""concept"": ""Enemy"",
+			""Concept"": ""Enemy"",
 			""GameComponent"": { ""Value"": 99 }
 		}");
 
@@ -172,7 +172,7 @@ public class GameConceptTests : IDisposable {
 
 	[Fact]
 	public void GameConceptPlugin_OnCatalogResolved_IgnoresEntriesWithoutConcept() {
-		// Arrange — entry without "concept" field
+		// Arrange — entry without "Concept" field
 		File.WriteAllText(Path.Combine(_tempDir, "Sword.json"), /*lang=json,strict*/ @"{
 			""GameComponent"": { ""Value"": 100 }
 		}");
