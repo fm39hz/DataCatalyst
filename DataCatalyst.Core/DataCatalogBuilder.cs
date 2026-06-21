@@ -42,12 +42,12 @@ public static class DataCatalogBuilder {
 		}
 
 		// Start with own components
-		var merged = new Dictionary<Type, object>(entry._components);
+			var merged = new Dictionary<Type, object>(entry.Components);
 
 		if (entry.Inherits != null) {
 			foreach (var parentKey in entry.Inherits) {
 				if (resolved.TryGetValue(parentKey, out var parentEntry)) {
-					CopyMissing(merged, parentEntry._components);
+					CopyMissing(merged, parentEntry.Components);
 				}
 				else if (graph.Entries.TryGetValue(parentKey, out var parentGraphEntry)) {
 					var parentMerged = CollectComponents(parentGraphEntry, graph, resolved, visiting);
@@ -61,7 +61,7 @@ public static class DataCatalogBuilder {
 		return merged;
 	}
 
-	private static void CopyMissing(Dictionary<Type, object> target, Dictionary<Type, object> source) {
+	private static void CopyMissing(Dictionary<Type, object> target, IReadOnlyDictionary<Type, object> source) {
 		foreach (var (type, val) in source) {
 			if (!target.ContainsKey(type)) {
 				target[type] = val;

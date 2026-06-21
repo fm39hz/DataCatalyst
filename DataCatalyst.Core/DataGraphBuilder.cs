@@ -40,7 +40,7 @@ public static class DataGraphBuilder {
 				else {
 					// Same layer — create new entry with merged components (immutable)
 					diag.Add($"Entry '{entry.Key}' from '{entry.SourceFile ?? "unknown"}' overrides/merges components of existing entry from '{existing.SourceFile ?? "unknown"}'.");
-					var merged = new Dictionary<Type, object>(existing._components);
+					var merged = new Dictionary<Type, object>(existing.Components);
 					foreach (var (type, val) in entry.Components) {
 						merged[type] = val;
 					}
