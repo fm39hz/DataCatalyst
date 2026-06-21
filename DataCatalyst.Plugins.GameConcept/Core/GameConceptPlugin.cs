@@ -140,7 +140,7 @@ public sealed class GameConceptPlugin : ICatalogPlugin {
 			null);
 
 		if (instance != null) {
-			var nameProp = catalogType.GetProperty("ConceptName");
+			var nameProp = catalogType.GetProperty(nameof(ConceptCatalog<int>.ConceptName));
 			if (nameProp != null && ConceptRegistry.Default.ResolveName(tagType) is { } conceptName) {
 				nameProp.SetValue(instance, conceptName);
 			}

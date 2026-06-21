@@ -95,8 +95,10 @@ public static class StateEngineBaker {
 		return bakedGroup;
 	}
 
+	private const string Dot = ".";
+
 	private static string ResolveStateId(string target, string familyId) =>
-		target.Contains(".") ? target : $"{familyId}.{target}";
+		target.Contains(Dot) ? target : $"{familyId}{Dot}{target}";
 
 	private static List<StateDefinition> CollectHierarchy(
 		string name,

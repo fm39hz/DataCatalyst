@@ -6,6 +6,8 @@ using System.Linq;
 
 /// <summary>Builds data graphs from entry collections with layer-aware merge and dependency tracking.</summary>
 public static class DataGraphBuilder {
+	private const string Unknown = "unknown";
+
 	/// <summary>Creates a graph from the given entries, merging components for duplicate keys.</summary>
 	public static DataGraph Build(IEnumerable<DataEntry> entries, List<string>? diagnostics = null, DataCatalystEnvironment? env = null) {
 		env ??= DataCatalystEnvironment.Default;
@@ -34,12 +36,12 @@ public static class DataGraphBuilder {
 			if (graph.Entries.TryGetValue(entry.Key, out var existing)) {
 				// Higher layer completely overrides lower layer entry
 				if (entry.Layer > existing.Layer) {
-					diag.Add($"Entry '{entry.Key}' (layer {entry.Layer}) replaces entry from layer {existing.Layer} ('{existing.SourceFile ?? "unknown"}').");
+					diag.Add($"Entry '{entry.Key}' (layer {entry.Layer}) replaces entry from layer {existing.Layer} ('{existing.SourceFile ?? Unknown}').");
 					graph.Entries[entry.Key] = entry;
 				}
 				else {
 					// Same layer — create new entry with merged components (immutable)
-					diag.Add($"Entry '{entry.Key}' from '{entry.SourceFile ?? "unknown"}' overrides/merges components of existing entry from '{existing.SourceFile ?? "unknown"}'.");
+					diag.Add($"Entry '{entry.Key}' from '{entry.SourceFile ?? Unknown}' overrides/merges components of existing entry from '{existing.SourceFile ?? Unknown}'.");
 					var merged = new Dictionary<Type, object>(existing.Components);
 					foreach (var (type, val) in entry.Components) {
 						merged[type] = val;

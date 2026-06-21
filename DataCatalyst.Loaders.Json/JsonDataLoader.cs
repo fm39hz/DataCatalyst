@@ -18,6 +18,9 @@ public sealed class LoadResult {
 
 /// <summary>Loads data entries from JSON files using component discriminators registered in PrimitiveRegistry.</summary>
 public static class JsonDataLoader {
+	private const string PropInherits = "inherits";
+	private const string JsonFilter = "*.json";
+
 	private static Type? ResolveComponent(string name, PrimitiveRegistry primitives) => primitives.TryResolveId(name, out var type) ? type : null;
 
 	/// <summary>Loads entries from all JSON files in a directory in an AOT-safe manner.</summary>
@@ -34,7 +37,7 @@ public static class JsonDataLoader {
 			return result;
 		}
 
-		var files = Directory.GetFiles(directory, "*.json", SearchOption.AllDirectories);
+		var files = Directory.GetFiles(directory, JsonFilter, SearchOption.AllDirectories);
 		Array.Sort(files, StringComparer.OrdinalIgnoreCase);
 
 		foreach (var file in files) {
@@ -46,7 +49,7 @@ public static class JsonDataLoader {
 				var key = MakeKey(directory, file);
 
 				List<string>? inherits = null;
-				if (root.TryGetProperty("inherits", out var inhEl) && inhEl.ValueKind == JsonValueKind.Array) {
+				if (root.TryGetProperty(PropInherits, out var inhEl) && inhEl.ValueKind == JsonValueKind.Array) {
 					inherits = [];
 					foreach (var item in inhEl.EnumerateArray()) {
 						inherits.Add(item.GetString() ?? "");
@@ -55,7 +58,7 @@ public static class JsonDataLoader {
 
 				var components = new Dictionary<Type, object>();
 				foreach (var prop in root.EnumerateObject()) {
-					if (prop.Name == "inherits") {
+					if (prop.Name == PropInherits) {
 						continue;
 					}
 
@@ -149,7 +152,7 @@ public static class JsonDataLoader {
 				}
 
 				List<string>? inherits = null;
-				if (element.TryGetProperty("inherits", out var inhEl) && inhEl.ValueKind == JsonValueKind.Array) {
+				if (element.TryGetProperty(PropInherits, out var inhEl) && inhEl.ValueKind == JsonValueKind.Array) {
 					inherits = [];
 					foreach (var item in inhEl.EnumerateArray()) {
 						inherits.Add(item.GetString() ?? "");
@@ -158,7 +161,7 @@ public static class JsonDataLoader {
 
 				var components = new Dictionary<Type, object>();
 				foreach (var prop in element.EnumerateObject()) {
-					if (prop.Name == "inherits" || prop.Name == keyField) {
+					if (prop.Name == PropInherits || prop.Name == keyField) {
 						continue;
 					}
 
