@@ -5,7 +5,6 @@ using System.Text;
 using DataCatalyst.Abstractions;
 using DataCatalyst.Core;
 using DataCatalyst.Plugins.GameConcept;
-using DataCatalyst.Plugins.StateEngine;
 using FluentAssertions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -26,7 +25,6 @@ public class SourceGenTests {
 			typeof(PluginRegistry).Assembly.Location,
 			typeof(DataConceptAttribute).Assembly.Location,
 			typeof(ConceptRegistry).Assembly.Location,
-			typeof(StateMachineGenerator).Assembly.Location,
 		};
 		// Add netstandard reference — needed by Roslyn compilation
 		try { list.Add(Assembly.Load("netstandard").Location); } catch { }
@@ -90,19 +88,6 @@ public class SourceGenTests {
 			new ConceptGenerator());
 
 		generated.Should().Contain("Register<global::Item>(\"Item\")");
-	}
-
-	[Fact]
-	public void StateMachineGenerator_GeneratesMappers() {
-		var generated = RunGenerator(
-			"using DataCatalyst.Plugins.GameConcept;\n" +
-			"[DataConcept(\"AIState\")] public enum AIState { Idle, Attack }",
-			new StateMachineGenerator());
-
-		generated.Should().Contain("AIStateStateMapper");
-		generated.Should().Contain("AIStateSensorMapper");
-		generated.Should().Contain("MapState");
-		generated.Should().Contain("MapSensor");
 	}
 
 	[Fact]

@@ -5,137 +5,95 @@ using System.Collections.Generic;
 using DataCatalyst.Extensions.Compare;
 using Models;
 
-/// <summary>Evaluates state transitions using pre-baked flat transition tables.</summary>
-public static class StateEngineEvaluator<TState, TSensor>
-	where TState : notnull
-	where TSensor : notnull {
+/// <summary>Evaluates state transitions using pre-baked flat transition tables with int state IDs.</summary>
+public static class StateEngineEvaluator {
 
 	/// <summary>Result of a state machine evaluation.</summary>
 	public readonly struct Result {
-		/// <summary>Resolved target state identifier.</summary>
-		public TState TargetStateId { get; }
+		/// <summary>Hash ID of the target state, or 0 if no transition found.</summary>
+		public int TargetStateId { get; }
 
 		/// <summary>Whether a valid transition was found.</summary>
 		public bool HasValue { get; }
 
-		public Result(TState targetStateId, bool hasValue) {
+		public Result(int targetStateId, bool hasValue) {
 			TargetStateId = targetStateId;
 			HasValue = hasValue;
 		}
 	}
 
-	/// <summary>
-	/// Evaluates transitions on a baked group and returns the best target state, with zero allocations.
-	/// The <paramref name="viableStates"/> set is read-only — reuse the same set across evaluations
-	/// (via Clear + Add) to minimize allocation.
-	/// </summary>
+	/// <summary>Evaluates transitions and returns the best target state ID.</summary>
 	public static Result Evaluate(
-		TState currentStateId,
-		BakedStateGroup<TState, TSensor> group,
-		HashSet<TState> viableStates,
-		Func<TSensor, float> readSensor) {
+		int currentStateId,
+		BakedStateGroup group,
+		HashSet<int> viableStates,
+		Func<int, float> readSensor) {
 
-		if (group == null) {
-			throw new ArgumentNullException(nameof(group));
-		}
-		if (viableStates == null) {
-			throw new ArgumentNullException(nameof(viableStates));
-		}
-		if (readSensor == null) {
-			throw new ArgumentNullException(nameof(readSensor));
-		}
+		if (group == null) throw new ArgumentNullException(nameof(group));
+		if (viableStates == null) throw new ArgumentNullException(nameof(viableStates));
+		if (readSensor == null) throw new ArgumentNullException(nameof(readSensor));
 
-		if (!group.States.TryGetValue(currentStateId, out var currentState)) {
-			return new Result(default!, false);
-		}
+		if (!group.States.TryGetValue(currentStateId, out var currentState))
+			return new Result(0, false);
 
-		var bestTarget = default(TState);
+		var bestTarget = 0;
 		var bestPriority = float.MinValue;
-		var hasBest = false;
 
 		var transitions = currentState.Transitions;
 		for (var i = 0; i < transitions.Length; i++) {
 			var t = transitions[i];
-			var target = t.TargetState;
 
-			if (!viableStates.Contains(target)) {
-				continue;
-			}
-
-			if (!PassConditions(t, currentStateId, target, readSensor)) {
-				continue;
-			}
+			if (!viableStates.Contains(t.TargetStateId)) continue;
+			if (!PassConditions(t, currentStateId, t.TargetStateId, readSensor)) continue;
 
 			var priority = t.BasePriority;
 			var influences = t.Influences;
 			for (var j = 0; j < influences.Length; j++) {
-				var inf = influences[j];
-				priority += readSensor(inf.Signal) * inf.Weight;
+				priority += readSensor(influences[j].SignalId) * influences[j].Weight;
 			}
 
 			if (priority > bestPriority) {
 				bestPriority = priority;
-				bestTarget = target;
-				hasBest = true;
+				bestTarget = t.TargetStateId;
 			}
 		}
 
-		return hasBest
-			? new Result(bestTarget!, true)
-			: new Result(default!, false);
+		return bestTarget != 0
+			? new Result(bestTarget, true)
+			: new Result(0, false);
 	}
 
 	private static bool PassConditions(
-		BakedTransition<TState, TSensor> t,
-		TState currentId,
-		TState targetId,
-		Func<TSensor, float> readSensor) {
+		BakedTransition t,
+		int currentId,
+		int targetId,
+		Func<int, float> readSensor) {
 
-		if (t.Conditions == null) {
-			return true;
-		}
-
+		if (t.Conditions == null) return true;
+		var atTarget = currentId == targetId;
 		var conds = t.Conditions;
-		var atTarget = EqualityComparer<TState>.Default.Equals(currentId, targetId);
 
 		var all = conds.All;
-		for (var i = 0; i < all.Length; i++) {
-			if (!EvalSensor(all[i], readSensor, atTarget)) {
-				return false;
-			}
-		}
+		for (var i = 0; i < all.Length; i++)
+			if (!EvalSensor(all[i], readSensor, atTarget)) return false;
 
 		var any = conds.Any;
 		if (any.Length > 0) {
 			var anyOk = false;
-			for (var i = 0; i < any.Length; i++) {
-				if (EvalSensor(any[i], readSensor, atTarget)) {
-					anyOk = true;
-					break;
-				}
-			}
-
-			if (!anyOk) {
-				return false;
-			}
+			for (var i = 0; i < any.Length; i++)
+				if (EvalSensor(any[i], readSensor, atTarget)) { anyOk = true; break; }
+			if (!anyOk) return false;
 		}
 
 		var none = conds.None;
-		for (var i = 0; i < none.Length; i++) {
-			if (EvalSensor(none[i], readSensor, atTarget)) {
-				return false;
-			}
-		}
+		for (var i = 0; i < none.Length; i++)
+			if (EvalSensor(none[i], readSensor, atTarget)) return false;
 
 		return true;
 	}
 
-	private static bool EvalSensor(
-		BakedSensorCondition<TSensor> c,
-		Func<TSensor, float> readSensor,
-		bool atTarget) {
-
-		var value = readSensor(c.Signal);
+	private static bool EvalSensor(BakedSensorCondition c, Func<int, float> readSensor, bool atTarget) {
+		var value = readSensor(c.SignalId);
 		var threshold = atTarget && c.ExitValue.HasValue ? c.ExitValue.Value : c.Value;
 		return OperatorParser.Evaluate(value, c.Op, threshold);
 	}

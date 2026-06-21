@@ -1,80 +1,69 @@
 namespace DataCatalyst.Plugins.StateEngine.Models;
 
 using System.Collections.Generic;
-using DataCatalyst.Extensions.Compare;
 
-/// <summary>Baked, high-performance representation of a state group for generic types.</summary>
-public sealed class BakedStateGroup<TState, TSensor>
-	where TState : notnull
-	where TSensor : notnull {
+/// <summary>Baked, data-driven state machine with int state/sensor IDs.</summary>
+public sealed class BakedStateGroup {
 
 	/// <summary>Unique identifier of the state group.</summary>
 	public string GroupId { get; init; } = string.Empty;
 
-	/// <summary>The default target state when no transition is selected.</summary>
-	public TState DefaultState { get; init; } = default!;
+	/// <summary>Hash ID of the default state.</summary>
+	public int DefaultStateId { get; init; }
 
-	private readonly Dictionary<TState, BakedState<TState, TSensor>> _states = [];
+	/// <summary>States mapped by hash ID.</summary>
+	public IReadOnlyDictionary<int, BakedState> States => MutableStates;
 
-	/// <summary>Dictionary of states mapped by their generic type.</summary>
-	public IReadOnlyDictionary<TState, BakedState<TState, TSensor>> States => _states;
-
-	internal Dictionary<TState, BakedState<TState, TSensor>> MutableStates => _states;
+	internal Dictionary<int, BakedState> MutableStates { get; } = [];
 }
 
 /// <summary>Baked representation of a single state and its pre-flattened transitions.</summary>
-public sealed class BakedState<TState, TSensor>
-	where TState : notnull
-	where TSensor : notnull {
+public sealed class BakedState {
 
-	/// <summary>Identifier of the state.</summary>
-	public TState StateId { get; init; } = default!;
+	/// <summary>Hash ID of the state.</summary>
+	public int StateId { get; init; }
 
-	/// <summary>Flat array of all transitions from this state (and its parents) sorted/ordered.</summary>
-	public BakedTransition<TState, TSensor>[] Transitions { get; init; } = [];
+	/// <summary>Flat array of all transitions from this state (and its parents).</summary>
+	public BakedTransition[] Transitions { get; init; } = [];
 }
 
-/// <summary>Baked transition definition with resolved priorities and typesafe keys.</summary>
-public sealed class BakedTransition<TState, TSensor>
-	where TState : notnull
-	where TSensor : notnull {
+/// <summary>Baked transition with resolved priorities and pre-parsed conditions.</summary>
+public sealed class BakedTransition {
 
-	/// <summary>Target state identifier.</summary>
-	public TState TargetState { get; init; } = default!;
+	/// <summary>Hash ID of the target state.</summary>
+	public int TargetStateId { get; init; }
 
-	/// <summary>Pre-calculated base priority (incorporating parent hierarchy and depth penalty).</summary>
+	/// <summary>Pre-calculated base priority.</summary>
 	public float BasePriority { get; init; }
 
 	/// <summary>Pre-parsed evaluation conditions.</summary>
-	public BakedConditionGroup<TSensor>? Conditions { get; init; }
+	public BakedConditionGroup? Conditions { get; init; }
 
 	/// <summary>Pre-resolved sensor influences affecting priority.</summary>
-	public BakedSensorInfluence<TSensor>[] Influences { get; init; } = [];
+	public BakedSensorInfluence[] Influences { get; init; } = [];
 }
 
 /// <summary>Baked condition group containing pre-resolved sensor conditions.</summary>
-public sealed class BakedConditionGroup<TSensor>
-	where TSensor : notnull {
+public sealed class BakedConditionGroup {
 
 	/// <summary>All conditions must pass (AND).</summary>
-	public BakedSensorCondition<TSensor>[] All { get; init; } = [];
+	public BakedSensorCondition[] All { get; init; } = [];
 
 	/// <summary>At least one condition must pass (OR).</summary>
-	public BakedSensorCondition<TSensor>[] Any { get; init; } = [];
+	public BakedSensorCondition[] Any { get; init; } = [];
 
 	/// <summary>No conditions must pass (NOT).</summary>
-	public BakedSensorCondition<TSensor>[] None { get; init; } = [];
+	public BakedSensorCondition[] None { get; init; } = [];
 }
 
-/// <summary>Baked, typesafe representation of a sensor condition.</summary>
-public sealed class BakedSensorCondition<TSensor>
-	where TSensor : notnull {
+/// <summary>Baked sensor condition with pre-parsed operator.</summary>
+public sealed class BakedSensorCondition {
 
-	/// <summary>The resolved typesafe sensor identifier.</summary>
-	public TSensor Signal { get; init; } = default!;
+	/// <summary>Hash ID of the sensor signal.</summary>
+	public int SignalId { get; init; }
 
 	/// <summary>The pre-parsed comparison operator.</summary>
-	public CompareOp Op { get; init; }
+	public Extensions.Compare.CompareOp Op { get; init; }
 
 	/// <summary>Threshold value for triggering.</summary>
 	public float Value { get; init; }
@@ -83,12 +72,11 @@ public sealed class BakedSensorCondition<TSensor>
 	public float? ExitValue { get; init; }
 }
 
-/// <summary>Baked, typesafe representation of a sensor influence.</summary>
-public sealed class BakedSensorInfluence<TSensor>
-	where TSensor : notnull {
+/// <summary>Baked sensor influence affecting priority.</summary>
+public sealed class BakedSensorInfluence {
 
-	/// <summary>The resolved typesafe sensor identifier.</summary>
-	public TSensor Signal { get; init; } = default!;
+	/// <summary>Hash ID of the sensor signal.</summary>
+	public int SignalId { get; init; }
 
 	/// <summary>Weight multiplier applied to sensor value.</summary>
 	public float Weight { get; init; }

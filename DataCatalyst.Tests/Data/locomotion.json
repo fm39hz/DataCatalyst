@@ -1,0 +1,27 @@
+{
+	"Locomotion": {
+		"Concept": "Locomotion",
+		"GroupId": "Locomotion",
+		"DefaultState": "Idle",
+		"States": {
+			"Idle": {
+				"Transitions": [
+					{
+						"TargetState": "Patrol",
+						"Priority": 5,
+						"Conditions": {
+							"All": [
+								{
+									"Signal": "Speed",
+									"Op": ">",
+									"Value": 0.1
+								}
+							]
+						}
+					}
+				]
+			},
+			"Patrol": {}
+		}
+	}
+}

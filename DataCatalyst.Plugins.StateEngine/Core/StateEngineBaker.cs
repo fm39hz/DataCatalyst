@@ -2,187 +2,143 @@ namespace DataCatalyst.Plugins.StateEngine.Core;
 
 using System;
 using System.Collections.Generic;
-using DataCatalyst.Core;
+using System.Linq;
 using DataCatalyst.Extensions.Compare;
 using DataCatalyst.Extensions.Composition;
 using Models;
 
-/// <summary>Helper to bake and flatten hierarchical StateGroups into high-performance generic structures.</summary>
+/// <summary>Bakes string-based StateGroup data into a flat BakedStateGroup using incremental int IDs.</summary>
 public static class StateEngineBaker {
-	/// <summary>Bakes a StateGroup using auto-registered mappers from MapperRegistry.Default.</summary>
-	public static BakedStateGroup<TState, TSensor> Bake<TState, TSensor>(StateGroup group)
-		where TState : notnull
-		where TSensor : notnull {
 
-		var stateMapper = MapperRegistry.Default.Get<Contracts.IStateMapper<TState>>()
-			?? throw new InvalidOperationException(
-				$"No IStateMapper<{typeof(TState).Name}> registered. " +
-				"Add [StateEnum] attribute to your enum type, or manually register.");
-		var sensorMapper = MapperRegistry.Default.Get<Contracts.ISensorMapper<TSensor>>()
-			?? throw new InvalidOperationException(
-				$"No ISensorMapper<{typeof(TSensor).Name}> registered. " +
-				"Add [SensorEnum] attribute to your enum type, or manually register.");
+	/// <summary>Bakes a StateGroup. State/sensor names are mapped to int IDs (0, 1, 2, ...).</summary>
+	public static BakedStateGroup Bake(StateGroup group) {
+		// Collect all state names and sensor signal names, assign incremental IDs
+		var stateNames = new HashSet<string>(group.States.Keys);
+		var sensorNames = new HashSet<string>();
 
-		return Bake(group, k => stateMapper.MapState(k, group.GroupId), sensorMapper.MapSensor);
-	}
-
-	/// <summary>Bakes a string-based StateGroup into a flat, typesafe BakedStateGroup.</summary>
-	public static BakedStateGroup<TState, TSensor> Bake<TState, TSensor>(
-		StateGroup group,
-		Func<string, TState> stateMapper,
-		Func<string, TSensor> sensorMapper)
-		where TState : notnull
-		where TSensor : notnull {
-
-		if (stateMapper == null) {
-			throw new ArgumentNullException(nameof(stateMapper));
-		}
-		if (sensorMapper == null) {
-			throw new ArgumentNullException(nameof(sensorMapper));
+		foreach (var stateDef in group.States.Values) {
+			if (!string.IsNullOrEmpty(stateDef.Parent)) stateNames.Add(stateDef.Parent);
+			if (stateDef.Transitions != null) {
+				foreach (var t in stateDef.Transitions) {
+					stateNames.Add(t.TargetState);
+					if (t.Conditions is { } conds) {
+						if (conds.All != null) foreach (var c in conds.All) sensorNames.Add(c.Signal);
+						if (conds.Any != null) foreach (var c in conds.Any) sensorNames.Add(c.Signal);
+						if (conds.None != null) foreach (var c in conds.None) sensorNames.Add(c.Signal);
+					}
+				}
+			}
 		}
 
-		var bakedGroup = new BakedStateGroup<TState, TSensor> {
+		var stateNameList = stateNames.Where(s => !string.IsNullOrEmpty(s)).OrderBy(s => s).ToList();
+		var sensorNameList = sensorNames.OrderBy(s => s).ToList();
+
+		var stateIdMap = new Dictionary<string, int>();
+		for (int i = 0; i < stateNameList.Count; i++)
+			stateIdMap[stateNameList[i]] = i;
+
+		var sensorIdMap = new Dictionary<string, int>();
+		for (int i = 0; i < sensorNameList.Count; i++)
+			sensorIdMap[sensorNameList[i]] = i;
+
+		// Build default state ID
+		var defaultStateId = 0;
+		if (!string.IsNullOrEmpty(group.DefaultState) && stateIdMap.TryGetValue(group.DefaultState, out var defId))
+			defaultStateId = defId;
+
+		var bakedGroup = new BakedStateGroup {
 			GroupId = group.GroupId,
-			DefaultState = !string.IsNullOrEmpty(group.DefaultState)
-				? stateMapper(ResolveStateId(group.DefaultState, group.GroupId))
-				: default!
+			DefaultStateId = defaultStateId,
 		};
 
 		foreach (var (stateKey, stateDef) in group.States) {
-			var stateId = stateMapper(ResolveStateId(stateKey, group.GroupId));
+			if (!stateIdMap.TryGetValue(stateKey, out var sId)) continue;
 
-			// Collect hierarchical states (from leaf to root)
 			var chain = CollectHierarchy(stateKey, group.States);
-
-			var bakedTransitionsList = new List<BakedTransition<TState, TSensor>>();
+			var bakedTransitionsList = new List<BakedTransition>();
 
 			for (var depth = 0; depth < chain.Count; depth++) {
 				var srcDef = chain[depth];
-				if (srcDef.Transitions == null) {
-					continue;
-				}
+				if (srcDef.Transitions == null) continue;
 
 				foreach (var t in srcDef.Transitions) {
-					var targetStr = ResolveStateId(t.TargetState, group.GroupId);
-					var targetState = stateMapper(targetStr);
+					if (!stateIdMap.TryGetValue(t.TargetState, out var targetId)) continue;
 
 					var basePriority = (float)(group.PriorityTier * group.TierScale) + t.Priority - (depth * group.DepthPenalty);
 
-					var bakedConditions = BakeConditions(t.Conditions, sensorMapper);
-					var bakedInfluences = BakeInfluences(t.Influences, sensorMapper);
-
-					var bakedTransition = new BakedTransition<TState, TSensor> {
-						TargetState = targetState,
+					bakedTransitionsList.Add(new BakedTransition {
+						TargetStateId = targetId,
 						BasePriority = basePriority,
-						Conditions = bakedConditions,
-						Influences = bakedInfluences
-					};
-
-					bakedTransitionsList.Add(bakedTransition);
+						Conditions = BakeConditions(t.Conditions, sensorIdMap),
+						Influences = BakeInfluences(t.Influences, sensorIdMap),
+					});
 				}
 			}
 
 			bakedTransitionsList.Sort(static (a, b) => b.BasePriority.CompareTo(a.BasePriority));
 
-			var bakedState = new BakedState<TState, TSensor> {
-				StateId = stateId,
+			bakedGroup.MutableStates[sId] = new BakedState {
+				StateId = sId,
 				Transitions = [.. bakedTransitionsList]
 			};
-
-			bakedGroup.MutableStates[stateId] = bakedState;
 		}
 
 		return bakedGroup;
 	}
 
-	private const string Dot = ".";
-
-	private static string ResolveStateId(string target, string familyId) =>
-		target.Contains(Dot) ? target : $"{familyId}{Dot}{target}";
-
 	private static List<StateDefinition> CollectHierarchy(
-		string name,
-		Dictionary<string, StateDefinition> allStates) {
+		string name, Dictionary<string, StateDefinition> allStates) {
 		var result = new List<StateDefinition>();
 		var visited = new HashSet<string>();
 		var current = (string?)name;
 		while (current != null) {
-			if (!allStates.TryGetValue(current, out var def)) {
-				throw new KeyNotFoundException(
-					$"State hierarchy: '{current}' (ancestor of '{name}') not found in state group.");
-			}
-
-			if (!visited.Add(current)) {
-				throw new InvalidOperationException(
-					$"Cycle detected in state hierarchy: '{current}' appears more than once.");
-			}
-
+			if (!allStates.TryGetValue(current, out var def))
+				throw new KeyNotFoundException($"State hierarchy: '{current}' (ancestor of '{name}') not found.");
+			if (!visited.Add(current))
+				throw new InvalidOperationException($"Cycle detected in state hierarchy: '{current}' appears more than once.");
 			result.Add(def);
 			current = def.Parent;
 		}
-
 		return result;
 	}
 
-	private static BakedConditionGroup<TSensor>? BakeConditions<TSensor>(
-		ConditionGroupDef? conds,
-		Func<string, TSensor> sensorMapper)
-		where TSensor : notnull {
-		if (conds is null) {
-			return null;
-		}
-
+	private static BakedConditionGroup? BakeConditions(ConditionGroupDef? conds, Dictionary<string, int> sensorIdMap) {
+		if (conds is null) return null;
 		var c = conds.Value;
-		var all = BakeSensorConditions(c.All, sensorMapper);
-		var any = BakeSensorConditions(c.Any, sensorMapper);
-		var none = BakeSensorConditions(c.None, sensorMapper);
-
-		return new BakedConditionGroup<TSensor> {
-			All = all,
-			Any = any,
-			None = none
+		return new BakedConditionGroup {
+			All = BakeSensorConditions(c.All, sensorIdMap),
+			Any = BakeSensorConditions(c.Any, sensorIdMap),
+			None = BakeSensorConditions(c.None, sensorIdMap),
 		};
 	}
 
-	private static BakedSensorCondition<TSensor>[] BakeSensorConditions<TSensor>(
-		List<SensorConditionDef>? conditions,
-		Func<string, TSensor> sensorMapper)
-		where TSensor : notnull {
-		if (conditions == null) {
-			return [];
-		}
-
-		var result = new BakedSensorCondition<TSensor>[conditions.Count];
+	private static BakedSensorCondition[] BakeSensorConditions(List<SensorConditionDef>? conditions, Dictionary<string, int> sensorIdMap) {
+		if (conditions == null) return [];
+		var result = new BakedSensorCondition[conditions.Count];
 		for (var i = 0; i < conditions.Count; i++) {
 			var c = conditions[i];
-			result[i] = new BakedSensorCondition<TSensor> {
-				Signal = sensorMapper(c.Signal),
+			sensorIdMap.TryGetValue(c.Signal, out var signalId);
+			result[i] = new BakedSensorCondition {
+				SignalId = signalId,
 				Op = OperatorParser.Parse(c.Op),
 				Value = c.Value,
-				ExitValue = c.ExitValue
+				ExitValue = c.ExitValue,
 			};
 		}
-
 		return result;
 	}
 
-	private static BakedSensorInfluence<TSensor>[] BakeInfluences<TSensor>(
-		List<SensorInfluenceDef>? influences,
-		Func<string, TSensor> sensorMapper)
-		where TSensor : notnull {
-		if (influences == null) {
-			return [];
-		}
-
-		var result = new BakedSensorInfluence<TSensor>[influences.Count];
+	private static BakedSensorInfluence[] BakeInfluences(List<SensorInfluenceDef>? influences, Dictionary<string, int> sensorIdMap) {
+		if (influences == null) return [];
+		var result = new BakedSensorInfluence[influences.Count];
 		for (var i = 0; i < influences.Count; i++) {
 			var inf = influences[i];
-			result[i] = new BakedSensorInfluence<TSensor> {
-				Signal = sensorMapper(inf.Signal),
-				Weight = inf.Weight
+			sensorIdMap.TryGetValue(inf.Signal, out var signalId);
+			result[i] = new BakedSensorInfluence {
+				SignalId = signalId,
+				Weight = inf.Weight,
 			};
 		}
-
 		return result;
 	}
 }
