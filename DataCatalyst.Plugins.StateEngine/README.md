@@ -7,7 +7,7 @@ Provides pure infrastructure containing `[DataComponent]` models and a static ev
 ## 🔄 Pipeline Flow
 
 ```
-DataCatalog ──> catalog.Get<StateGroup>("GuardAI")
+DataCatalog --> catalog.Get<StateGroup>("GuardAI")
                  ↳ StateEngineEvaluator.Evaluate()
                      ↳ Result (TargetStateId or nothing)
 ```

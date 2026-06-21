@@ -8,9 +8,9 @@ DataCatalyst resolves compositions mechanically through a multi-stage pipeline:
 
 ```
 JSON files
-  ↳ JsonDataLoader.LoadDirectory() ──> LoadResult (entries + diagnostics)
-      ↳ DataGraphBuilder.Build() ──> DataGraph (unresolved map, merges mod patches)
-          ↳ DataCatalogBuilder.Resolve() ──> DataCatalog (resolved, flattened, immutable)
+  ↳ JsonDataLoader.LoadDirectory() --> LoadResult (entries + diagnostics)
+      ↳ DataGraphBuilder.Build() --> DataGraph (unresolved map, merges mod patches)
+          ↳ DataCatalogBuilder.Resolve() --> DataCatalog (resolved, flattened, immutable)
 ```
 
 During resolution, the engine processes:
