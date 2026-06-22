@@ -4,7 +4,7 @@ using System.Reflection;
 using System.Text;
 using DataCatalyst.Abstractions;
 using DataCatalyst.Core;
-using DataCatalyst.Plugins.GameConcept;
+using DataCatalyst.Core;
 using FluentAssertions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -102,7 +102,7 @@ public class SourceGenTests {
 
 		generated.Should().Contain("public static partial class Concept");
 		generated.Should().Contain("public readonly partial struct Weapon");
-		generated.Should().Contain("[DataConcept(\"Weapon\")]");
+		generated.Should().Contain("[DataCatalyst.Core.DataConcept(\"Weapon\")]");
 	}
 }
 

@@ -4,7 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using DataCatalyst.Core;
 using DataCatalyst.Loaders;
-using DataCatalyst.Plugins.GameConcept;
+using DataCatalyst.Core;
 using CoreConcept = DataCatalyst.Core.Concept;
 using FluentAssertions;
 using Xunit;

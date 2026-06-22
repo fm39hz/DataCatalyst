@@ -1,4 +1,4 @@
-namespace DataCatalyst.Plugins.GameConcept;
+namespace DataCatalyst.Core;
 
 using System;
 using DataCatalyst.Core;

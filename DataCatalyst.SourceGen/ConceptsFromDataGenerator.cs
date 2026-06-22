@@ -1,4 +1,4 @@
-namespace DataCatalyst.Plugins.GameConcept;
+namespace DataCatalyst;
 
 using System;
 using System.Collections.Generic;
@@ -93,7 +93,7 @@ public sealed class ConceptsFromDataGenerator : IIncrementalGenerator {
 				.WithAttributeLists(SingletonList(
 					AttributeList(SingletonSeparatedList(
 						Attribute(
-							ParseName("DataConcept"),
+							ParseName("DataCatalyst.Core.DataConcept"),
 							AttributeArgumentList(SingletonSeparatedList(
 								AttributeArgument(
 									LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(c.Name))))))))))
