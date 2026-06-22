@@ -113,14 +113,13 @@ public sealed class DataCatalog {
     public T Get<T>(int entryId) where T : struct;
     public bool TryGet<T>(int entryId, out T value) where T : struct;
     public bool ContainsKey(int entryId);
-    internal int GetEntryId(string key);
 }
 ```
 
-Two access paths:
-
-- String key: `catalog.Entries["Goblin"].Get<Health>()`
-- Int key (fast path): `catalog.Get<Health>(Concept.Enemy.Goblin)`
+```csharp
+catalog.Get<Health>(Concept.Enemy.Goblin).Current
+catalog.TryGet<Element>(Concept.Enemy.FireDragon, out var e)
+```
 
 ### Pipeline
 
