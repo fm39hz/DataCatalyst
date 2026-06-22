@@ -70,9 +70,9 @@ public sealed class ConceptsFromDataGenerator : IIncrementalGenerator {
 			var conceptName = conceptEl.GetString();
 			if (string.IsNullOrEmpty(conceptName)) continue;
 
-			if (!conceptMembers.TryGetValue(conceptName, out var list)) {
+			if (!conceptMembers.TryGetValue(conceptName!, out var list)) {
 				list = new List<string>();
-				conceptMembers[conceptName] = list;
+				conceptMembers[conceptName!] = list;
 			}
 			list.Add(prop.Name);
 		}

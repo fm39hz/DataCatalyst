@@ -81,7 +81,7 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 			if (TryGetConceptProperty(doc.RootElement, out var rootConcept)) {
 				allEntryKeys.Add(defaultEntryName);
 				if (!string.IsNullOrEmpty(rootConcept))
-					entryConcepts[defaultEntryName] = rootConcept;
+					entryConcepts[defaultEntryName] = rootConcept!;
 
 				foreach (var prop in doc.RootElement.EnumerateObject()) {
 						if (IsWellKnown(prop.Name)) continue;
@@ -116,7 +116,7 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 					allEntryKeys.Add(entryName);
 
 					if (TryGetConceptProperty(prop.Value, out var concept))
-						entryConcepts[entryName] = concept;
+						entryConcepts[entryName] = concept!;
 
 					foreach (var innerProp in prop.Value.EnumerateObject()) {
 							if (IsWellKnown(innerProp.Name)) continue;
