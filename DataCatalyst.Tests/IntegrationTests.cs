@@ -38,6 +38,7 @@ public class IntegrationTests : IDisposable {
 
 		// Write BaseEntity.json
 		File.WriteAllText(Path.Combine(_tempDir, "BaseEntity.json"), /*lang=json,strict*/ @"{
+			""Concept"": ""Test"",
 			""GameComponent"": {
 				""Value"": 10
 			}
@@ -45,6 +46,7 @@ public class IntegrationTests : IDisposable {
 
 		// Write BaseMonster.json inheriting BaseEntity
 		File.WriteAllText(Path.Combine(_tempDir, "BaseMonster.json"), /*lang=json,strict*/ @"{
+			""Concept"": ""Test"",
 			""inherits"": [ ""BaseEntity"" ],
 			""OtherStruct"": {
 				""Y"": 20
@@ -53,6 +55,7 @@ public class IntegrationTests : IDisposable {
 
 		// Write Goblin.json inheriting BaseMonster and overriding GameComponent
 		File.WriteAllText(Path.Combine(_tempDir, "Goblin.json"), /*lang=json,strict*/ @"{
+			""Concept"": ""Test"",
 			""inherits"": [ ""BaseMonster"" ],
 			""GameComponent"": {
 				""Value"": 99
@@ -84,10 +87,12 @@ public class IntegrationTests : IDisposable {
 		_env.Primitives.Register<Inherits>();
 
 		File.WriteAllText(Path.Combine(_tempDir, "LoopA.json"), /*lang=json,strict*/ @"{
+			""Concept"": ""Test"",
 			""inherits"": [ ""LoopB"" ]
 		}");
 
 		File.WriteAllText(Path.Combine(_tempDir, "LoopB.json"), /*lang=json,strict*/ @"{
+			""Concept"": ""Test"",
 			""inherits"": [ ""LoopA"" ]
 		}");
 
@@ -108,6 +113,7 @@ public class IntegrationTests : IDisposable {
 		_env.Primitives.Register<Inherits>();
 
 		File.WriteAllText(Path.Combine(_tempDir, "SelfLoop.json"), /*lang=json,strict*/ @"{
+			""Concept"": ""Test"",
 			""inherits"": [ ""SelfLoop"" ]
 		}");
 
@@ -129,14 +135,17 @@ public class IntegrationTests : IDisposable {
 
 		// A -> B -> C -> B (Nested loop starting at B)
 		File.WriteAllText(Path.Combine(_tempDir, "LoopA.json"), /*lang=json,strict*/ @"{
+			""Concept"": ""Test"",
 			""inherits"": [ ""LoopB"" ]
 		}");
 
 		File.WriteAllText(Path.Combine(_tempDir, "LoopB.json"), /*lang=json,strict*/ @"{
+			""Concept"": ""Test"",
 			""inherits"": [ ""LoopC"" ]
 		}");
 
 		File.WriteAllText(Path.Combine(_tempDir, "LoopC.json"), /*lang=json,strict*/ @"{
+			""Concept"": ""Test"",
 			""inherits"": [ ""LoopB"" ]
 		}");
 
@@ -157,6 +166,7 @@ public class IntegrationTests : IDisposable {
 		_env.Primitives.Register<Inherits>();
 
 		File.WriteAllText(Path.Combine(_tempDir, "Goblin.json"), /*lang=json,strict*/ @"{
+			""Concept"": ""Test"",
 			""inherits"": [ ""NonExistentParent"" ],
 			""GameComponent"": {
 				""Value"": 1

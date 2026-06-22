@@ -54,6 +54,7 @@ using DataCatalyst.Abstractions;
 			_env.Primitives.Register<GameComponent>();
 			var jsonPath = Path.Combine(_tempDir, "hero.json");
 			File.WriteAllText(jsonPath, /*lang=json,strict*/ @"{
+			""Concept"": ""Test"",
 			""GameComponent"": {
 				""Value"": 123
 			}
@@ -79,6 +80,7 @@ using DataCatalyst.Abstractions;
 
 			var jsonPath = Path.Combine(_tempDir, "hero.json");
 			File.WriteAllText(jsonPath, /*lang=json,strict*/ @"{
+			""Concept"": ""Test"",
 			""GameComponent"": {
 				""Value"": 456
 			}
@@ -158,6 +160,7 @@ using DataCatalyst.Abstractions;
 
 			var jsonPath = Path.Combine(_tempDir, "hero.json");
 			File.WriteAllText(jsonPath, /*lang=json,strict*/ @"{
+			""Concept"": ""Test"",
 			""GameComponent"": {
 				""Value"": 123
 			}

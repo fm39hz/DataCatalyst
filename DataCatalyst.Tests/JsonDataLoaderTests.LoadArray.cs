@@ -41,12 +41,14 @@ public class JsonDataLoaderLoadArrayTests : IDisposable {
 			File.WriteAllText(filePath, /*lang=json,strict*/ @"[
 				{
 					""id"": ""H2O"",
+					""Concept"": ""Substance"",
 					""GameComponent"": {
 						""Value"": 18
 					}
 				},
 				{
 					""id"": ""O2"",
+					""Concept"": ""Substance"",
 					""inherits"": [""H2O""],
 					""GameComponent"": {
 						""Value"": 32
@@ -80,6 +82,7 @@ public class JsonDataLoaderLoadArrayTests : IDisposable {
 		File.WriteAllText(filePath, /*lang=json,strict*/ @"[
 			{
 				""id"": ""CO2"",
+				""Concept"": ""Substance"",
 				""GameComponent"": {
 					""Value"": 44
 				}

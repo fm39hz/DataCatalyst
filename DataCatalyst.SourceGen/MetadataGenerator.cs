@@ -44,7 +44,7 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 			EmitComponentStructs(spc, components);
 			EmitRegistrations(spc, components, entryConcepts);
 			EmitMerge(spc, components);
-			EmitConceptAndKeyConstants(spc, entryConcepts, allEntryKeys);
+			EmitEntryConstants(spc, entryConcepts, allEntryKeys);
 		});
 	}
 
@@ -227,11 +227,9 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 			SourceText.From(cu.ToFullString(), Encoding.UTF8));
 	}
 
-	private static void EmitConceptAndKeyConstants(SourceProductionContext spc,
+	private static void EmitEntryConstants(SourceProductionContext spc,
 		Dictionary<string, string> entryConcepts,
 		List<string> allEntryKeys) {
-
-		var members = new List<MemberDeclarationSyntax>();
 
 		var conceptGroups = new Dictionary<string, List<string>>();
 		foreach (var kv in entryConcepts) {
@@ -255,58 +253,18 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 		if (unassigned.Count > 0)
 			conceptGroups["Default"] = unassigned;
 
-		if (conceptGroups.Count > 0) {
-			var conceptMembers = new List<MemberDeclarationSyntax>();
-			foreach (var kv in conceptGroups.OrderBy(c => c.Key)) {
-				var sortedEntries = kv.Value.OrderBy(n => n).ToList();
-				var fields = new List<MemberDeclarationSyntax>();
-				for (int i = 0; i < sortedEntries.Count; i++) {
-					fields.Add(
-						FieldDeclaration(
-							VariableDeclaration(PredefinedType(Token(SyntaxKind.IntKeyword)))
-								.WithVariables(SingletonSeparatedList(
-									VariableDeclarator(Identifier(sortedEntries[i]))
-										.WithInitializer(EqualsValueClause(
-											LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(i)))))))
-							.WithModifiers(TokenList(
-								Token(SyntaxKind.PublicKeyword),
-								Token(SyntaxKind.ConstKeyword))));
-				}
+		if (conceptGroups.Count == 0) return;
 
-				var attrValue = kv.Key == "Default" ? "" : kv.Key;
-				conceptMembers.Add(
-					StructDeclaration(kv.Key)
-						.WithModifiers(TokenList(
-							Token(SyntaxKind.PublicKeyword),
-							Token(SyntaxKind.ReadOnlyKeyword),
-							Token(SyntaxKind.PartialKeyword)))
-						.WithAttributeLists(SingletonList(
-							AttributeList(SingletonSeparatedList(
-								Attribute(ParseName("DataConcept"),
-									AttributeArgumentList(SingletonSeparatedList(
-										AttributeArgument(
-											LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(attrValue))))))))))
-						.AddMembers(fields.ToArray()));
-			}
-
-			members.Add(
-				ClassDeclaration("Concept")
-					.WithModifiers(TokenList(
-						Token(SyntaxKind.PublicKeyword),
-						Token(SyntaxKind.StaticKeyword),
-						Token(SyntaxKind.PartialKeyword)))
-					.AddMembers(conceptMembers.ToArray()));
-		}
-
-		var sortedKeys = allEntryKeys.OrderBy(n => n).ToList();
-		if (sortedKeys.Count > 0) {
-			var keyFields = new List<MemberDeclarationSyntax>();
-			for (int i = 0; i < sortedKeys.Count; i++) {
-				keyFields.Add(
+		var conceptMembers = new List<MemberDeclarationSyntax>();
+		foreach (var kv in conceptGroups.OrderBy(c => c.Key)) {
+			var sortedEntries = kv.Value.OrderBy(n => n).ToList();
+			var fields = new List<MemberDeclarationSyntax>();
+			for (int i = 0; i < sortedEntries.Count; i++) {
+				fields.Add(
 					FieldDeclaration(
 						VariableDeclaration(PredefinedType(Token(SyntaxKind.IntKeyword)))
 							.WithVariables(SingletonSeparatedList(
-								VariableDeclarator(Identifier(sortedKeys[i]))
+								VariableDeclarator(Identifier(sortedEntries[i]))
 									.WithInitializer(EqualsValueClause(
 										LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(i)))))))
 						.WithModifiers(TokenList(
@@ -314,15 +272,30 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 							Token(SyntaxKind.ConstKeyword))));
 			}
 
-			members.Add(
-				ClassDeclaration("Keys")
+			var attrValue = kv.Key == "Default" ? "" : kv.Key;
+			conceptMembers.Add(
+				StructDeclaration(kv.Key)
 					.WithModifiers(TokenList(
 						Token(SyntaxKind.PublicKeyword),
-						Token(SyntaxKind.StaticKeyword)))
-					.AddMembers(keyFields.ToArray()));
+						Token(SyntaxKind.ReadOnlyKeyword),
+						Token(SyntaxKind.PartialKeyword)))
+					.WithAttributeLists(SingletonList(
+						AttributeList(SingletonSeparatedList(
+							Attribute(ParseName("DataConcept"),
+								AttributeArgumentList(SingletonSeparatedList(
+									AttributeArgument(
+										LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(attrValue))))))))))
+					.AddMembers(fields.ToArray()));
 		}
 
-		if (members.Count == 0) return;
+		var members = new List<MemberDeclarationSyntax>();
+			members.Add(
+				ClassDeclaration("Concept")
+					.WithModifiers(TokenList(
+						Token(SyntaxKind.PublicKeyword),
+						Token(SyntaxKind.StaticKeyword),
+						Token(SyntaxKind.PartialKeyword)))
+					.AddMembers(conceptMembers.ToArray()));
 
 		var cu = CompilationUnit()
 			.WithLeadingTrivia(Comment("// <auto-generated/>\n#nullable enable"))

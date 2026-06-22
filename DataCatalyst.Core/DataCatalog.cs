@@ -14,7 +14,7 @@ public sealed class DataCatalog {
 	internal DataCatalog(Dictionary<string, DataEntry> entries) {
 		_entries = entries;
 
-		// Build int-indexed list sorted alphabetically (matching EntryKeysGenerator order)
+		// Build int-indexed list sorted alphabetically (matching source-gen entry order)
 		var sorted = entries.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList();
 		_keyToId = new Dictionary<string, int>(sorted.Count, StringComparer.Ordinal);
 		_byId = new List<DataEntry?>(sorted.Count);

@@ -20,6 +20,18 @@ public static class JsonDataLoader {
 	private const string JsonFilter = "*.json";
 	private static Type? ResolveComponent(string name, PrimitiveRegistry primitives) => primitives.TryResolveId(name, out var type) ? type : null;
 
+	private static bool IsConceptProperty(string name) =>
+		string.Equals(name, "Concept", StringComparison.Ordinal) ||
+		string.Equals(name, "concept", StringComparison.Ordinal);
+
+	private static string? TryGetConceptValue(JsonElement root) {
+		if (root.TryGetProperty("Concept", out var val) && val.ValueKind == JsonValueKind.String)
+			return val.GetString();
+		if (root.TryGetProperty("concept", out val) && val.ValueKind == JsonValueKind.String)
+			return val.GetString();
+		return null;
+	}
+
 	public static LoadResult LoadDirectory(string directory, JsonSerializerOptions options, DataCatalystEnvironment? env = null) {
 		env ??= DataCatalystEnvironment.Default;
 		var result = new LoadResult();
@@ -84,8 +96,15 @@ public static class JsonDataLoader {
 				var primitives = env.Primitives;
 				var components = new Dictionary<Type, object>();
 
+				// Handle Concept as a well-known built-in field
+				var conceptName = TryGetConceptValue(root);
+				if (conceptName != null) {
+					components[typeof(Concept)] = new Concept { Value = new[] { conceptName } };
+				}
+
 				foreach (var prop in root.EnumerateObject()) {
 					if (prop.Name == keyField) continue;
+					if (IsConceptProperty(prop.Name)) continue;
 
 					var compType = ResolveComponent(prop.Name, primitives);
 					if (compType == null) {
@@ -98,11 +117,9 @@ public static class JsonDataLoader {
 					if (prop.Value.ValueKind == JsonValueKind.Object) {
 						deserialized = JsonSerializer.Deserialize(prop.Value.GetRawText(), compType, options)!;
 					} else if (prop.Value.ValueKind == JsonValueKind.String) {
-						// Wrap single string as array for string[]-valued components (like Concept)
 						var wrapped = $"{{\"Value\":[\"{prop.Value.GetString()}\"]}}";
 						deserialized = JsonSerializer.Deserialize(wrapped, compType, options)!;
 						if (deserialized == null) {
-							// Fallback: single value
 							wrapped = $"{{\"Value\":\"{prop.Value.GetString()}\"}}";
 							deserialized = JsonSerializer.Deserialize(wrapped, compType, options)!;
 						}
@@ -111,6 +128,12 @@ public static class JsonDataLoader {
 						deserialized = JsonSerializer.Deserialize(wrapped, compType, options)!;
 					}
 					if (deserialized != null) components[compType] = deserialized;
+				}
+
+				if (!components.ContainsKey(typeof(Concept))) {
+					diagnostics ??= new List<string>();
+					diagnostics.Add($"Entry '{key}' has no Concept field — assigned to 'Core' concept.");
+					components[typeof(Concept)] = new Concept { Value = new[] { "Core" } };
 				}
 
 				entry = new DataEntry(key, components);
