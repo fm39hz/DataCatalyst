@@ -36,11 +36,11 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 			.Where(static t => !string.IsNullOrEmpty(t.Text) && t.FileName != "concepts")
 			.Collect();
 
-		var config = ConfigHelper.GetConfig(context);
-		var combined = jsonFiles.Combine(config);
+		var configs = ConfigHelper.GetConfigs(context);
+		var combined = jsonFiles.Combine(configs);
 
 		context.RegisterSourceOutput(combined, static (spc, data) => {
-			var (files, cfg) = data;
+			var (files, configs) = data;
 			var components = new Dictionary<string, List<KeyValuePair<string, string>>>();
 			var processed = new HashSet<string>();
 			var entryConcepts = new Dictionary<string, string>();
@@ -54,7 +54,15 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 
 			if (components.Count == 0) return;
 
-			EmitComponentStructs(spc, components, cfg);
+			SourceConfig matchedConfig = new("", "DataCatalyst.Generated", new List<string>());
+			foreach (var file in files) {
+				if (!string.Equals(file.FileName, "datacatalyst", StringComparison.OrdinalIgnoreCase)) {
+					var m = MatchConfig(file.Dir, configs);
+					if (m != null) { matchedConfig = m; break; }
+				}
+			}
+
+			EmitComponentStructs(spc, components, matchedConfig);
 			EmitRegistrations(spc, components, entryConcepts);
 			EmitMerge(spc, components);
 			EmitEntryConstants(spc, entryConcepts, allEntryKeys);
@@ -206,11 +214,18 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 		}
 	}
 
+	private static SourceConfig? MatchConfig(string filePath, ImmutableArray<SourceConfig> configs) {
+		foreach (var c in configs)
+			if (!string.IsNullOrEmpty(c.SourcePath) && filePath.Contains(c.SourcePath))
+				return c;
+		return null;
+	}
+
 	private static void EmitComponentStructs(SourceProductionContext spc,
 		Dictionary<string, List<KeyValuePair<string, string>>> components,
-		AssemblyConfig config) {
+		SourceConfig config) {
 
-		var ns = config.Namespace;
+		var ns = string.IsNullOrEmpty(config.Namespace) ? "DataCatalyst.Generated" : config.Namespace;
 
 		var members = new List<MemberDeclarationSyntax>();
 		foreach (var kv in components.OrderBy(c => c.Key)) {

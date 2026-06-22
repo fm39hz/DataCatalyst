@@ -36,13 +36,14 @@ public sealed class PluginGenerator : IIncrementalGenerator {
 			.Select(static (p, _) => p!.Value)
 			.Collect();
 
-		var config = ConfigHelper.GetConfig(context);
-		var combined = plugins.Combine(config);
+		var configs = ConfigHelper.GetConfigs(context);
+		var combined = plugins.Combine(configs);
 
 		context.RegisterSourceOutput(combined,
 			static (spc, data) => {
-				var (pl, cfg) = data;
+				var (pl, configs) = data;
 				if (pl.Length == 0) return;
+				var cfg = configs.Length > 0 ? configs[0] : new SourceConfig("", "DataCatalyst.Generated", new List<string>());
 				Emit(spc, pl, cfg);
 			});
 	}
@@ -52,7 +53,7 @@ public sealed class PluginGenerator : IIncrementalGenerator {
 	}
 
 	private static void Emit(SourceProductionContext spc, ImmutableArray<PluginInfo> allPlugins,
-		AssemblyConfig config) {
+		SourceConfig config) {
 		var initBody = new List<StatementSyntax>();
 		var regBody = new List<StatementSyntax>();
 

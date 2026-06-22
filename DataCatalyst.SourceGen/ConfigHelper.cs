@@ -1,47 +1,46 @@
 namespace DataCatalyst;
 
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 
-/// <summary>Shared config helper — reads [DataCatalystConfig] assembly attribute once.</summary>
+/// <summary>Shared config helper — reads [DataCatalystConfig] assembly attributes.</summary>
 public static class ConfigHelper {
 	private const string AttrName = "DataCatalyst.Abstractions.DataCatalystConfigAttribute";
 
-	/// <summary>Returns a pipeline that extracts config from [DataCatalystConfig] attribute.</summary>
-	public static IncrementalValueProvider<AssemblyConfig> GetConfig(
+	public static IncrementalValueProvider<ImmutableArray<SourceConfig>> GetConfigs(
 		IncrementalGeneratorInitializationContext context) {
 
 		return context.SyntaxProvider.ForAttributeWithMetadataName(
 			AttrName,
 			static (node, _) => true,
 			static (ctx, _) => {
+				var path = "";
 				var ns = "DataCatalyst.Generated";
 				var attrs = new List<string>();
 
 				foreach (var a in ctx.Attributes) {
 					if (a.AttributeClass?.ToDisplayString() != AttrName) continue;
+
+					// Constructor arg = sourcePath
+					if (a.ConstructorArguments.Length > 0 && a.ConstructorArguments[0].Value is string s)
+						path = s;
+
 					foreach (var kv in a.NamedArguments) {
-						if (kv.Key == "Namespace" && kv.Value.Value is string s)
-							ns = s;
-						if (kv.Key == "Attributes" && kv.Value.Value is ITypeSymbol[] types) {
+						if (kv.Key == "Namespace" && kv.Value.Value is string nsVal)
+							ns = nsVal;
+						if (kv.Key == "Attributes" && kv.Value.Value is IEnumerable<ITypeSymbol> types) {
 							foreach (var t in types)
 								attrs.Add(t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
 						}
 					}
 				}
 
-				return new AssemblyConfig(ns, attrs);
+				return new SourceConfig(path, ns, attrs);
 			})
-			.Collect()
-			.Select(static (arr, _) => {
-				foreach (var c in arr)
-					if (c != null) return c;
-				return new AssemblyConfig("DataCatalyst.Generated", new List<string>());
-			});
+			.Collect();
 	}
 }
 
-/// <summary>Resolved config from [DataCatalystConfig] attribute.</summary>
-public sealed record AssemblyConfig(string Namespace, List<string> Attributes);
+public sealed record SourceConfig(string SourcePath, string Namespace, List<string> Attributes);

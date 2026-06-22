@@ -62,12 +62,12 @@ public sealed class ConceptGenerator : IIncrementalGenerator {
 				return new ConceptResult(fullType, conceptName, conceptKind, errorLoc);
 			}).Collect();
 
-		var config = ConfigHelper.GetConfig(context);
-		var combined = conceptTypes.Combine(config);
+		var configs = ConfigHelper.GetConfigs(context);
+		var combined = conceptTypes.Combine(configs);
 
 		context.RegisterSourceOutput(combined,
 			static (spc, data) => {
-				var (cr, cfg) = data;
+				var (cr, configs) = data;
 
 				foreach (var c in cr) {
 					if (c.ErrorLocation is { } loc)
@@ -79,7 +79,7 @@ public sealed class ConceptGenerator : IIncrementalGenerator {
 					.Select(c => (c.FullType!, c.ConceptName!, c.ConceptKind))
 					.ToList();
 
-				Emit(spc, validTypes, cfg);
+				Emit(spc, validTypes, configs.Length > 0 ? configs[0] : new SourceConfig("", "DataCatalyst.Generated", new List<string>()));
 			});
 	}
 
@@ -92,11 +92,11 @@ public sealed class ConceptGenerator : IIncrementalGenerator {
 
 	private static void Emit(SourceProductionContext spc,
 		List<(string FullType, string ConceptName, int Kind)> validTypes,
-		AssemblyConfig config) {
+		SourceConfig config) {
 
 		if (validTypes.Count == 0) return;
 
-		var ns = config.Namespace;
+		var ns = string.IsNullOrEmpty(config.Namespace) ? "DataCatalyst.Generated" : config.Namespace;
 		var initBody = new List<StatementSyntax>();
 		foreach (var (ft, name, kind) in validTypes) {
 			initBody.Add(BuildRegisterCall(
