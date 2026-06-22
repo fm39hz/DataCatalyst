@@ -10,6 +10,19 @@
 
 ---
 
+## Concepts
+
+| Khái niệm | Ý nghĩa |
+|-----------|---------|
+| **Component** | Typed struct — mọi dữ liệu là component. SourceGen generate từ JSON. |
+| **Concept** | Entry LÀ concept đó. `"Concept": "Enemy"` → entry thuộc về Enemy. Compile-time safe. |
+| **DataCatalog** | Read-only sau build. `Get<T>(Concept.X.Y)` — type-keyed access, không string. |
+| **SourceGen** | Compile-time: đọc JSON → generate C# structs + constants + registrations. |
+| **Pipeline** | `Load` → `Graph` → `Catalog`. Inheritance resolve + layer merge + plugin hooks. |
+| **Materializer** | Bridge từ DC component sang engine object (GameObject, Node, Entity). |
+
+---
+
 ## 🚀 Quick Start
 
 ```bash
