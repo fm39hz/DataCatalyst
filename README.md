@@ -4,7 +4,7 @@
 [![CI Status](https://img.shields.io/github/actions/workflow/status/fm39hz/DataCatalyst/ci.yml?branch=master&style=flat-square)](https://github.com/fm39hz/DataCatalyst/actions)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
 
-**DataCatalyst** is a compile-time composition framework for C#/.NET. Data is the Single Source of Truth. JSON data files define game content, and SourceGen generates everything else.
+**DataCatalyst** is a compile-time composition framework for C#/.NET. Data is the Single Source of Truth. Data files define game content, and SourceGen glue everything else.
 
 > **Code itself has no content.** Game logic, behaviors, values should never be hardcoded. Designers parameterize everything to model the world.
 
@@ -138,9 +138,8 @@ var mat = new DataMaterializer<GameObject>();
 mat.Register<Health>((go, h) => go.GetComponent<HealthBar>().SetMax(h.Max));
 mat.Register<AttackPower>((go, a) => go.GetComponent<DamageDealer>().Power = a.Value);
 
-// Spawn any enemy
 var goblin = Instantiate(goblinPrefab);
-mat.Materialize(catalog.Entries["Goblin"], goblin);
+mat.Materialize(catalog.GetEntry(Concept.Enemy.Goblin), goblin);
 ```
 
 ---
@@ -180,7 +179,7 @@ var enemies = catalog.GetConcept<Concept.Enemy>();
 var gobHp = enemies.Get<Health>(Concept.Enemy.Goblin);
 ```
 
-Multiple concepts per entry are supported — `"Concept": ["Creature", "Npc"]`.
+Multiple concepts per entry are supported — `"concept": ["Creature", "Npc"]`.
 
 ---
 
@@ -230,7 +229,7 @@ var result = StateEngineEvaluator.Evaluate(
     });
 ```
 
-StateEngine is designed for ECS: ONE system evaluates ALL entities. Still works for normal engine-specific patterns.
+StateEngine is originally designed for ECS: ONE system evaluates ALL entities. Still works for normal engine-specific patterns.
 
 ---
 

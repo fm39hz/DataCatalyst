@@ -47,6 +47,10 @@ public sealed class DataCatalog {
 	/// <summary>Checks if an entry id exists in the catalog.</summary>
 	public bool ContainsKey(int entryId) => entryId >= 0 && entryId < _byId.Count && _byId[entryId] != null;
 
+	/// <summary>Gets the DataEntry for the given entry id.</summary>
+	public DataEntry GetEntry(int entryId) =>
+		_byId[entryId] ?? throw new KeyNotFoundException($"Entry id '{entryId}' not found");
+
 	/// <summary>Resolves a string entry key to its int entry id. Returns -1 if not found.</summary>
 	internal int GetEntryId(string key) => _keyToId.TryGetValue(key, out var id) ? id : -1;
 }
