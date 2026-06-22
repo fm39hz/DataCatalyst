@@ -89,6 +89,8 @@ SourceGen packages as analyzers:
 
 ### DataCatalog
 
+Pipeline final result
+
 ```csharp
 catalog.Get<Health>(Concept.Enemy.Goblin).Current
 catalog.TryGet<Element>(Concept.Enemy.FireDragon, out var e)
@@ -101,6 +103,8 @@ enemies.Get<Health>(Concept.Enemy.Goblin).Current
 
 ### Loader
 
+Implement `IDataLoader` to use any format (CSV, MsgPack, ...).
+
 ```csharp
 public class CsvDataLoader : IDataLoader {
     public LoadResult LoadDirectory(string path) {
@@ -112,6 +116,8 @@ public class CsvDataLoader : IDataLoader {
 ```
 
 ### Plugin
+
+Plugin is your specialized use case for your game that hook into pipeline
 
 ```csharp
 [DataPlugin(DependsOn = [typeof(GameConceptPlugin)])]
@@ -129,6 +135,8 @@ public class MyPlugin : ICatalogPlugin {
 Pipeline hooks: `IPostLoadPlugin` (after load) → `IGraphPlugin` (after graph) → `ICatalogPlugin` (after catalog).
 
 ### Materializer
+
+Bridge from DataCatalyst's component sang engine-specific object (GameObject, Node, ...).
 
 ```csharp
 var mat = new DataMaterializer<GameObject>();
