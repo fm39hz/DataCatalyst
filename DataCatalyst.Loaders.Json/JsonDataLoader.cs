@@ -20,15 +20,8 @@ public static class JsonDataLoader {
 	private const string JsonFilter = "*.json";
 	private static Type? ResolveComponent(string name, PrimitiveRegistry primitives) => primitives.TryResolveId(name, out var type) ? type : null;
 
-	private static void EnsureSchemaMappings(SchemaBuilder schema) {
-		schema.Register<string>("Concept");
-		schema.Register<string>("DefaultState");
-		schema.Register<string>("Signal");
-	}
-
 	public static LoadResult LoadDirectory(string directory, JsonSerializerOptions options, DataCatalystEnvironment? env = null) {
 		env ??= DataCatalystEnvironment.Default;
-		EnsureSchemaMappings(env.Schema);
 		var result = new LoadResult();
 
 		foreach (var filePath in Directory.EnumerateFiles(directory, JsonFilter)) {
@@ -48,7 +41,6 @@ public static class JsonDataLoader {
 
 	public static LoadResult LoadArray(string filePath, string keyField, JsonSerializerOptions options, DataCatalystEnvironment? env = null) {
 		env ??= DataCatalystEnvironment.Default;
-		EnsureSchemaMappings(env.Schema);
 		var result = new LoadResult();
 		var text = File.ReadAllText(filePath);
 
@@ -90,45 +82,42 @@ public static class JsonDataLoader {
 			if (root.ValueKind != JsonValueKind.Object) return false;
 
 			var primitives = env.Primitives;
-			var schema = env.Schema;
 			var components = new Dictionary<Type, object>();
 			var fields = new Dictionary<Type, object>();
 
 			foreach (var prop in root.EnumerateObject()) {
 				if (prop.Name == keyField) continue;
 
-				var markerType = env.Schema.ResolveType(prop.Name);
-				if (markerType != null) {
-					if (markerType == typeof(string[])) {
-						if (prop.Value.ValueKind == JsonValueKind.Array) {
-							var list = new List<string>();
-							foreach (var el in prop.Value.EnumerateArray())
-								if (el.ValueKind == JsonValueKind.String) list.Add(el.GetString()!);
-							fields[markerType] = list.ToArray();
-						}
-					}
-					else if (markerType == typeof(int)) {
-						if (prop.Value.ValueKind == JsonValueKind.Number && prop.Value.TryGetInt32(out var intVal))
-							fields[markerType] = intVal;
-					}
-					else if (markerType == typeof(string)) {
-						if (prop.Value.ValueKind == JsonValueKind.String)
-							fields[markerType] = prop.Value.GetString()!;
-					}
-					continue;
-				}
+				switch (prop.Value.ValueKind) {
+					case JsonValueKind.String:
+						fields[typeof(string)] = prop.Value.GetString()!;
+						break;
 
-				if (prop.Value.ValueKind == JsonValueKind.Object) {
-					var compType = ResolveComponent(prop.Name, primitives);
-					if (compType == null) continue;
-					var raw = prop.Value.GetRawText();
-					var deserialized = JsonSerializer.Deserialize(raw, compType, options);
-					if (deserialized != null) components[compType] = deserialized;
-					continue;
-				}
+					case JsonValueKind.Array:
+						var list = new List<string>();
+						foreach (var el in prop.Value.EnumerateArray())
+							if (el.ValueKind == JsonValueKind.String) list.Add(el.GetString()!);
+						fields[typeof(string[])] = list.ToArray();
+						break;
 
-				diagnostics ??= [];
-				diagnostics.Add($"Unknown field '{prop.Name}' in entry '{key}'. Type mapping not found — value skipped.");
+					case JsonValueKind.Number:
+						if (prop.Value.TryGetInt32(out var intVal))
+							fields[typeof(int)] = intVal;
+						break;
+
+					case JsonValueKind.Object:
+						var compType = ResolveComponent(prop.Name, primitives);
+						if (compType == null) goto default;
+						var raw = prop.Value.GetRawText();
+						var deserialized = JsonSerializer.Deserialize(raw, compType, options);
+						if (deserialized != null) components[compType] = deserialized;
+						break;
+
+					default:
+						diagnostics ??= new List<string>();
+						diagnostics.Add($"Unknown field '{prop.Name}' in entry '{key}'. Type mapping not found — value skipped.");
+						break;
+				}
 			}
 
 			entry = new DataEntry(key, components, fields);
