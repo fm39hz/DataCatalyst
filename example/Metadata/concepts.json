@@ -1,0 +1,5 @@
+{
+	"Enemy": { "description": "Kẻ địch, quái vật, boss trong game" },
+	"Weapon": { "description": "Vũ khí trang bị cho nhân vật" },
+	"Currency": { "description": "Tiền tệ trao đổi trong game" }
+}

@@ -1,0 +1,5 @@
+{
+	"Concept": "Weapon",
+	"Damage": { "Min": 10, "Max": 20 },
+	"Durability": 100
+}

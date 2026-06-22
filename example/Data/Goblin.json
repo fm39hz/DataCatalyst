@@ -1,0 +1,6 @@
+{
+	"Concept": "Enemy",
+	"Health": { "Current": 50, "Max": 50 },
+	"Damage": { "Min": 5, "Max": 10 },
+	"ExperienceReward": 25
+}
