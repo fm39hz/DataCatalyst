@@ -67,7 +67,8 @@ public class JsonDataLoaderLoadArrayTests : IDisposable {
 
 		var entry2 = result.Entries[1];
 		entry2.Key.Should().Be("O2");
-		entry2.Inherits.Should().ContainSingle().Which.Should().Be("H2O");
+		entry2.Meta.TryGetValue("inherits", out var raw).Should().BeTrue();
+		(raw as string[]).Should().ContainSingle().Which.Should().Be("H2O");
 		entry2.Get<GameComponent>().Value.Should().Be(32);
 	}
 

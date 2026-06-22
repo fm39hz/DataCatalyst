@@ -94,7 +94,7 @@ public class DataCatalogBuilderTests {
 
 		var child = new DataEntry("child", new() {
 			[typeof(OtherStruct)] = new OtherStruct { Y = 20 }
-		}, inherits: ["parent"]);
+		}, new Dictionary<string, object> { ["inherits"] = new[] { "parent" } });
 
 		var graph = DataGraphBuilder.Build([parent, child]);
 		var catalog = DataCatalogBuilder.Resolve(graph);
@@ -111,7 +111,7 @@ public class DataCatalogBuilderTests {
 
 		var child = new DataEntry("child", new() {
 			[typeof(TestStruct)] = new TestStruct { X = 99 }
-		}, inherits: ["parent"]);
+		}, new Dictionary<string, object> { ["inherits"] = new[] { "parent" } });
 
 		var graph = DataGraphBuilder.Build([parent, child]);
 		var catalog = DataCatalogBuilder.Resolve(graph);
@@ -126,8 +126,8 @@ public class DataCatalogBuilderTests {
 		});
 		var b = new DataEntry("b", new() {
 			[typeof(OtherStruct)] = new OtherStruct { Y = 2 }
-		}, inherits: ["a"]);
-		var c = new DataEntry("c", inherits: ["b"]);
+		}, new Dictionary<string, object> { ["inherits"] = new[] { "a" } });
+		var c = new DataEntry("c", null, new Dictionary<string, object> { ["inherits"] = new[] { "b" } });
 
 		var graph = DataGraphBuilder.Build([a, b, c]);
 		var catalog = DataCatalogBuilder.Resolve(graph);
@@ -138,8 +138,8 @@ public class DataCatalogBuilderTests {
 
 	[Fact]
 	public void Cycle_Throws() {
-		var a = new DataEntry("a", inherits: ["b"]);
-		var b = new DataEntry("b", inherits: ["a"]);
+		var a = new DataEntry("a", null, new Dictionary<string, object> { ["inherits"] = new[] { "b" } });
+		var b = new DataEntry("b", null, new Dictionary<string, object> { ["inherits"] = new[] { "a" } });
 		var graph = DataGraphBuilder.Build([a, b]);
 
 		Action act = () => DataCatalogBuilder.Resolve(graph);
@@ -150,7 +150,7 @@ public class DataCatalogBuilderTests {
 	public void MissingParent_Ignores() {
 		var child = new DataEntry("child", new() {
 			[typeof(TestStruct)] = new TestStruct { X = 5 }
-		}, inherits: ["missing"]);
+		}, new Dictionary<string, object> { ["inherits"] = new[] { "missing" } });
 		var graph = DataGraphBuilder.Build([child]);
 		var catalog = DataCatalogBuilder.Resolve(graph);
 

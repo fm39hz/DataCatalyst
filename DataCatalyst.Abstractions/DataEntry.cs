@@ -3,42 +3,39 @@ namespace DataCatalyst.Abstractions;
 using System;
 using System.Collections.Generic;
 
-#if NET8_0_OR_GREATER
-using System.Collections.Frozen;
-#endif
-
-/// <summary>Data entry with typed components and inheritance.</summary>
-public sealed class DataEntry(string key, Dictionary<Type, object>? components = null, IReadOnlyList<string>? inherits = null, string? conceptName = null) {
+/// <summary>Data entry with typed components and meta data.</summary>
+public sealed class DataEntry {
 	/// <summary>Unique identifier for this entry.</summary>
-	public string Key { get; } = key;
+	public string Key { get; }
 
-	/// <summary>Parent entry keys to inherit components from.</summary>
-	public IReadOnlyList<string>? Inherits { get; internal set; } = inherits;
+	/// <summary>Component data indexed by type.</summary>
+	public IReadOnlyDictionary<Type, object> Components { get; }
 
-	/// <summary>Component data indexed by type. Frozen after construction.</summary>
-	public IReadOnlyDictionary<Type, object> Components { get; } = components is null
-		? new Dictionary<Type, object>()
-#if NET8_0_OR_GREATER
-		: components.ToFrozenDictionary();
-#else
-		: components;
-#endif
+	/// <summary>Reserved meta fields (inherits, Concept, Layer, etc.).</summary>
+	public IReadOnlyDictionary<string, object> Meta { get; }
 
 	/// <summary>The source file path from which this entry was loaded.</summary>
-	public string? SourceFile { get; init; }
+	public string? SourceFile { get; set; }
 
-	/// <summary>Patch layer priority. Higher layers override lower layers during merge.</summary>
-	public int Layer { get; init; }
+	public readonly Dictionary<Type, object> MutableComponents;
 
-	/// <summary>Concept this entry belongs to (e.g. "Enemy"). Set by loaders from data.</summary>
-	public string? ConceptName { get; } = conceptName;
+	public DataEntry(string key,
+		Dictionary<Type, object>? components = null,
+		Dictionary<string, object>? meta = null) {
+
+		Key = key;
+		MutableComponents = components ?? [];
+		Components = MutableComponents;
+		Meta = meta is not null
+			? new Dictionary<string, object>(meta)
+			: new Dictionary<string, object>();
+	}
 
 	/// <summary>Retrieves a component by type. Throws if missing.</summary>
 	public T Get<T>() where T : struct {
 		if (Components.TryGetValue(typeof(T), out var boxed)) {
 			return (T)boxed;
 		}
-
 		throw new KeyNotFoundException($"Component '{typeof(T).Name}' not found in entry '{Key}'");
 	}
 
@@ -48,7 +45,6 @@ public sealed class DataEntry(string key, Dictionary<Type, object>? components =
 			value = (T)boxed;
 			return true;
 		}
-
 		value = default;
 		return false;
 	}

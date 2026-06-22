@@ -43,11 +43,11 @@ public sealed class GameConceptPlugin : ICatalogPlugin {
 		var conceptGroups = new Dictionary<string, Dictionary<int, DataEntry>>();
 
 		foreach (var entry in catalog.Entries.Values) {
-			if (string.IsNullOrEmpty(entry.ConceptName)) continue;
+			if (!entry.Meta.TryGetValue("Concept", out var raw) || raw is not string conceptName || string.IsNullOrEmpty(conceptName)) continue;
 
-			if (!conceptGroups.TryGetValue(entry.ConceptName!, out var group)) {
+			if (!conceptGroups.TryGetValue(conceptName, out var group)) {
 				group = new Dictionary<int, DataEntry>();
-				conceptGroups[entry.ConceptName!] = group;
+				conceptGroups[conceptName] = group;
 			}
 
 			var entryId = catalog.GetEntryId(entry.Key);

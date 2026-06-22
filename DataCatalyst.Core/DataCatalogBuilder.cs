@@ -1,13 +1,15 @@
 namespace DataCatalyst.Core;
 
-using DataCatalyst.Abstractions;
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using DataCatalyst.Abstractions;
 
 /// <summary>Builds a flat, immutable catalog by resolving inheritance.</summary>
 public static class DataCatalogBuilder {
+	private static string[]? GetInherits(DataEntry e) => e.Meta.TryGetValue("inherits", out var v) && v is string[] arr ? arr : null;
+	private static string? GetConcept(DataEntry e) => e.Meta.TryGetValue("Concept", out var v) && v is string s ? s : null;
+
 	/// <summary>Resolves inheritance and returns a populated catalog.</summary>
 	public static DataCatalog Resolve(DataGraph graph, List<string>? diagnostics = null, DataCatalystEnvironment? env = null) {
 		env ??= DataCatalystEnvironment.Default;
@@ -21,7 +23,9 @@ public static class DataCatalogBuilder {
 			}
 
 			var merged = CollectComponents(entry, graph, resolved, []);
-			resolved[entry.Key] = new DataEntry(entry.Key, merged, entry.Inherits, entry.ConceptName) { SourceFile = entry.SourceFile };
+			resolved[entry.Key] = new DataEntry(entry.Key, merged, new Dictionary<string, object>(entry.Meta)) {
+				SourceFile = entry.SourceFile
+			};
 		}
 
 		var catalog = new DataCatalog(resolved);
@@ -43,16 +47,19 @@ public static class DataCatalogBuilder {
 			throw new InvalidOperationException($"Cycle detected: {entry.Key}");
 		}
 
-		var merged = new Dictionary<Type, object>(entry.Components);
+		var merged = new Dictionary<Type, object>(entry.MutableComponents);
 
-		if (entry.Inherits != null) {
-			foreach (var parentKey in entry.Inherits) {
+		var inherits = GetInherits(entry);
+		if (inherits != null) {
+			foreach (var parentKey in inherits) {
 				if (resolved.TryGetValue(parentKey, out var parentEntry)) {
 					CopyMissing(merged, parentEntry.Components);
 				}
 				else if (graph.Entries.TryGetValue(parentKey, out var parentGraphEntry)) {
 					var parentMerged = CollectComponents(parentGraphEntry, graph, resolved, visiting);
-					resolved[parentKey] = new DataEntry(parentKey, parentMerged, parentGraphEntry.Inherits) { SourceFile = parentGraphEntry.SourceFile };
+					resolved[parentKey] = new DataEntry(parentKey, parentMerged, new Dictionary<string, object>(parentGraphEntry.Meta)) {
+						SourceFile = parentGraphEntry.SourceFile
+					};
 					CopyMissing(merged, parentMerged);
 				}
 			}
@@ -89,8 +96,9 @@ public static class DataCatalogBuilder {
 
 			colors[entry.Key] = Gray;
 
-			if (entry.Inherits != null) {
-				foreach (var parentKey in entry.Inherits) {
+			var inherits = GetInherits(entry);
+			if (inherits != null) {
+				foreach (var parentKey in inherits) {
 					if (graph.Entries.TryGetValue(parentKey, out var parent)) {
 						Dfs(parent);
 					}
