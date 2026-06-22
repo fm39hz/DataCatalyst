@@ -16,6 +16,9 @@ public sealed class LoadResult {
 
 /// <summary>Loads data entries from an external source. Format-agnostic contract.</summary>
 public interface IDataLoader {
-	/// <summary>Loads entries from the given source path.</summary>
-	public LoadResult LoadDirectory(string path);
+	/// <summary>Loads entries from a single file.</summary>
+	LoadResult LoadFile(string path);
+
+	/// <summary>Loads entries from all files in a directory.</summary>
+	LoadResult LoadDirectory(string path);
 }

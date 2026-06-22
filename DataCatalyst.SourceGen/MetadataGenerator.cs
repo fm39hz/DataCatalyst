@@ -35,62 +35,40 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 
 		context.RegisterSourceOutput(jsonFiles, static (spc, files) => {
 			var components = new Dictionary<string, List<KeyValuePair<string, string>>>();
-			var conceptEntries = new Dictionary<string, List<string>>();
-			var allEntryKeys = new List<string>();
 			var processed = new HashSet<string>();
 
 			foreach (var file in files) {
-				ProcessJson(file.Text, file.FileName, components, conceptEntries, allEntryKeys, processed);
+				ProcessJson(file.Text, components, processed);
 			}
 
 			if (components.Count == 0) return;
 
-			WriteMetadataFile(files, components, conceptEntries, allEntryKeys);
 			EmitComponentStructs(spc, components);
-			EmitConceptAndKeyConstants(spc, conceptEntries, allEntryKeys);
 			EmitRegistrations(spc, components);
 			EmitMerge(spc, components);
 		});
 	}
 
-	private static void ProcessJson(string json, string fileName,
+	private static void ProcessJson(string json,
 		Dictionary<string, List<KeyValuePair<string, string>>> components,
-		Dictionary<string, List<string>> conceptEntries,
-		List<string> allEntryKeys,
 		HashSet<string> processed) {
 
 		try {
 			using var doc = JsonDocument.Parse(json);
-			string? conceptName = null;
-			var entryComponents = new List<string>();
 
 			foreach (var prop in doc.RootElement.EnumerateObject()) {
 				if (string.Equals(prop.Name, "Concept", StringComparison.Ordinal) ||
-					string.Equals(prop.Name, "concept", StringComparison.Ordinal)) {
-					conceptName = prop.Value.GetString();
-					continue;
-				}
+					string.Equals(prop.Name, "concept", StringComparison.Ordinal)) continue;
 				if (string.Equals(prop.Name, "inherits", StringComparison.OrdinalIgnoreCase)) continue;
+				if (prop.Value.ValueKind != JsonValueKind.Object) continue;
 
-				if (prop.Value.ValueKind == JsonValueKind.Object) {
-					if (!processed.Contains(prop.Name)) {
-						var fields = new List<KeyValuePair<string, string>>();
-						ExtractFields(prop.Name, prop.Value, fields, components, processed);
-						if (fields.Count > 0) {
-							components[prop.Name] = fields;
-							processed.Add(prop.Name);
-						}
+				if (!processed.Contains(prop.Name)) {
+					var fields = new List<KeyValuePair<string, string>>();
+					ExtractFields(prop.Name, prop.Value, fields, components, processed);
+					if (fields.Count > 0) {
+						components[prop.Name] = fields;
+						processed.Add(prop.Name);
 					}
-					entryComponents.Add(prop.Name);
-				}
-			}
-
-			if (entryComponents.Count > 0) {
-				allEntryKeys.Add(fileName);
-				if (conceptName != null) {
-					if (!conceptEntries.ContainsKey(conceptName))
-						conceptEntries[conceptName] = new List<string>();
-					conceptEntries[conceptName].Add(fileName);
 				}
 			}
 		}
