@@ -380,33 +380,76 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 
 		foreach (var kv in components) {
 			var fullType = "global::DataCatalyst.Generated." + kv.Key;
-			var sb = new StringBuilder();
-			sb.AppendLine("var pVal = (" + fullType + ")current;");
-			sb.AppendLine("var cVal = (" + fullType + ")inherited;");
-			foreach (var field in kv.Value) {
-				sb.AppendLine("if (!global::System.Collections.Generic.EqualityComparer<" + field.Value +
-					">.Default.Equals(pVal." + field.Key + ", cVal." + field.Key + ")) pVal." +
-					field.Key + " = cVal." + field.Key + ";");
-			}
-			sb.AppendLine("return pVal;");
 
-			var body = Block(CSharpSyntaxTree.ParseText(sb.ToString()).GetRoot().ChildNodes().Cast<StatementSyntax>().ToArray());
+			var stmts = new List<StatementSyntax>();
+
+			stmts.Add(LocalDeclarationStatement(
+				VariableDeclaration(
+					IdentifierName("var"),
+					SingletonSeparatedList(
+						VariableDeclarator(Identifier("pVal"))
+							.WithInitializer(EqualsValueClause(
+								CastExpression(ParseTypeName(fullType), IdentifierName("current"))))))));
+
+			stmts.Add(LocalDeclarationStatement(
+				VariableDeclaration(
+					IdentifierName("var"),
+					SingletonSeparatedList(
+						VariableDeclarator(Identifier("cVal"))
+							.WithInitializer(EqualsValueClause(
+								CastExpression(ParseTypeName(fullType), IdentifierName("inherited"))))))));
+
+			foreach (var field in kv.Value) {
+				var eqComparer = ParseExpression(
+					"global::System.Collections.Generic.EqualityComparer<" + field.Value + ">");
+
+				var equalsCall = InvocationExpression(
+					MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+						MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+							eqComparer,
+							IdentifierName("Default")),
+						IdentifierName("Equals")),
+					ArgumentList(SeparatedList(new[] {
+						Argument(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+							IdentifierName("pVal"), IdentifierName(field.Key))),
+						Argument(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+							IdentifierName("cVal"), IdentifierName(field.Key)))
+					})));
+
+				var notEqual = PrefixUnaryExpression(SyntaxKind.LogicalNotExpression, equalsCall);
+
+				var ifStmt = IfStatement(notEqual,
+					ExpressionStatement(
+						AssignmentExpression(SyntaxKind.SimpleAssignmentExpression,
+							MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+								IdentifierName("pVal"), IdentifierName(field.Key)),
+							MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+								IdentifierName("cVal"), IdentifierName(field.Key)))));
+
+				stmts.Add(ifStmt);
+			}
+
+			stmts.Add(ReturnStatement(IdentifierName("pVal")));
+
+			var body = Block(stmts);
+
+			var registerMethod = MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+				ParseExpression("global::DataCatalyst.Core.ComponentMerger"),
+				GenericName("Register")
+					.WithTypeArgumentList(TypeArgumentList(
+						SingletonSeparatedList(ParseTypeName(fullType)))));
+
+			var lambda = ParenthesizedLambdaExpression(
+				ParameterList(SeparatedList(new[] {
+					Parameter(Identifier("current")).WithType(PredefinedType(Token(SyntaxKind.ObjectKeyword))),
+					Parameter(Identifier("inherited")).WithType(PredefinedType(Token(SyntaxKind.ObjectKeyword)))
+				})),
+				body);
 
 			initBody.Add(ExpressionStatement(
-				InvocationExpression(
-					MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
-						ParseExpression("global::DataCatalyst.Core.ComponentMerger"),
-						GenericName("Register")
-							.WithTypeArgumentList(TypeArgumentList(
-								SingletonSeparatedList(ParseTypeName(fullType))))))
+				InvocationExpression(registerMethod)
 					.WithArgumentList(ArgumentList(
-						SingletonSeparatedList(
-							Argument(ParenthesizedLambdaExpression(
-								ParameterList(SeparatedList(new[] {
-									Parameter(Identifier("current")).WithType(PredefinedType(Token(SyntaxKind.ObjectKeyword))),
-									Parameter(Identifier("inherited")).WithType(PredefinedType(Token(SyntaxKind.ObjectKeyword)))
-								})),
-								body)))))));
+						SingletonSeparatedList(Argument(lambda))))));
 		}
 
 		var cu = CompilationUnit()
