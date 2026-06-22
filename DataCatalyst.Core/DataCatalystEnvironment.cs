@@ -22,7 +22,7 @@ public sealed class DataCatalystEnvironment {
 
 	public DataCatalystEnvironment() {
 		Plugins = new PluginRegistry();
-		Primitives = new PrimitiveRegistry();
+		Primitives = PrimitiveRegistry.Default;
 		Services = new ServiceRegistry();
 		Mappers = new MapperRegistry();
 		ViewAdapters = new DataViewAdapterRegistry();
