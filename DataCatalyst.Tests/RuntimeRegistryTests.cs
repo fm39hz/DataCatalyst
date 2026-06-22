@@ -56,9 +56,9 @@ public class DataEntryTests {
 	[Fact]
 	public void Constructor_AcceptsConcept() {
 		var entry = new DataEntry("child", new() {
-			[typeof(CoreConcept)] = new CoreConcept { Value = "Item" }
+			[typeof(CoreConcept)] = new CoreConcept { Value = new[]{"Item"} }
 		});
-		entry.Get<CoreConcept>().Value.Should().Be("Item");
+		entry.Get<CoreConcept>().Value.Should().Contain("Item");
 	}
 
 	[Fact]

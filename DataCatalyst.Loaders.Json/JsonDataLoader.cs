@@ -97,6 +97,15 @@ public static class JsonDataLoader {
 					object deserialized;
 					if (prop.Value.ValueKind == JsonValueKind.Object) {
 						deserialized = JsonSerializer.Deserialize(prop.Value.GetRawText(), compType, options)!;
+					} else if (prop.Value.ValueKind == JsonValueKind.String) {
+						// Wrap single string as array for string[]-valued components (like Concept)
+						var wrapped = $"{{\"Value\":[\"{prop.Value.GetString()}\"]}}";
+						deserialized = JsonSerializer.Deserialize(wrapped, compType, options)!;
+						if (deserialized == null) {
+							// Fallback: single value
+							wrapped = $"{{\"Value\":\"{prop.Value.GetString()}\"}}";
+							deserialized = JsonSerializer.Deserialize(wrapped, compType, options)!;
+						}
 					} else {
 						var wrapped = $"{{\"Value\":{prop.Value.GetRawText()}}}";
 						deserialized = JsonSerializer.Deserialize(wrapped, compType, options)!;

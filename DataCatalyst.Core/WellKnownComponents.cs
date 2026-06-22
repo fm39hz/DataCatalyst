@@ -17,5 +17,5 @@ public readonly partial struct Layer {
 /// <summary>Well-known component for concept membership (JSON: "Concept").</summary>
 [DataComponent]
 public readonly partial struct Concept {
-	public string Value { get; init; }
+	public string[] Value { get; init; }
 }
