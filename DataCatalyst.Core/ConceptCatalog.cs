@@ -1,6 +1,6 @@
 using DataCatalyst.Abstractions;
 
-namespace DataCatalyst.Plugins.GameConcept;
+namespace DataCatalyst.Core;
 
 using System.Collections.Generic;
 using DataCatalyst.Core;

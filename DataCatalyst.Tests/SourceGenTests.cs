@@ -83,7 +83,7 @@ public class SourceGenTests {
 	[Fact]
 	public void ConceptGenerator_RegistersConcepts() {
 		var generated = RunGenerator(
-			"using DataCatalyst.Plugins.GameConcept;\n" +
+			"using DataCatalyst.Core;\n" +
 			"[DataConcept(\"Item\")] public readonly partial struct Item;",
 			new ConceptGenerator());
 

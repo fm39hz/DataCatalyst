@@ -29,7 +29,7 @@ public sealed class ConceptGenerator : IIncrementalGenerator {
 		defaultSeverity: DiagnosticSeverity.Warning,
 		isEnabledByDefault: true);
 
-	private const string DataConceptAttr = "DataCatalyst.Plugins.GameConcept.DataConceptAttribute";
+	private const string DataConceptAttr = "DataCatalyst.Core.DataConceptAttribute";
 	private const string AttrKindArg = "Kind";
 
 	public void Initialize(IncrementalGeneratorInitializationContext context) {
@@ -92,7 +92,7 @@ public sealed class ConceptGenerator : IIncrementalGenerator {
 		var initBody = new List<StatementSyntax>();
 		foreach (var (ft, name, kind) in validTypes) {
 			initBody.Add(BuildRegisterCall(
-				"global::DataCatalyst.Plugins.GameConcept.ConceptRegistry.Default",
+				"global::DataCatalyst.Core.ConceptRegistry.Default",
 				ft, name, kind));
 		}
 
