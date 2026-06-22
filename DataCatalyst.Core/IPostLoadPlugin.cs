@@ -1,5 +1,6 @@
 namespace DataCatalyst.Core;
 
+
 using System.Collections.Generic;
 using Abstractions;
 

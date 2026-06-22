@@ -1,3 +1,5 @@
+using DataCatalyst.Abstractions;
+
 namespace DataCatalyst.Loaders;
 
 using System;

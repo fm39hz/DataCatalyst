@@ -1,4 +1,4 @@
-namespace DataCatalyst.Core;
+namespace DataCatalyst.Abstractions;
 
 using System;
 using System.Collections.Generic;

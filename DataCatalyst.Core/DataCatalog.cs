@@ -3,6 +3,7 @@ namespace DataCatalyst.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using DataCatalyst.Abstractions;
 
 /// <summary>Resolved catalog of data entries. Supports both int (fast) and string (runtime) key access.</summary>
 public sealed class DataCatalog {

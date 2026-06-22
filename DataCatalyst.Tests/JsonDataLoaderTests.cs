@@ -6,12 +6,16 @@ using FluentAssertions;
 using Xunit;
 
 namespace DataCatalyst.Tests {
+
+using DataCatalyst.Abstractions;
 	public struct GameComponent : IComponent {
 		public int Value { get; set; }
 	}
 } // namespace DataCatalyst.Tests
 
 namespace ModNamespace {
+
+using DataCatalyst.Abstractions;
 	using DataCatalyst.Tests;
 
 	public struct GameComponent : IComponent {
@@ -20,6 +24,8 @@ namespace ModNamespace {
 }
 
 namespace DataCatalyst.Tests {
+
+using DataCatalyst.Abstractions;
 	public class JsonDataLoaderTests : IDisposable {
 		private readonly string _tempDir;
 		private readonly DataCatalystEnvironment _env;

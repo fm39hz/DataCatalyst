@@ -1,3 +1,5 @@
+using DataCatalyst.Abstractions;
+
 namespace DataCatalyst.Plugins.GameConcept;
 
 using System.Collections.Generic;

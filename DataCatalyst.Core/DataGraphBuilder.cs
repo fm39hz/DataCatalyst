@@ -1,5 +1,7 @@
 namespace DataCatalyst.Core;
 
+using DataCatalyst.Abstractions;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;

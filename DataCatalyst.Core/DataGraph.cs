@@ -1,5 +1,7 @@
 namespace DataCatalyst.Core;
 
+using DataCatalyst.Abstractions;
+
 using System.Collections.Generic;
 
 /// <summary>Unresolved dependency graph of entries.</summary>

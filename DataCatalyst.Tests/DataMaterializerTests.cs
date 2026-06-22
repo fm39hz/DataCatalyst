@@ -1,5 +1,7 @@
 namespace DataCatalyst.Tests;
 
+using DataCatalyst.Abstractions;
+
 using System;
 using System.Collections.Generic;
 using DataCatalyst.Core;
