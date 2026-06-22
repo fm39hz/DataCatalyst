@@ -14,7 +14,7 @@ public class JsonDataLoader : IDataLoader {
 	private readonly JsonSerializerOptions _options;
 	private readonly DataCatalystEnvironment _env;
 
-	/// <summary>Default options: camelCase, case-insensitive, AOT-safe.</summary>
+	/// <summary>Default options: camelCase JSON → PascalCase C#.</summary>
 	public static JsonSerializerOptions DefaultOptions => new() {
 		PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
 		PropertyNameCaseInsensitive = true,
