@@ -8,29 +8,36 @@ using System.Text.Json;
 using DataCatalyst.Abstractions;
 using DataCatalyst.Core;
 
-public sealed class LoadResult {
-	internal readonly List<DataEntry> _entries = [];
-	internal readonly List<string> _diagnostics = [];
-
-	public IReadOnlyList<DataEntry> Entries => _entries;
-	public IReadOnlyList<string> Diagnostics => _diagnostics;
-}
-
-public static class JsonDataLoader {
+public class JsonDataLoader : IDataLoader {
 	private const string JsonFilter = "*.json";
-	private static Type? ResolveComponent(string name, PrimitiveRegistry primitives) => primitives.TryResolveId(name, out var type) ? type : null;
+	private readonly JsonSerializerOptions _options;
+	private readonly DataCatalystEnvironment _env;
 
-	private static bool IsConceptProperty(string name) =>
-		string.Equals(name, "Concept", StringComparison.Ordinal) ||
-		string.Equals(name, "concept", StringComparison.Ordinal);
-
-	private static string? TryGetConceptValue(JsonElement root) {
-		if (root.TryGetProperty("Concept", out var val) && val.ValueKind == JsonValueKind.String)
-			return val.GetString();
-		if (root.TryGetProperty("concept", out val) && val.ValueKind == JsonValueKind.String)
-			return val.GetString();
-		return null;
+	public JsonDataLoader(JsonSerializerOptions options, DataCatalystEnvironment? env = null) {
+		_options = options;
+		_env = env ?? DataCatalystEnvironment.Default;
 	}
+
+	public LoadResult LoadFile(string path) {
+		var result = new LoadResult();
+		var key = Path.GetFileNameWithoutExtension(path);
+		var text = File.ReadAllText(path);
+		if (TryParseEntry(key, text, _options, _env, out var entry, out var diag)) {
+			result._entries.Add(entry);
+		}
+		if (diag != null) result._diagnostics.AddRange(diag);
+
+		foreach (var p in _env.Plugins.EnabledPlugins.OfType<IPostLoadPlugin>())
+			p.OnEntriesLoaded(result._entries, result._diagnostics);
+
+		return result;
+	}
+
+	public LoadResult LoadDirectory(string path) {
+		return LoadDirectory(path, _options, _env);
+	}
+
+	// --- Static API (backward compat) ---
 
 	public static LoadResult LoadDirectory(string directory, JsonSerializerOptions options, DataCatalystEnvironment? env = null) {
 		env ??= DataCatalystEnvironment.Default;
@@ -82,6 +89,20 @@ public static class JsonDataLoader {
 		return result;
 	}
 
+	private static Type? ResolveComponent(string name, PrimitiveRegistry primitives) => primitives.TryResolveId(name, out var type) ? type : null;
+
+	private static bool IsConceptProperty(string name) =>
+		string.Equals(name, "Concept", StringComparison.Ordinal) ||
+		string.Equals(name, "concept", StringComparison.Ordinal);
+
+	private static string? TryGetConceptValue(JsonElement root) {
+		if (root.TryGetProperty("Concept", out var val) && val.ValueKind == JsonValueKind.String)
+			return val.GetString();
+		if (root.TryGetProperty("concept", out val) && val.ValueKind == JsonValueKind.String)
+			return val.GetString();
+		return null;
+	}
+
 	private static bool TryParseEntry(string key, string json, JsonSerializerOptions options,
 		DataCatalystEnvironment env, out DataEntry entry, out List<string>? diagnostics,
 		string? keyField = null) {
@@ -96,7 +117,6 @@ public static class JsonDataLoader {
 				var primitives = env.Primitives;
 				var components = new Dictionary<Type, object>();
 
-				// Handle Concept as a well-known built-in field
 				var conceptName = TryGetConceptValue(root);
 				if (conceptName != null) {
 					components[typeof(Concept)] = new Concept { Value = new[] { conceptName } };

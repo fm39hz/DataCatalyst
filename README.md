@@ -41,8 +41,8 @@ var catalog = DataCatalogBuilder.Resolve(graph);
 
 // Multiple sources — fluent pipeline
 var catalog = new DataPipeline()
-    .Load(JsonDataLoader.LoadDir(options), "Data/")
-    .Load(JsonDataLoader.LoadDir(options), "Mods/")
+    .Load(new JsonDataLoader(options), "Data/")
+    .Load(new JsonDataLoader(options), "Mods/")
     .Build();
 
 var hp  = catalog.Get<Health>(Concept.Enemy.Goblin);

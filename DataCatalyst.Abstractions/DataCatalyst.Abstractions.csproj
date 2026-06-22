@@ -6,4 +6,7 @@
 		<Description>DataCatalyst runtime abstractions — interfaces and value types used by generated code.</Description>
 		<PackageTags>data-catalyst;game-data;source-generator;abstractions</PackageTags>
 	</PropertyGroup>
+	<ItemGroup>
+		<InternalsVisibleTo Include="DataCatalyst.Loaders.Json" />
+	</ItemGroup>
 </Project>
