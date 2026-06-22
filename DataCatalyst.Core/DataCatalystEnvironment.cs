@@ -1,5 +1,7 @@
 namespace DataCatalyst.Core;
 
+using DataCatalyst.Abstractions;
+
 /// <summary>Aggregates all registries for a DataCatalyst scope. Enables independent environments for testing, multi-catalog, and hot reload.</summary>
 public sealed class DataCatalystEnvironment {
 	/// <summary>Default environment for backward compatibility.</summary>

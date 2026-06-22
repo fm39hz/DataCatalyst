@@ -78,7 +78,7 @@ public static class DataCatalogBuilder {
 				throw new InvalidOperationException($"Cycle detected in inheritance graph: '{entry.Key}'.");
 
 			colors[entry.Key] = Gray;
-			var inherits = entry.Fields.TryGetValue(typeof(string[]), out var raw) ? (string[])raw : null;
+		var inherits = entry.Fields.TryGetValue(typeof(string[]), out var raw) ? (string[])raw : null;
 			if (inherits != null) {
 				foreach (var parentKey in inherits) {
 					if (graph.Entries.TryGetValue(parentKey, out var parent))
