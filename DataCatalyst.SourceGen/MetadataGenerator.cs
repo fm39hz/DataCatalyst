@@ -16,6 +16,13 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 [Generator]
 public sealed class MetadataGenerator : IIncrementalGenerator {
+	private static readonly DiagnosticDescriptor MissingConceptError = new(
+		id: "DC100",
+		title: "Entry missing Concept field",
+		messageFormat: "Entry '{0}' has no 'Concept' field. Every entry must belong to at least one concept.",
+		category: "DataCatalyst",
+		defaultSeverity: DiagnosticSeverity.Error,
+		isEnabledByDefault: true);
 
 	public void Initialize(IncrementalGeneratorInitializationContext context) {
 		var jsonFiles = context.AdditionalTextsProvider
@@ -254,8 +261,12 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 			if (!assigned.Contains(e))
 				unassigned.Add(e);
 
-		if (unassigned.Count > 0)
-			conceptGroups["Default"] = unassigned;
+		if (unassigned.Count > 0) {
+			foreach (var entry in unassigned) {
+				spc.ReportDiagnostic(Diagnostic.Create(MissingConceptError, Location.None, entry));
+			}
+			return; // Fail build — can't proceed without concepts
+		}
 
 		if (conceptGroups.Count == 0) return;
 
