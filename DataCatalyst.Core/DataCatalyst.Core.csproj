@@ -13,4 +13,9 @@
 	<ItemGroup>
 		<ProjectReference Include="..\DataCatalyst.Abstractions\DataCatalyst.Abstractions.csproj"/>
 	</ItemGroup>
+	<ItemGroup>
+		<InternalsVisibleTo Include="DataCatalyst.Plugins.GameConcept" />
+		<InternalsVisibleTo Include="DataCatalyst.Plugins.StateEngine" />
+		<InternalsVisibleTo Include="DataCatalyst.Tests" />
+	</ItemGroup>
 </Project>

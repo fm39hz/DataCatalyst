@@ -48,5 +48,5 @@ public sealed class DataCatalog {
 	public bool ContainsKey(int entryId) => entryId >= 0 && entryId < _byId.Count && _byId[entryId] != null;
 
 	/// <summary>Resolves a string entry key to its int entry id. Returns -1 if not found.</summary>
-	public int GetEntryId(string key) => _keyToId.TryGetValue(key, out var id) ? id : -1;
+	internal int GetEntryId(string key) => _keyToId.TryGetValue(key, out var id) ? id : -1;
 }
