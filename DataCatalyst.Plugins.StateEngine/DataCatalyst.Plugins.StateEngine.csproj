@@ -9,6 +9,5 @@
 	<ItemGroup>
 		<ProjectReference Include="..\DataCatalyst.Core\DataCatalyst.Core.csproj"/>
 		<ProjectReference Include="..\DataCatalyst.Extensions\DataCatalyst.Extensions.csproj"/>
-		<ProjectReference Include="..\DataCatalyst.Plugins.GameConcept\DataCatalyst.Plugins.GameConcept.csproj"/>
 	</ItemGroup>
 </Project>
