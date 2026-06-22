@@ -87,119 +87,60 @@ SourceGen packages as analyzers:
 
 ---
 
-## 🧬 Core API
-
-### DataEntry
-
-```csharp
-public sealed class DataEntry {
-    public string Key { get; }
-    public IReadOnlyDictionary<Type, object> Components { get; }
-    public string? SourceFile { get; set; }
-
-    public T Get<T>() where T : struct;
-    public bool TryGet<T>(out T value) where T : struct;
-    public bool Has<T>() where T : struct;
-}
-```
+## 🧬 Usage Examples
 
 ### DataCatalog
 
 ```csharp
-public sealed class DataCatalog {
-    public IReadOnlyDictionary<string, DataEntry> Entries { get; }
-    public T Get<T>(int entryId) where T : struct;
-    public bool TryGet<T>(int entryId, out T value) where T : struct;
-    public bool ContainsKey(int entryId);
-}
-```
-
-```csharp
 catalog.Get<Health>(Concept.Enemy.Goblin).Current
-catalog.TryGet<Element>(Concept.Enemy.FireDragon, out var e)
+catalog.TryGet<Element>(Concept.Enemy.FireDragon, out var elem)
+
+// Concept-scoped view
+var enemies = catalog.GetConcept<Concept.Enemy>();
+enemies.Get<Health>(Concept.Enemy.Goblin).Current
 ```
 
-### Pipeline
+### Custom Loader
 
 ```csharp
-public static class DataGraphBuilder {
-    public static DataGraph Build(IEnumerable<DataEntry> entries, List<string>? diagnostics = null, DataCatalystEnvironment? env = null);
-}
-
-public static class DataCatalogBuilder {
-    public static DataCatalog Resolve(DataGraph graph, List<string>? diagnostics = null, DataCatalystEnvironment? env = null);
+public class CsvDataLoader : IDataLoader {
+    public LoadResult LoadDirectory(string path) {
+        foreach (var file in Directory.GetFiles(path, "*.csv")) {
+            // Parse CSV → DataEntry with typed components
+        }
+    }
+    public LoadResult LoadFile(string path) => LoadDirectory(Path.GetDirectoryName(path));
 }
 ```
 
-### IDataLoader
+### Custom Plugin
 
 ```csharp
-public interface IDataLoader {
-    LoadResult LoadFile(string path);
-    LoadResult LoadDirectory(string path);
-}
-
-public sealed class LoadResult {
-    public IReadOnlyList<DataEntry> Entries { get; }
-    public IReadOnlyList<string> Diagnostics { get; }
-}
-```
-
-### Plugin System
-
-```csharp
-public interface IPlugin     { bool IsEnabled { get; } void OnLoad(); }
-public interface IPluginInit { void OnPluginInit(); }
-public interface IPluginCleanup : IPluginInit { void OnPluginCleanup(); }
-
-public interface IPostLoadPlugin : IPlugin { void OnEntriesLoaded(IReadOnlyList<DataEntry> entries, List<string> diagnostics); }
-public interface IGraphPlugin : IPlugin { void OnGraphBuilt(DataGraph graph, List<string> diagnostics); }
-public interface ICatalogPlugin : IPlugin { void OnCatalogResolved(DataCatalog catalog, List<string> diagnostics); }
-```
-
-| Hook              | Called                | Input                      |
-| ----------------- | --------------------- | -------------------------- |
-| `IPostLoadPlugin` | After load            | `IReadOnlyList<DataEntry>` |
-| `IGraphPlugin`    | After graph build     | `DataGraph`                |
-| `ICatalogPlugin`  | After catalog resolve | `DataCatalog`              |
-
-### DataCatalystEnvironment
-
-```csharp
-public sealed class DataCatalystEnvironment {
-    public PluginRegistry Plugins { get; }
-    public PrimitiveRegistry Primitives { get; }
-    public ServiceRegistry Services { get; }
-    public MapperRegistry Mappers { get; }
-    public DataViewAdapterRegistry ViewAdapters { get; }
+[DataPlugin]
+public class MyPlugin : ICatalogPlugin {
+    public bool IsEnabled => true;
+    public void OnLoad() => env.Primitives.Register<MyComponent>();
+    public void OnCatalogResolved(DataCatalog catalog, List<string> diags) {
+        foreach (var entry in catalog.Entries.Values) {
+            if (entry.TryGet<MyComponent>(out var c))
+                Process(c);
+        }
+    }
 }
 ```
-
-### SourceGen Attributes
-
-| Attribute         | Target            | Generator           |
-| ----------------- | ----------------- | ------------------- |
-| `[DataComponent]` | `struct`          | `MetadataGenerator` |
-| `[DataPlugin]`    | `class : IPlugin` | `PluginGenerator`   |
-| `[DataConcept]`   | `struct`          | `ConceptGenerator`  |
-
-### Registries
-
-| Registry            | Populated by                       |
-| ------------------- | ---------------------------------- |
-| `PluginRegistry`    | SourceGen `[DataPlugin]`           |
-| `PrimitiveRegistry` | SourceGen `[DataComponent]` + JSON |
-| `ServiceRegistry`   | Manual                             |
-| `MapperRegistry`    | Plugin SourceGens                  |
-| `ConceptRegistry`   | SourceGen `[DataConcept]` + JSON   |
 
 ### Materializer
 
 ```csharp
-public sealed class DataMaterializer<TTarget> {
-    public void Register<TComponent>(Action<TTarget, TComponent> apply) where TComponent : struct;
-    public void Materialize(DataEntry entry, TTarget target);
-}
+var mat = new DataMaterializer<GameObject>();
+mat.Register<Health>((go, h) => go.GetComponent<HealthBar>().SetMax(h.Max));
+mat.Register<AttackPower>((go, a) => go.GetComponent<DamageDealer>().Power = a.Value);
+
+// Spawn any enemy
+var goblin = Instantiate(goblinPrefab);
+mat.Materialize(catalog.Entries["Goblin"], goblin);
+
+// Dragon có Element, Goblin không → Materialize chỉ apply component có sẵn
 ```
 
 ---
