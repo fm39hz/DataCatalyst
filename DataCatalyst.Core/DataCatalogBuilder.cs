@@ -5,12 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using DataCatalyst.Abstractions;
 
-/// <summary>Builds a flat, immutable catalog by resolving inheritance.</summary>
 public static class DataCatalogBuilder {
-	private static string[]? GetInherits(DataEntry e) => e.Meta.TryGetValue("inherits", out var v) && v is string[] arr ? arr : null;
-	private static string? GetConcept(DataEntry e) => e.Meta.TryGetValue("Concept", out var v) && v is string s ? s : null;
-
-	/// <summary>Resolves inheritance and returns a populated catalog.</summary>
 	public static DataCatalog Resolve(DataGraph graph, List<string>? diagnostics = null, DataCatalystEnvironment? env = null) {
 		env ??= DataCatalystEnvironment.Default;
 
@@ -18,14 +13,10 @@ public static class DataCatalogBuilder {
 		var ordered = TopologicalSort(graph);
 
 		foreach (var entry in ordered) {
-			if (resolved.ContainsKey(entry.Key)) {
-				continue;
-			}
+			if (resolved.ContainsKey(entry.Key)) continue;
 
 			var merged = CollectComponents(entry, graph, resolved, []);
-			resolved[entry.Key] = new DataEntry(entry.Key, merged, new Dictionary<string, object>(entry.Meta)) {
-				SourceFile = entry.SourceFile
-			};
+			resolved[entry.Key] = new DataEntry(entry.Key, merged, new Dictionary<Type, object>(entry.Fields)) { SourceFile = entry.SourceFile };
 		}
 
 		var catalog = new DataCatalog(resolved);
@@ -43,23 +34,18 @@ public static class DataCatalogBuilder {
 		Dictionary<string, DataEntry> resolved,
 		HashSet<string> visiting) {
 
-		if (!visiting.Add(entry.Key)) {
+		if (!visiting.Add(entry.Key))
 			throw new InvalidOperationException($"Cycle detected: {entry.Key}");
-		}
 
-		var merged = new Dictionary<Type, object>(entry.MutableComponents);
-
-		var inherits = GetInherits(entry);
+		var merged = new Dictionary<Type, object>(entry.Components);
+		var inherits = entry.Fields.TryGetValue(typeof(string[]), out var raw) ? (string[])raw : null;
 		if (inherits != null) {
 			foreach (var parentKey in inherits) {
-				if (resolved.TryGetValue(parentKey, out var parentEntry)) {
+				if (resolved.TryGetValue(parentKey, out var parentEntry))
 					CopyMissing(merged, parentEntry.Components);
-				}
 				else if (graph.Entries.TryGetValue(parentKey, out var parentGraphEntry)) {
 					var parentMerged = CollectComponents(parentGraphEntry, graph, resolved, visiting);
-					resolved[parentKey] = new DataEntry(parentKey, parentMerged, new Dictionary<string, object>(parentGraphEntry.Meta)) {
-						SourceFile = parentGraphEntry.SourceFile
-					};
+					resolved[parentKey] = new DataEntry(parentKey, parentMerged, new Dictionary<Type, object>(parentGraphEntry.Fields)) { SourceFile = parentGraphEntry.SourceFile };
 					CopyMissing(merged, parentMerged);
 				}
 			}
@@ -71,12 +57,10 @@ public static class DataCatalogBuilder {
 
 	private static void CopyMissing(Dictionary<Type, object> target, IReadOnlyDictionary<Type, object> source) {
 		foreach (var (type, inheritedVal) in source) {
-			if (target.TryGetValue(type, out var existing)) {
+			if (target.TryGetValue(type, out var existing))
 				target[type] = ComponentMerger.Merge(type, existing, inheritedVal);
-			}
-			else {
+			else
 				target[type] = inheritedVal;
-			}
 		}
 	}
 
@@ -89,29 +73,24 @@ public static class DataCatalogBuilder {
 
 		void Dfs(DataEntry entry) {
 			colors.TryGetValue(entry.Key, out var color);
-
 			if (color == Black) return;
 			if (color == Gray)
-				throw new InvalidOperationException($"Cycle detected in inheritance graph: '{entry.Key}' appears more than once in the same chain.");
+				throw new InvalidOperationException($"Cycle detected in inheritance graph: '{entry.Key}'.");
 
 			colors[entry.Key] = Gray;
-
-			var inherits = GetInherits(entry);
+			var inherits = entry.Fields.TryGetValue(typeof(string[]), out var raw) ? (string[])raw : null;
 			if (inherits != null) {
 				foreach (var parentKey in inherits) {
-					if (graph.Entries.TryGetValue(parentKey, out var parent)) {
+					if (graph.Entries.TryGetValue(parentKey, out var parent))
 						Dfs(parent);
-					}
 				}
 			}
-
 			colors[entry.Key] = Black;
 			result.Add(entry);
 		}
 
-		foreach (var entry in graph.Entries.Values) {
+		foreach (var entry in graph.Entries.Values)
 			Dfs(entry);
-		}
 
 		return result;
 	}

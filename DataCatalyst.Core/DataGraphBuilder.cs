@@ -1,39 +1,30 @@
 namespace DataCatalyst.Core;
 
 using DataCatalyst.Abstractions;
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
-/// <summary>Builds data graphs from entry collections with layer-aware merge and dependency tracking.</summary>
 public static class DataGraphBuilder {
 	private const string Unknown = "unknown";
 
-	private static int GetLayer(DataEntry e) => e.Meta.TryGetValue("Layer", out var v) && v is int i ? i : 0;
-	private static string[]? GetInherits(DataEntry e) => e.Meta.TryGetValue("inherits", out var v) && v is string[] arr ? arr : null;
-	private static string? GetConcept(DataEntry e) => e.Meta.TryGetValue("Concept", out var v) && v is string s ? s : null;
-
-	/// <summary>Creates a graph from the given entries, merging components for duplicate keys.</summary>
 	public static DataGraph Build(IEnumerable<DataEntry> entries, List<string>? diagnostics = null, DataCatalystEnvironment? env = null) {
 		env ??= DataCatalystEnvironment.Default;
 		var graph = new DataGraph();
 		var diag = diagnostics ?? [];
 
-		var sorted = entries.OrderBy(GetLayer).ToList();
+		static int GetLayer(DataEntry e) => e.Fields.TryGetValue(typeof(int), out var v) ? (int)v : 0;
+		var sorted = entries.OrderBy(e => GetLayer(e)).ToList();
 
 		var knownKeys = new HashSet<string>();
-		foreach (var entry in sorted) {
-			knownKeys.Add(entry.Key);
-		}
+		foreach (var entry in sorted) knownKeys.Add(entry.Key);
 
 		foreach (var entry in sorted) {
-			var inherits = GetInherits(entry);
+			var inherits = entry.Fields.TryGetValue(typeof(string[]), out var raw) ? (string[])raw : null;
 			if (inherits != null) {
 				foreach (var parent in inherits) {
-					if (!knownKeys.Contains(parent)) {
+					if (!knownKeys.Contains(parent))
 						diag.Add($"Entry '{entry.Key}' inherits from missing parent '{parent}'.");
-					}
 				}
 			}
 
@@ -47,17 +38,13 @@ public static class DataGraphBuilder {
 				}
 				else {
 					diag.Add($"Entry '{entry.Key}' from '{entry.SourceFile ?? Unknown}' overrides/merges components of existing entry from '{existing.SourceFile ?? Unknown}'.");
-					var merged = new Dictionary<Type, object>(existing.MutableComponents);
-					foreach (var (type, val) in entry.MutableComponents) {
-						merged[type] = val;
-					}
-					var mergedMeta = new Dictionary<string, object>(existing.Meta);
-					foreach (var (k, v) in entry.Meta) {
-						mergedMeta[k] = v;
-					}
-					graph.MutableEntries[entry.Key] = new DataEntry(entry.Key, merged, mergedMeta) {
-						SourceFile = entry.SourceFile ?? existing.SourceFile
-					};
+					var mergedComps = new Dictionary<Type, object>(existing.Components);
+					foreach (var kv in entry.Components)
+						mergedComps[kv.Key] = kv.Value;
+					var mergedFields = new Dictionary<Type, object>(existing.Fields);
+					foreach (var kv in entry.Fields)
+						mergedFields[kv.Key] = kv.Value;
+					graph.MutableEntries[entry.Key] = new DataEntry(entry.Key, mergedComps, mergedFields) { SourceFile = entry.SourceFile ?? existing.SourceFile };
 				}
 			}
 			else {
@@ -65,9 +52,8 @@ public static class DataGraphBuilder {
 			}
 		}
 
-		foreach (var p in env.Plugins.EnabledPlugins.OfType<IGraphPlugin>()) {
+		foreach (var p in env.Plugins.EnabledPlugins.OfType<IGraphPlugin>())
 			p.OnGraphBuilt(graph, diag);
-		}
 
 		return graph;
 	}

@@ -14,10 +14,6 @@ using Microsoft.CodeAnalysis.Text;
 
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
-/// <summary>
-/// Generates [DataComponent] structs and metadata from JSON data files.
-/// Data is the Single Source of Truth — no manual C# code needed.
-/// </summary>
 [Generator]
 public sealed class MetadataGenerator : IIncrementalGenerator {
 
@@ -36,43 +32,95 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 		context.RegisterSourceOutput(jsonFiles, static (spc, files) => {
 			var components = new Dictionary<string, List<KeyValuePair<string, string>>>();
 			var processed = new HashSet<string>();
+			var entryConcepts = new Dictionary<string, string>();
+			var allEntryKeys = new List<string>();
 
 			foreach (var file in files) {
-				ProcessJson(file.Text, components, processed);
+				ProcessJson(file.Text, file.FileName, components, processed, entryConcepts, allEntryKeys);
 			}
 
 			if (components.Count == 0) return;
 
 			EmitComponentStructs(spc, components);
-			EmitRegistrations(spc, components);
+			EmitRegistrations(spc, components, entryConcepts);
 			EmitMerge(spc, components);
+			EmitConceptAndKeyConstants(spc, entryConcepts, allEntryKeys);
 		});
 	}
 
-	private static void ProcessJson(string json,
+	private static void ProcessJson(string json, string defaultEntryName,
 		Dictionary<string, List<KeyValuePair<string, string>>> components,
-		HashSet<string> processed) {
+		HashSet<string> processed,
+		Dictionary<string, string> entryConcepts,
+		List<string> allEntryKeys) {
 
 		try {
 			using var doc = JsonDocument.Parse(json);
 
-			foreach (var prop in doc.RootElement.EnumerateObject()) {
-				if (string.Equals(prop.Name, "Concept", StringComparison.Ordinal) ||
-					string.Equals(prop.Name, "concept", StringComparison.Ordinal)) continue;
-				if (string.Equals(prop.Name, "inherits", StringComparison.OrdinalIgnoreCase)) continue;
-				if (prop.Value.ValueKind != JsonValueKind.Object) continue;
+			if (TryGetConceptProperty(doc.RootElement, out var rootConcept)) {
+				allEntryKeys.Add(defaultEntryName);
+				if (!string.IsNullOrEmpty(rootConcept))
+					entryConcepts[defaultEntryName] = rootConcept;
 
-				if (!processed.Contains(prop.Name)) {
-					var fields = new List<KeyValuePair<string, string>>();
-					ExtractFields(prop.Name, prop.Value, fields, components, processed);
-					if (fields.Count > 0) {
-						components[prop.Name] = fields;
-						processed.Add(prop.Name);
+				foreach (var prop in doc.RootElement.EnumerateObject()) {
+					if (IsConceptProperty(prop.Name)) continue;
+					if (string.Equals(prop.Name, "inherits", StringComparison.OrdinalIgnoreCase)) continue;
+					if (prop.Value.ValueKind != JsonValueKind.Object) continue;
+
+					if (!processed.Contains(prop.Name)) {
+						var fields = new List<KeyValuePair<string, string>>();
+						ExtractFields(prop.Name, prop.Value, fields, components, processed);
+						if (fields.Count > 0) {
+							components[prop.Name] = fields;
+							processed.Add(prop.Name);
+						}
+					}
+				}
+			}
+			else {
+				foreach (var prop in doc.RootElement.EnumerateObject()) {
+					if (string.Equals(prop.Name, "inherits", StringComparison.OrdinalIgnoreCase)) continue;
+					if (prop.Value.ValueKind != JsonValueKind.Object) continue;
+
+					var entryName = prop.Name;
+					allEntryKeys.Add(entryName);
+
+					if (TryGetConceptProperty(prop.Value, out var concept))
+						entryConcepts[entryName] = concept;
+
+					if (!processed.Contains(entryName)) {
+						var fields = new List<KeyValuePair<string, string>>();
+						foreach (var innerProp in prop.Value.EnumerateObject()) {
+							if (IsConceptProperty(innerProp.Name)) continue;
+							var fieldType = InferType(innerProp.Name, innerProp.Value, components, processed);
+							fields.Add(new KeyValuePair<string, string>(innerProp.Name, fieldType));
+						}
+						if (fields.Count > 0) {
+							components[entryName] = fields;
+							processed.Add(entryName);
+						}
 					}
 				}
 			}
 		}
 		catch { }
+	}
+
+	private static bool IsConceptProperty(string name) =>
+		string.Equals(name, "Concept", StringComparison.Ordinal) ||
+		string.Equals(name, "concept", StringComparison.Ordinal);
+
+	private static bool TryGetConceptProperty(JsonElement element, out string? concept) {
+		if (element.TryGetProperty("Concept", out var val) && val.ValueKind == JsonValueKind.String) {
+			concept = val.GetString();
+			return !string.IsNullOrEmpty(concept);
+		}
+		if (element.TryGetProperty("concept", out val) && val.ValueKind == JsonValueKind.String) {
+			concept = val.GetString();
+			return !string.IsNullOrEmpty(concept);
+		}
+		concept = null;
+		return false;
 	}
 
 	private static void ExtractFields(string typeName, JsonElement obj,
@@ -119,54 +167,6 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 		}
 	}
 
-	private static void WriteMetadataFile(ImmutableArray<(string FileName, string Text, string Dir)> files,
-		Dictionary<string, List<KeyValuePair<string, string>>> components,
-		Dictionary<string, List<string>> conceptEntries,
-		List<string> allEntryKeys) {
-
-		if (files.Length == 0) return;
-		var dir = Path.Combine(files[0].Dir, ".datacatalyst");
-		Directory.CreateDirectory(dir);
-
-		var sb = new StringBuilder();
-		sb.AppendLine("{");
-		sb.AppendLine("  \"components\": {");
-
-		bool firstComp = true;
-		foreach (var kv in components.OrderBy(c => c.Key)) {
-			if (!firstComp) sb.AppendLine(",");
-			firstComp = false;
-			sb.AppendFormat("    \"{0}\": {{", kv.Key);
-			bool firstField = true;
-			foreach (var field in kv.Value) {
-				if (!firstField) sb.Append(",");
-				firstField = false;
-				sb.AppendFormat("\"{0}\":\"{1}\"", field.Key, field.Value);
-			}
-			sb.Append("}");
-		}
-		if (components.Count > 0) sb.AppendLine();
-		sb.AppendLine("  },");
-		sb.AppendLine("  \"entries\": {");
-
-		bool firstEntry = true;
-		foreach (var key in allEntryKeys.OrderBy(k => k)) {
-			if (!firstEntry) sb.AppendLine(",");
-			firstEntry = false;
-			string? concept = null;
-			foreach (var ck in conceptEntries) {
-				if (ck.Value.Contains(key)) { concept = ck.Key; break; }
-			}
-			sb.AppendFormat("    \"{0}\": {{\"concept\":{1}}}", key,
-				concept != null ? "\"" + concept + "\"" : "null");
-		}
-		if (allEntryKeys.Count > 0) sb.AppendLine();
-		sb.AppendLine("  }");
-		sb.AppendLine("}");
-
-		File.WriteAllText(Path.Combine(dir, "metadata.json"), sb.ToString());
-	}
-
 	private static void EmitComponentStructs(SourceProductionContext spc,
 		Dictionary<string, List<KeyValuePair<string, string>>> components) {
 
@@ -206,14 +206,36 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 	}
 
 	private static void EmitConceptAndKeyConstants(SourceProductionContext spc,
-		Dictionary<string, List<string>> conceptEntries,
+		Dictionary<string, string> entryConcepts,
 		List<string> allEntryKeys) {
 
 		var members = new List<MemberDeclarationSyntax>();
 
-		if (conceptEntries.Count > 0) {
+		var conceptGroups = new Dictionary<string, List<string>>();
+		foreach (var kv in entryConcepts) {
+			if (!conceptGroups.TryGetValue(kv.Value, out var list)) {
+				list = new List<string>();
+				conceptGroups[kv.Value] = list;
+			}
+			list.Add(kv.Key);
+		}
+
+		var assigned = new HashSet<string>();
+		foreach (var list in conceptGroups.Values)
+			foreach (var e in list)
+				assigned.Add(e);
+
+		var unassigned = new List<string>();
+		foreach (var e in allEntryKeys)
+			if (!assigned.Contains(e))
+				unassigned.Add(e);
+
+		if (unassigned.Count > 0)
+			conceptGroups["Default"] = unassigned;
+
+		if (conceptGroups.Count > 0) {
 			var conceptMembers = new List<MemberDeclarationSyntax>();
-			foreach (var kv in conceptEntries.OrderBy(c => c.Key)) {
+			foreach (var kv in conceptGroups.OrderBy(c => c.Key)) {
 				var sortedEntries = kv.Value.OrderBy(n => n).ToList();
 				var fields = new List<MemberDeclarationSyntax>();
 				for (int i = 0; i < sortedEntries.Count; i++) {
@@ -224,11 +246,12 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 									VariableDeclarator(Identifier(sortedEntries[i]))
 										.WithInitializer(EqualsValueClause(
 											LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(i)))))))
-						.WithModifiers(TokenList(
-							Token(SyntaxKind.PublicKeyword),
-							Token(SyntaxKind.ConstKeyword))));
+							.WithModifiers(TokenList(
+								Token(SyntaxKind.PublicKeyword),
+								Token(SyntaxKind.ConstKeyword))));
 				}
 
+				var attrValue = kv.Key == "Default" ? "" : kv.Key;
 				conceptMembers.Add(
 					StructDeclaration(kv.Key)
 						.WithModifiers(TokenList(
@@ -240,7 +263,7 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 								Attribute(ParseName("DataConcept"),
 									AttributeArgumentList(SingletonSeparatedList(
 										AttributeArgument(
-											LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(kv.Key))))))))))
+											LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(attrValue))))))))))
 						.AddMembers(fields.ToArray()));
 			}
 
@@ -264,9 +287,9 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 								VariableDeclarator(Identifier(sortedKeys[i]))
 									.WithInitializer(EqualsValueClause(
 										LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(i)))))))
-					.WithModifiers(TokenList(
-						Token(SyntaxKind.PublicKeyword),
-						Token(SyntaxKind.ConstKeyword))));
+						.WithModifiers(TokenList(
+							Token(SyntaxKind.PublicKeyword),
+							Token(SyntaxKind.ConstKeyword))));
 			}
 
 			members.Add(
@@ -291,7 +314,8 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 	}
 
 	private static void EmitRegistrations(SourceProductionContext spc,
-		Dictionary<string, List<KeyValuePair<string, string>>> components) {
+		Dictionary<string, List<KeyValuePair<string, string>>> components,
+		Dictionary<string, string> entryConcepts) {
 
 		var initBody = new List<StatementSyntax>();
 		var regBody = new List<StatementSyntax>();
@@ -314,6 +338,26 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 						GenericName("RegisterComponent")
 							.WithTypeArgumentList(TypeArgumentList(
 								SingletonSeparatedList(ParseTypeName(fullType))))))));
+		}
+
+		var seenConcepts = new HashSet<string>(StringComparer.Ordinal);
+		foreach (var conceptValue in entryConcepts.Values) {
+			if (string.IsNullOrEmpty(conceptValue)) continue;
+			if (!seenConcepts.Add(conceptValue)) continue;
+
+			initBody.Add(ExpressionStatement(
+				InvocationExpression(
+					MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+						ParseExpression("global::DataCatalyst.Core.SchemaBuilder.Default"),
+						GenericName("Register")
+							.WithTypeArgumentList(TypeArgumentList(
+								SingletonSeparatedList<TypeSyntax>(
+									PredefinedType(Token(SyntaxKind.StringKeyword)))))),
+					ArgumentList(
+						SingletonSeparatedList(
+							Argument(
+								LiteralExpression(SyntaxKind.StringLiteralExpression,
+									Literal(conceptValue))))))));
 		}
 
 		var cu = CompilationUnit()
@@ -348,7 +392,7 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 											Parameter(Identifier("registry"))
 												.WithType(ParseTypeName("global::DataCatalyst.Core.DataRegistry")))))
 									.WithBody(Block(regBody)))))
-			.NormalizeWhitespace(eol: "\n");
+				.NormalizeWhitespace(eol: "\n");
 
 		spc.AddSource("JsonComponentRegistrations.g.cs",
 			SourceText.From(cu.ToFullString(), Encoding.UTF8));
@@ -410,7 +454,7 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 										Token(SyntaxKind.InternalKeyword),
 										Token(SyntaxKind.StaticKeyword)))
 									.WithBody(Block(initBody)))))
-			.NormalizeWhitespace(eol: "\n");
+				.NormalizeWhitespace(eol: "\n");
 
 		spc.AddSource("JsonComponentMergeRegistrations.g.cs",
 			SourceText.From(cu.ToFullString(), Encoding.UTF8));

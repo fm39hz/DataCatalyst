@@ -51,6 +51,20 @@ public class DataEntryTests {
 		var entry = new DataEntry("c", comps);
 		entry.Get<TestStruct>().X.Should().Be(7);
 	}
+
+	[Fact]
+	public void Constructor_AcceptsFields() {
+		var fields = new Dictionary<Type, object> { [typeof(string[])] = new[] { "parent" } };
+		var entry = new DataEntry("child", fields: fields);
+		entry.GetField<string[]>().Should().BeEquivalentTo(new[] { "parent" });
+	}
+
+	[Fact]
+	public void GetField_Missing_Throws() {
+		var entry = new DataEntry("empty");
+		Action act = () => entry.GetField<int>();
+		act.Should().Throw<KeyNotFoundException>();
+	}
 }
 
 public class DataGraphBuilderTests {
@@ -94,7 +108,7 @@ public class DataCatalogBuilderTests {
 
 		var child = new DataEntry("child", new() {
 			[typeof(OtherStruct)] = new OtherStruct { Y = 20 }
-		}, new Dictionary<string, object> { ["inherits"] = new[] { "parent" } });
+		}, new Dictionary<Type, object> { [typeof(string[])] = new[] { "parent" } });
 
 		var graph = DataGraphBuilder.Build([parent, child]);
 		var catalog = DataCatalogBuilder.Resolve(graph);
@@ -111,7 +125,7 @@ public class DataCatalogBuilderTests {
 
 		var child = new DataEntry("child", new() {
 			[typeof(TestStruct)] = new TestStruct { X = 99 }
-		}, new Dictionary<string, object> { ["inherits"] = new[] { "parent" } });
+		}, new Dictionary<Type, object> { [typeof(string[])] = new[] { "parent" } });
 
 		var graph = DataGraphBuilder.Build([parent, child]);
 		var catalog = DataCatalogBuilder.Resolve(graph);
@@ -126,8 +140,8 @@ public class DataCatalogBuilderTests {
 		});
 		var b = new DataEntry("b", new() {
 			[typeof(OtherStruct)] = new OtherStruct { Y = 2 }
-		}, new Dictionary<string, object> { ["inherits"] = new[] { "a" } });
-		var c = new DataEntry("c", null, new Dictionary<string, object> { ["inherits"] = new[] { "b" } });
+		}, new Dictionary<Type, object> { [typeof(string[])] = new[] { "a" } });
+		var c = new DataEntry("c", fields: new Dictionary<Type, object> { [typeof(string[])] = new[] { "b" } });
 
 		var graph = DataGraphBuilder.Build([a, b, c]);
 		var catalog = DataCatalogBuilder.Resolve(graph);
@@ -138,8 +152,8 @@ public class DataCatalogBuilderTests {
 
 	[Fact]
 	public void Cycle_Throws() {
-		var a = new DataEntry("a", null, new Dictionary<string, object> { ["inherits"] = new[] { "b" } });
-		var b = new DataEntry("b", null, new Dictionary<string, object> { ["inherits"] = new[] { "a" } });
+		var a = new DataEntry("a", fields: new Dictionary<Type, object> { [typeof(string[])] = new[] { "b" } });
+		var b = new DataEntry("b", fields: new Dictionary<Type, object> { [typeof(string[])] = new[] { "a" } });
 		var graph = DataGraphBuilder.Build([a, b]);
 
 		Action act = () => DataCatalogBuilder.Resolve(graph);
@@ -150,7 +164,7 @@ public class DataCatalogBuilderTests {
 	public void MissingParent_Ignores() {
 		var child = new DataEntry("child", new() {
 			[typeof(TestStruct)] = new TestStruct { X = 5 }
-		}, new Dictionary<string, object> { ["inherits"] = new[] { "missing" } });
+		}, new Dictionary<Type, object> { [typeof(string[])] = new[] { "missing" } });
 		var graph = DataGraphBuilder.Build([child]);
 		var catalog = DataCatalogBuilder.Resolve(graph);
 
@@ -239,11 +253,6 @@ public struct OtherStruct : IComponent {
 	public int Y { get; set; }
 }
 
-/// <summary>
-/// Marker interface for data components — consumer-defined.
-/// Not referenced by DataCatalyst.Core; used by the game project
-/// to denote structs that can be stored in a DataEntry.
-/// </summary>
 public interface IComponent {
 }
 
