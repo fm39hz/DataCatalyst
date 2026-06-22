@@ -149,6 +149,30 @@ mat.Materialize(catalog.GetEntry(Concept.Enemy.Goblin), goblin);
 
 ### Extensions
 
+Custom per-source config - per-loader namespace, injected attributes (Type-safe, no strings).
+
+```csharp
+// Game data - additional attribute here
+[assembly: DataCatalystConfig("Data/", Namespace = "Game.Components",
+    Attributes = new[] { typeof(YourAttribute) })]
+
+// Mod data - different namespace, different attribute
+[assembly: DataCatalystConfig("Mods/", Namespace = "Mod.Components",
+    Attributes = new[] { typeof(YourAnotherAttribute) })]
+```
+
+SourceGen generates separate namespaces per source:
+
+```csharp
+// Data/ → Game.Components
+namespace Game.Components;
+[IComponent] public partial struct Health { int Current; int Max; }
+
+// Mods/ → Mod.Components
+namespace Mod.Components;
+[IComponent] public partial struct Health { int Current; int Max; }
+```
+
 | Namespace                                 | Types                                                                              |
 | ----------------------------------------- | ---------------------------------------------------------------------------------- |
 | `DataCatalyst.Extensions.Compare`         | `CompareOp`, `OperatorParser`                                                      |
