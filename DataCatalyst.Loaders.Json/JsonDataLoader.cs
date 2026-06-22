@@ -81,46 +81,30 @@ public static class JsonDataLoader {
 			var root = doc.RootElement;
 			if (root.ValueKind != JsonValueKind.Object) return false;
 
-			var primitives = env.Primitives;
-			var components = new Dictionary<Type, object>();
-			var fields = new Dictionary<Type, object>();
+				var primitives = env.Primitives;
+				var components = new Dictionary<Type, object>();
 
-			foreach (var prop in root.EnumerateObject()) {
-				if (prop.Name == keyField) continue;
+				foreach (var prop in root.EnumerateObject()) {
+					if (prop.Name == keyField) continue;
 
-				switch (prop.Value.ValueKind) {
-					case JsonValueKind.String:
-						fields[typeof(string)] = prop.Value.GetString()!;
-						break;
-
-					case JsonValueKind.Array:
-						var list = new List<string>();
-						foreach (var el in prop.Value.EnumerateArray())
-							if (el.ValueKind == JsonValueKind.String) list.Add(el.GetString()!);
-						fields[typeof(string[])] = list.ToArray();
-						break;
-
-					case JsonValueKind.Number:
-						if (prop.Value.TryGetInt32(out var intVal))
-							fields[typeof(int)] = intVal;
-						break;
-
-					case JsonValueKind.Object:
-						var compType = ResolveComponent(prop.Name, primitives);
-						if (compType == null) goto default;
-						var raw = prop.Value.GetRawText();
-						var deserialized = JsonSerializer.Deserialize(raw, compType, options);
-						if (deserialized != null) components[compType] = deserialized;
-						break;
-
-					default:
+					var compType = ResolveComponent(prop.Name, primitives);
+					if (compType == null) {
 						diagnostics ??= new List<string>();
 						diagnostics.Add($"Unknown field '{prop.Name}' in entry '{key}'. Type mapping not found — value skipped.");
-						break;
-				}
-			}
+						continue;
+					}
 
-			entry = new DataEntry(key, components, fields);
+					object deserialized;
+					if (prop.Value.ValueKind == JsonValueKind.Object) {
+						deserialized = JsonSerializer.Deserialize(prop.Value.GetRawText(), compType, options)!;
+					} else {
+						var wrapped = $"{{\"Value\":{prop.Value.GetRawText()}}}";
+						deserialized = JsonSerializer.Deserialize(wrapped, compType, options)!;
+					}
+					if (deserialized != null) components[compType] = deserialized;
+				}
+
+				entry = new DataEntry(key, components);
 			return true;
 		}
 		catch (Exception ex) {

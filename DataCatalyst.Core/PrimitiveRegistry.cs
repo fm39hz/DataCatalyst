@@ -9,7 +9,7 @@ public class PrimitiveRegistry {
 	public static readonly PrimitiveRegistry Default = new();
 
 	private readonly HashSet<Type> _types = [];
-	private readonly Dictionary<string, Type> _ids = [];
+	private readonly Dictionary<string, Type> _ids = new(StringComparer.OrdinalIgnoreCase);
 
 	/// <summary>Registers a type. The short type name is used as JSON discriminator.</summary>
 	public void Register<T>() {

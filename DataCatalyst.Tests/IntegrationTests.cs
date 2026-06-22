@@ -34,6 +34,7 @@ public class IntegrationTests : IDisposable {
 		// Arrange
 		_env.Primitives.Register<GameComponent>();
 		_env.Primitives.Register<OtherStruct>();
+		_env.Primitives.Register<Inherits>();
 
 		// Write BaseEntity.json
 		File.WriteAllText(Path.Combine(_tempDir, "BaseEntity.json"), /*lang=json,strict*/ @"{
@@ -80,6 +81,7 @@ public class IntegrationTests : IDisposable {
 	public void EndToEnd_CyclicInheritance_ThrowsException() {
 		// Arrange
 		_env.Primitives.Register<GameComponent>();
+		_env.Primitives.Register<Inherits>();
 
 		File.WriteAllText(Path.Combine(_tempDir, "LoopA.json"), /*lang=json,strict*/ @"{
 			""inherits"": [ ""LoopB"" ]
@@ -103,6 +105,7 @@ public class IntegrationTests : IDisposable {
 	public void EndToEnd_SelfLoopInheritance_ThrowsException() {
 		// Arrange
 		_env.Primitives.Register<GameComponent>();
+		_env.Primitives.Register<Inherits>();
 
 		File.WriteAllText(Path.Combine(_tempDir, "SelfLoop.json"), /*lang=json,strict*/ @"{
 			""inherits"": [ ""SelfLoop"" ]
@@ -122,6 +125,7 @@ public class IntegrationTests : IDisposable {
 	public void EndToEnd_DeepCyclicInheritance_ThrowsException() {
 		// Arrange
 		_env.Primitives.Register<GameComponent>();
+		_env.Primitives.Register<Inherits>();
 
 		// A -> B -> C -> B (Nested loop starting at B)
 		File.WriteAllText(Path.Combine(_tempDir, "LoopA.json"), /*lang=json,strict*/ @"{
@@ -150,6 +154,7 @@ public class IntegrationTests : IDisposable {
 	public void EndToEnd_MissingInheritanceParent_IsIgnoredWithWarnings() {
 		// Arrange
 		_env.Primitives.Register<GameComponent>();
+		_env.Primitives.Register<Inherits>();
 
 		File.WriteAllText(Path.Combine(_tempDir, "Goblin.json"), /*lang=json,strict*/ @"{
 			""inherits"": [ ""NonExistentParent"" ],

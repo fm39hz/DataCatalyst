@@ -13,16 +13,16 @@ public static class DataGraphBuilder {
 		var graph = new DataGraph();
 		var diag = diagnostics ?? [];
 
-		static int GetLayer(DataEntry e) => e.Fields.TryGetValue(typeof(int), out var v) ? (int)v : 0;
+		static int GetLayer(DataEntry e) => e.TryGet<Layer>(out var l) ? l.Value : 0;
 		var sorted = entries.OrderBy(e => GetLayer(e)).ToList();
 
 		var knownKeys = new HashSet<string>();
 		foreach (var entry in sorted) knownKeys.Add(entry.Key);
 
 		foreach (var entry in sorted) {
-			var inherits = entry.Fields.TryGetValue(typeof(string[]), out var raw) ? (string[])raw : null;
-			if (inherits != null) {
-				foreach (var parent in inherits) {
+		entry.TryGet<Inherits>(out var inh);
+				if (inh.Value != null) {
+					foreach (var parent in inh.Value) {
 					if (!knownKeys.Contains(parent))
 						diag.Add($"Entry '{entry.Key}' inherits from missing parent '{parent}'.");
 				}
@@ -41,10 +41,7 @@ public static class DataGraphBuilder {
 					var mergedComps = new Dictionary<Type, object>(existing.Components);
 					foreach (var kv in entry.Components)
 						mergedComps[kv.Key] = kv.Value;
-					var mergedFields = new Dictionary<Type, object>(existing.Fields);
-					foreach (var kv in entry.Fields)
-						mergedFields[kv.Key] = kv.Value;
-					graph.MutableEntries[entry.Key] = new DataEntry(entry.Key, mergedComps, mergedFields) { SourceFile = entry.SourceFile ?? existing.SourceFile };
+						graph.MutableEntries[entry.Key] = new DataEntry(entry.Key, mergedComps) { SourceFile = entry.SourceFile ?? existing.SourceFile };
 				}
 			}
 			else {

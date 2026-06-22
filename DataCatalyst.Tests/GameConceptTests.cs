@@ -5,6 +5,7 @@ using System.Text.Json.Serialization.Metadata;
 using DataCatalyst.Core;
 using DataCatalyst.Loaders;
 using DataCatalyst.Plugins.GameConcept;
+using CoreConcept = DataCatalyst.Core.Concept;
 using FluentAssertions;
 using Xunit;
 
@@ -32,6 +33,7 @@ public class GameConceptTests : IDisposable {
 		Directory.CreateDirectory(_tempDir);
 		_env = new DataCatalystEnvironment();
 		_env.Primitives.Register<GameComponent>();
+		_env.Primitives.Register<CoreConcept>();
 	}
 
 	public void Dispose() {

@@ -1,5 +1,6 @@
 using DataCatalyst.Abstractions;
 using DataCatalyst.Core;
+using CoreConcept = DataCatalyst.Core.Concept;
 using FluentAssertions;
 using Xunit;
 
@@ -53,16 +54,17 @@ public class DataEntryTests {
 	}
 
 	[Fact]
-	public void Constructor_AcceptsFields() {
-		var fields = new Dictionary<Type, object> { [typeof(string[])] = new[] { "parent" } };
-		var entry = new DataEntry("child", fields: fields);
-		entry.GetField<string[]>().Should().BeEquivalentTo(new[] { "parent" });
+	public void Constructor_AcceptsConcept() {
+		var entry = new DataEntry("child", new() {
+			[typeof(CoreConcept)] = new CoreConcept { Value = "Item" }
+		});
+		entry.Get<CoreConcept>().Value.Should().Be("Item");
 	}
 
 	[Fact]
-	public void GetField_Missing_Throws() {
+	public void Get_Missing_Throws() {
 		var entry = new DataEntry("empty");
-		Action act = () => entry.GetField<int>();
+		Action act = () => entry.Get<CoreConcept>();
 		act.Should().Throw<KeyNotFoundException>();
 	}
 }
@@ -107,8 +109,9 @@ public class DataCatalogBuilderTests {
 		});
 
 		var child = new DataEntry("child", new() {
-			[typeof(OtherStruct)] = new OtherStruct { Y = 20 }
-		}, new Dictionary<Type, object> { [typeof(string[])] = new[] { "parent" } });
+			[typeof(OtherStruct)] = new OtherStruct { Y = 20 },
+			[typeof(Inherits)] = new Inherits { Value = new[] { "parent" } }
+		});
 
 		var graph = DataGraphBuilder.Build([parent, child]);
 		var catalog = DataCatalogBuilder.Resolve(graph);
@@ -124,8 +127,9 @@ public class DataCatalogBuilderTests {
 		});
 
 		var child = new DataEntry("child", new() {
-			[typeof(TestStruct)] = new TestStruct { X = 99 }
-		}, new Dictionary<Type, object> { [typeof(string[])] = new[] { "parent" } });
+			[typeof(TestStruct)] = new TestStruct { X = 99 },
+			[typeof(Inherits)] = new Inherits { Value = new[] { "parent" } }
+		});
 
 		var graph = DataGraphBuilder.Build([parent, child]);
 		var catalog = DataCatalogBuilder.Resolve(graph);
@@ -139,9 +143,12 @@ public class DataCatalogBuilderTests {
 			[typeof(TestStruct)] = new TestStruct { X = 1 }
 		});
 		var b = new DataEntry("b", new() {
-			[typeof(OtherStruct)] = new OtherStruct { Y = 2 }
-		}, new Dictionary<Type, object> { [typeof(string[])] = new[] { "a" } });
-		var c = new DataEntry("c", fields: new Dictionary<Type, object> { [typeof(string[])] = new[] { "b" } });
+			[typeof(OtherStruct)] = new OtherStruct { Y = 2 },
+			[typeof(Inherits)] = new Inherits { Value = new[] { "a" } }
+		});
+		var c = new DataEntry("c", new() {
+			[typeof(Inherits)] = new Inherits { Value = new[] { "b" } }
+		});
 
 		var graph = DataGraphBuilder.Build([a, b, c]);
 		var catalog = DataCatalogBuilder.Resolve(graph);
@@ -152,8 +159,12 @@ public class DataCatalogBuilderTests {
 
 	[Fact]
 	public void Cycle_Throws() {
-		var a = new DataEntry("a", fields: new Dictionary<Type, object> { [typeof(string[])] = new[] { "b" } });
-		var b = new DataEntry("b", fields: new Dictionary<Type, object> { [typeof(string[])] = new[] { "a" } });
+		var a = new DataEntry("a", new() {
+			[typeof(Inherits)] = new Inherits { Value = new[] { "b" } }
+		});
+		var b = new DataEntry("b", new() {
+			[typeof(Inherits)] = new Inherits { Value = new[] { "a" } }
+		});
 		var graph = DataGraphBuilder.Build([a, b]);
 
 		Action act = () => DataCatalogBuilder.Resolve(graph);
@@ -163,8 +174,9 @@ public class DataCatalogBuilderTests {
 	[Fact]
 	public void MissingParent_Ignores() {
 		var child = new DataEntry("child", new() {
-			[typeof(TestStruct)] = new TestStruct { X = 5 }
-		}, new Dictionary<Type, object> { [typeof(string[])] = new[] { "missing" } });
+			[typeof(TestStruct)] = new TestStruct { X = 5 },
+			[typeof(Inherits)] = new Inherits { Value = new[] { "missing" } }
+		});
 		var graph = DataGraphBuilder.Build([child]);
 		var catalog = DataCatalogBuilder.Resolve(graph);
 

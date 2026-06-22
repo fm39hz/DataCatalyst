@@ -63,19 +63,28 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 					entryConcepts[defaultEntryName] = rootConcept;
 
 				foreach (var prop in doc.RootElement.EnumerateObject()) {
-					if (IsConceptProperty(prop.Name)) continue;
-					if (string.Equals(prop.Name, "inherits", StringComparison.OrdinalIgnoreCase)) continue;
-					if (prop.Value.ValueKind != JsonValueKind.Object) continue;
+						if (IsWellKnown(prop.Name)) continue;
 
-					if (!processed.Contains(prop.Name)) {
-						var fields = new List<KeyValuePair<string, string>>();
-						ExtractFields(prop.Name, prop.Value, fields, components, processed);
-						if (fields.Count > 0) {
-							components[prop.Name] = fields;
-							processed.Add(prop.Name);
+						if (prop.Value.ValueKind == JsonValueKind.Object) {
+							if (!processed.Contains(prop.Name)) {
+								var fields = new List<KeyValuePair<string, string>>();
+								ExtractFields(prop.Name, prop.Value, fields, components, processed);
+								if (fields.Count > 0) {
+									components[prop.Name] = fields;
+									processed.Add(prop.Name);
+								}
+							}
+						}
+						else {
+							if (!processed.Contains(prop.Name)) {
+								var inferredType = InferType(prop.Name, prop.Value, components, processed);
+								components[prop.Name] = new List<KeyValuePair<string, string>> {
+									new KeyValuePair<string, string>("Value", inferredType)
+								};
+								processed.Add(prop.Name);
+							}
 						}
 					}
-				}
 			}
 			else {
 				foreach (var prop in doc.RootElement.EnumerateObject()) {
@@ -88,18 +97,26 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 					if (TryGetConceptProperty(prop.Value, out var concept))
 						entryConcepts[entryName] = concept;
 
-					if (!processed.Contains(entryName)) {
-						var fields = new List<KeyValuePair<string, string>>();
-						foreach (var innerProp in prop.Value.EnumerateObject()) {
-							if (IsConceptProperty(innerProp.Name)) continue;
-							var fieldType = InferType(innerProp.Name, innerProp.Value, components, processed);
-							fields.Add(new KeyValuePair<string, string>(innerProp.Name, fieldType));
+					foreach (var innerProp in prop.Value.EnumerateObject()) {
+							if (IsWellKnown(innerProp.Name)) continue;
+							if (!processed.Contains(innerProp.Name)) {
+								if (innerProp.Value.ValueKind == JsonValueKind.Object) {
+									var nestedFields = new List<KeyValuePair<string, string>>();
+									ExtractFields(innerProp.Name, innerProp.Value, nestedFields, components, processed);
+									if (nestedFields.Count > 0) {
+										components[innerProp.Name] = nestedFields;
+										processed.Add(innerProp.Name);
+									}
+								}
+								else {
+									var inferredType = InferType(innerProp.Name, innerProp.Value, components, processed);
+									components[innerProp.Name] = new List<KeyValuePair<string, string>> {
+										new KeyValuePair<string, string>("Value", inferredType)
+									};
+									processed.Add(innerProp.Name);
+								}
+							}
 						}
-						if (fields.Count > 0) {
-							components[entryName] = fields;
-							processed.Add(entryName);
-						}
-					}
 				}
 			}
 		}
@@ -109,6 +126,11 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 	private static bool IsConceptProperty(string name) =>
 		string.Equals(name, "Concept", StringComparison.Ordinal) ||
 		string.Equals(name, "concept", StringComparison.Ordinal);
+
+	private static bool IsWellKnown(string name) =>
+		IsConceptProperty(name) ||
+		string.Equals(name, "inherits", StringComparison.OrdinalIgnoreCase) ||
+		string.Equals(name, "layer", StringComparison.OrdinalIgnoreCase);
 
 	private static bool TryGetConceptProperty(JsonElement element, out string? concept) {
 		if (element.TryGetProperty("Concept", out var val) && val.ValueKind == JsonValueKind.String) {

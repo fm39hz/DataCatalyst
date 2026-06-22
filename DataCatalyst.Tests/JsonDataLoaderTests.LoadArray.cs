@@ -35,41 +35,41 @@ public class JsonDataLoaderLoadArrayTests : IDisposable {
 	[Fact]
 	public void LoadArray_Aot_Succeeds() {
 		// Arrange
-		_env.Primitives.Register<GameComponent>();
-		var filePath = Path.Combine(_tempDir, "substances.json");
-		File.WriteAllText(filePath, /*lang=json,strict*/ @"[
-			{
-				""id"": ""H2O"",
-				""GameComponent"": {
-					""Value"": 18
+			_env.Primitives.Register<GameComponent>();
+			_env.Primitives.Register<Inherits>();
+			var filePath = Path.Combine(_tempDir, "substances.json");
+			File.WriteAllText(filePath, /*lang=json,strict*/ @"[
+				{
+					""id"": ""H2O"",
+					""GameComponent"": {
+						""Value"": 18
+					}
+				},
+				{
+					""id"": ""O2"",
+					""inherits"": [""H2O""],
+					""GameComponent"": {
+						""Value"": 32
+					}
 				}
-			},
-			{
-				""id"": ""O2"",
-				""inherits"": [""H2O""],
-				""GameComponent"": {
-					""Value"": 32
-				}
-			}
-		]");
+			]");
 
-		var options = CreateAotOptions();
+			var options = CreateAotOptions();
 
-		// Act
-		var result = JsonDataLoader.LoadArray(filePath, "id", options, _env);
+			// Act
+			var result = JsonDataLoader.LoadArray(filePath, "id", options, _env);
 
-		// Assert
-		result.Diagnostics.Should().BeEmpty();
-		result.Entries.Count.Should().Be(2);
+			// Assert
+			result.Diagnostics.Should().BeEmpty();
+			result.Entries.Count.Should().Be(2);
 
-		var entry1 = result.Entries[0];
-		entry1.Key.Should().Be("H2O");
-		entry1.Get<GameComponent>().Value.Should().Be(18);
+			var entry1 = result.Entries[0];
+			entry1.Key.Should().Be("H2O");
+			entry1.Get<GameComponent>().Value.Should().Be(18);
 
-		var entry2 = result.Entries[1];
-		entry2.Key.Should().Be("O2");
-		entry2.GetField<string[]>().Should().ContainSingle().Which.Should().Be("H2O");
-		entry2.Get<GameComponent>().Value.Should().Be(32);
+			var entry2 = result.Entries[1];
+			entry2.Get<Inherits>().Value.Should().ContainSingle().Which.Should().Be("H2O");
+			entry2.Get<GameComponent>().Value.Should().Be(32);
 	}
 
 	[Fact]

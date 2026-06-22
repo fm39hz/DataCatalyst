@@ -15,8 +15,8 @@ public static class DataCatalogBuilder {
 		foreach (var entry in ordered) {
 			if (resolved.ContainsKey(entry.Key)) continue;
 
-			var merged = CollectComponents(entry, graph, resolved, []);
-			resolved[entry.Key] = new DataEntry(entry.Key, merged, new Dictionary<Type, object>(entry.Fields)) { SourceFile = entry.SourceFile };
+				var merged = CollectComponents(entry, graph, resolved, []);
+				resolved[entry.Key] = new DataEntry(entry.Key, merged) { SourceFile = entry.SourceFile };
 		}
 
 		var catalog = new DataCatalog(resolved);
@@ -38,14 +38,14 @@ public static class DataCatalogBuilder {
 			throw new InvalidOperationException($"Cycle detected: {entry.Key}");
 
 		var merged = new Dictionary<Type, object>(entry.Components);
-		var inherits = entry.Fields.TryGetValue(typeof(string[]), out var raw) ? (string[])raw : null;
-		if (inherits != null) {
-			foreach (var parentKey in inherits) {
+			entry.TryGet<Inherits>(out var inh);
+			if (inh.Value != null) {
+				foreach (var parentKey in inh.Value) {
 				if (resolved.TryGetValue(parentKey, out var parentEntry))
 					CopyMissing(merged, parentEntry.Components);
 				else if (graph.Entries.TryGetValue(parentKey, out var parentGraphEntry)) {
 					var parentMerged = CollectComponents(parentGraphEntry, graph, resolved, visiting);
-					resolved[parentKey] = new DataEntry(parentKey, parentMerged, new Dictionary<Type, object>(parentGraphEntry.Fields)) { SourceFile = parentGraphEntry.SourceFile };
+					resolved[parentKey] = new DataEntry(parentKey, parentMerged) { SourceFile = parentGraphEntry.SourceFile };
 					CopyMissing(merged, parentMerged);
 				}
 			}
@@ -78,9 +78,9 @@ public static class DataCatalogBuilder {
 				throw new InvalidOperationException($"Cycle detected in inheritance graph: '{entry.Key}'.");
 
 			colors[entry.Key] = Gray;
-		var inherits = entry.Fields.TryGetValue(typeof(string[]), out var raw) ? (string[])raw : null;
-			if (inherits != null) {
-				foreach (var parentKey in inherits) {
+			entry.TryGet<Inherits>(out var topologicalInh);
+			if (topologicalInh.Value != null) {
+				foreach (var parentKey in topologicalInh.Value) {
 					if (graph.Entries.TryGetValue(parentKey, out var parent))
 						Dfs(parent);
 				}
