@@ -34,9 +34,16 @@ SourceGen generates `[DataComponent] struct Health { int Current; int Max; }` an
 ### 2. Load, Resolve, Access
 
 ```csharp
+// Single source
 var result  = JsonDataLoader.LoadDirectory("Data", options);
 var graph   = DataGraphBuilder.Build(result.Entries);
 var catalog = DataCatalogBuilder.Resolve(graph);
+
+// Multiple sources — fluent pipeline
+var catalog = new DataPipeline()
+    .Load(JsonDataLoader.LoadDir(options), "Data/")
+    .Load(JsonDataLoader.LoadDir(options), "Mods/")
+    .Build();
 
 var hp  = catalog.Get<Health>(Concept.Enemy.Goblin);
 var atk = catalog.Get<CombatStats>(Concept.Enemy.Goblin);
