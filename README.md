@@ -34,15 +34,15 @@ SourceGen generates `[DataComponent] struct Health { int Current; int Max; }` an
 ### 2. Load, Resolve, Access
 
 ```csharp
-// Single source
-var result  = JsonDataLoader.LoadDirectory("Data", options);
+// Single source — default camelCase settings
+var result  = JsonDataLoader.LoadDirectory("Data");
 var graph   = DataGraphBuilder.Build(result.Entries);
 var catalog = DataCatalogBuilder.Resolve(graph);
 
 // Multiple sources — fluent pipeline
 var catalog = new DataPipeline()
-    .Load(new JsonDataLoader(options), "Data/")
-    .Load(new JsonDataLoader(options), "Mods/")
+    .Load(new JsonDataLoader(), "Data/")
+    .Load(new JsonDataLoader(), "Mods/")
     .Build();
 
 var hp  = catalog.Get<Health>(Concept.Enemy.Goblin);

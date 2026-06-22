@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using DataCatalyst.Abstractions;
 using DataCatalyst.Core;
 
@@ -13,9 +14,19 @@ public class JsonDataLoader : IDataLoader {
 	private readonly JsonSerializerOptions _options;
 	private readonly DataCatalystEnvironment _env;
 
+	/// <summary>Default options: camelCase, case-insensitive, AOT-safe.</summary>
+	public static JsonSerializerOptions DefaultOptions => new() {
+		PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+		PropertyNameCaseInsensitive = true,
+		TypeInfoResolver = new DefaultJsonTypeInfoResolver()
+	};
+
+	/// <summary>Creates a loader with default camelCase settings.</summary>
+	public JsonDataLoader() : this(DefaultOptions, null) { }
+
 	public JsonDataLoader(JsonSerializerOptions options, DataCatalystEnvironment? env = null) {
 		_options = options;
-		_env = env ?? DataCatalystEnvironment.Default;
+		_env = env ?? new DataCatalystEnvironment();
 	}
 
 	public LoadResult LoadFile(string path) {
