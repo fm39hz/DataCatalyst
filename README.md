@@ -75,8 +75,6 @@ Every entry must have a `"Concept"` field (auto-assigned `"Core"` if missing).
 dotnet add package DataCatalyst                              # SourceGen
 dotnet add package DataCatalyst.Loaders.Json                  # JSON loader
 dotnet add package DataCatalyst.Extensions                    # Compare, Composition, Materialization
-dotnet add package DataCatalyst.Plugins.GameConcept
-dotnet add package DataCatalyst.Plugins.GameConcept.SourceGen
 dotnet add package DataCatalyst.Plugins.StateEngine
 dotnet add package DataCatalyst.Plugins.StateEngine.SourceGen
 ```
@@ -120,6 +118,7 @@ public sealed class DataCatalog {
 ```
 
 Two access paths:
+
 - String key: `catalog.Entries["Goblin"].Get<Health>()`
 - Int key (fast path): `catalog.Get<Health>(Concept.Enemy.Goblin)`
 
@@ -181,11 +180,11 @@ public sealed class DataCatalystEnvironment {
 
 ### SourceGen Attributes
 
-| Attribute         | Target            | Generator             |
-| ----------------- | ----------------- | --------------------- |
-| `[DataComponent]` | `struct`          | `MetadataGenerator`   |
-| `[DataPlugin]`    | `class : IPlugin` | `PluginGenerator`     |
-| `[DataConcept]`   | `struct`          | `ConceptGenerator`    |
+| Attribute         | Target            | Generator           |
+| ----------------- | ----------------- | ------------------- |
+| `[DataComponent]` | `struct`          | `MetadataGenerator` |
+| `[DataPlugin]`    | `class : IPlugin` | `PluginGenerator`   |
+| `[DataConcept]`   | `struct`          | `ConceptGenerator`  |
 
 ### Registries
 
@@ -260,7 +259,13 @@ Multiple concepts per entry are supported — `"Concept": ["Creature", "Npc"]`.
 					"TargetState": "Walk",
 					"Priority": 5,
 					"Conditions": {
-						"All": [{ "Signal": "PlayerDistance", "Op": "<", "Value": 20 }]
+						"All": [
+							{
+								"Signal": "PlayerDistance",
+								"Op": "<",
+								"Value": 20
+							}
+						]
 					}
 				}
 			]
@@ -287,18 +292,7 @@ var result = StateEngineEvaluator.Evaluate(
     });
 ```
 
-StateEngine is designed for ECS: ONE system evaluates ALL entities. See [ARCHITECTURE.md](ARCHITECTURE.md) for engine-specific patterns (Unity DOTS, Godot Friflo, MonoGame Friflo).
-
----
-
-## 📖 Architecture
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for:
-- Deeply nested data structures
-- Inheritance chains
-- Materializer engine bridges
-- StateEngine + ECS centralized AI
-- Unity/Godot/MonoGame integration examples
+StateEngine is designed for ECS: ONE system evaluates ALL entities. Still works for normal engine-specific patterns.
 
 ---
 
