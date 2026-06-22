@@ -116,7 +116,7 @@ public class CsvDataLoader : IDataLoader {
 ### Custom Plugin
 
 ```csharp
-[DataPlugin]
+[DataPlugin(DependsOn = [typeof(MyOtherPlugin)])]
 public class MyPlugin : ICatalogPlugin {
     public bool IsEnabled => true;
     public void OnLoad() => env.Primitives.Register<MyComponent>();
@@ -129,6 +129,8 @@ public class MyPlugin : ICatalogPlugin {
 }
 ```
 
+Plugin hooks: `IPostLoadPlugin` → `IGraphPlugin` → `ICatalogPlugin`. Topological sort via `DependsOn`.
+
 ### Materializer
 
 ```csharp
@@ -139,8 +141,6 @@ mat.Register<AttackPower>((go, a) => go.GetComponent<DamageDealer>().Power = a.V
 // Spawn any enemy
 var goblin = Instantiate(goblinPrefab);
 mat.Materialize(catalog.Entries["Goblin"], goblin);
-
-// Dragon có Element, Goblin không → Materialize chỉ apply component có sẵn
 ```
 
 ---
