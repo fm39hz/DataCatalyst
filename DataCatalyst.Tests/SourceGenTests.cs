@@ -87,7 +87,7 @@ public class SourceGenTests {
 			"[DataConcept(\"Item\")] public readonly partial struct Item;",
 			new ConceptGenerator());
 
-		generated.Should().Contain("Register<global::Item>(\"Item\")");
+		generated.Should().Contain("Register<global::Item>(\"Item\"");
 	}
 
 	[Fact]

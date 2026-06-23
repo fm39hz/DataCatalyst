@@ -4,6 +4,8 @@
 		<TargetFramework>net10.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
+		<PublishAot>true</PublishAot>
+		<EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
 	</PropertyGroup>
 	<ItemGroup>
 		<AdditionalFiles Include="Data/**/*.json" />
@@ -16,5 +18,9 @@
 		<ProjectReference Include="..\DataCatalyst.SourceGen\DataCatalyst.SourceGen.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 		<ProjectReference Include="..\DataCatalyst.SourceGen\DataCatalyst.SourceGen.csproj" ReferenceOutputAssembly="true" />
 		<ProjectReference Include="..\DataCatalyst.Extensions\DataCatalyst.Extensions.csproj" />
+		<ProjectReference Include="..\DataCatalyst.Plugins.StateEngine\DataCatalyst.Plugins.StateEngine.csproj" />
+	</ItemGroup>
+	<ItemGroup>
+	  <PackageReference Include="Arch" />
 	</ItemGroup>
 </Project>

@@ -156,12 +156,27 @@ public sealed class ConceptsFromDataGenerator : IIncrementalGenerator {
 	}
 
 	private static StatementSyntax RegisterCall(string typeRef, string displayName) {
+		var factoryExpr = ParenthesizedLambdaExpression(
+			ParameterList(SeparatedList(new[] {
+				Parameter(Identifier("entries")),
+				Parameter(Identifier("name"))
+			})),
+			ObjectCreationExpression(
+				GenericName(Identifier("global::DataCatalyst.Core.ConceptCatalog"))
+					.WithTypeArgumentList(TypeArgumentList(SingletonSeparatedList(ParseTypeName(typeRef)))))
+				.WithArgumentList(ArgumentList(SeparatedList(new[] {
+					Argument(IdentifierName("entries")),
+					Argument(IdentifierName("name"))
+				}))));
+
 		var methodAccess = MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
 			ParseExpression("global::DataCatalyst.Core.ConceptRegistry.Default"),
 			GenericName("Register").WithTypeArgumentList(TypeArgumentList(SingletonSeparatedList(ParseTypeName(typeRef)))));
 		return ExpressionStatement(InvocationExpression(methodAccess)
-			.WithArgumentList(ArgumentList(SingletonSeparatedList(
-				Argument(LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(displayName)))))));
+			.WithArgumentList(ArgumentList(SeparatedList(new[] {
+				Argument(LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(displayName))),
+				Argument(factoryExpr)
+			}))));
 	}
 
 	private readonly record struct ConceptInfo(string Name, string Description, string Kind);

@@ -136,8 +136,22 @@ public sealed class ConceptGenerator : IIncrementalGenerator {
 	}
 
 	private static StatementSyntax BuildRegisterCall(string target, string fullType, string conceptName, int kind = 0) {
+		var factoryExpr = ParenthesizedLambdaExpression(
+			ParameterList(SeparatedList(new[] {
+				Parameter(Identifier("entries")),
+				Parameter(Identifier("name"))
+			})),
+			ObjectCreationExpression(
+				GenericName(Identifier("global::DataCatalyst.Core.ConceptCatalog"))
+					.WithTypeArgumentList(TypeArgumentList(SingletonSeparatedList(ParseTypeName(fullType)))))
+				.WithArgumentList(ArgumentList(SeparatedList(new[] {
+					Argument(IdentifierName("entries")),
+					Argument(IdentifierName("name"))
+				}))));
+
 		var args = new List<ArgumentSyntax> {
-			Argument(LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(conceptName)))
+			Argument(LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(conceptName))),
+			Argument(factoryExpr)
 		};
 		if (kind != 0) {
 			args.Add(Argument(LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(kind))));

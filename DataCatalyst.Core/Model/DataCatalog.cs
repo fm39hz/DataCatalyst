@@ -53,4 +53,12 @@ public sealed class DataCatalog {
 
 	/// <summary>Resolves a string entry key to its int entry id. Returns -1 if not found.</summary>
 	internal int GetEntryId(string key) => _keyToId.TryGetValue(key, out var id) ? id : -1;
+
+	/// <summary>Updates a resolved entry in-place (internal use only, e.g. overlay application).</summary>
+	internal void UpdateEntry(string key, DataEntry newEntry) {
+		_entries[key] = newEntry;
+		if (_keyToId.TryGetValue(key, out var id)) {
+			_byId[id] = newEntry;
+		}
+	}
 }

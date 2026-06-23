@@ -41,12 +41,12 @@ public class StateEngineTests {
 		var baked = StateEngineBaker.Bake(rawGroup, catalog);
 
 		baked.GroupId.Should().Be("Locomotion");
-		baked.DefaultStateId.Should().Be(0);
-		baked.States.Should().ContainKey(0);
+		baked.DefaultStateId.Should().Be(1);
+		baked.States.Should().ContainKey(1);
 
-		var idleState = baked.States[0];
+		var idleState = baked.States[1];
 		idleState.Transitions.Length.Should().Be(1);
-		idleState.Transitions[0].TargetStateId.Should().Be(1);
+		idleState.Transitions[0].TargetStateId.Should().Be(2);
 	}
 
 	[Fact]
@@ -77,18 +77,18 @@ public class StateEngineTests {
 		var catalog = DataCatalogBuilder.Resolve(graph);
 
 		var baked = StateEngineBaker.Bake(rawGroup, catalog);
-		var viable = new HashSet<int> { 1 };
+		var viable = new HashSet<int> { 2 };
 
 		var speedId = catalog.GetEntryId("Speed");
 
 		var resultSlow = StateEngineEvaluator.Evaluate(
-			0, baked, viable, signal => signal == speedId ? 0f : 0f);
+			1, baked, viable, signal => signal == speedId ? 0f : 0f);
 		resultSlow.HasValue.Should().BeFalse();
 
 		var resultFast = StateEngineEvaluator.Evaluate(
-			0, baked, viable, signal => signal == speedId ? 1f : 0f);
+			1, baked, viable, signal => signal == speedId ? 1f : 0f);
 		resultFast.HasValue.Should().BeTrue();
-		resultFast.TargetStateId.Should().Be(1);
+		resultFast.TargetStateId.Should().Be(2);
 	}
 
 	[Fact]
@@ -119,10 +119,10 @@ public class StateEngineTests {
 		var catalog = DataCatalogBuilder.Resolve(graph);
 
 		var baked = StateEngineBaker.Bake(rawGroup, catalog);
-		var viable = new HashSet<int> { 1 };
+		var viable = new HashSet<int> { 2 };
 
 		var result = StateEngineEvaluator.Evaluate(
-			0, baked, viable, signal => 0f);
+			1, baked, viable, signal => 0f);
 		result.HasValue.Should().BeFalse();
 	}
 }

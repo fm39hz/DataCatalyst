@@ -1,0 +1,7 @@
+{
+	"Concept": "Enemy",
+	"Health": { "Current": 60, "Max": 60 },
+	"Damage": { "Min": 6, "Max": 10 },
+	"ExperienceReward": 40,
+	"Label": "Orc Shaman"
+}

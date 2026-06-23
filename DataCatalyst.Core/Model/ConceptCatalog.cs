@@ -12,7 +12,7 @@ using DataCatalyst.Core;
 public sealed class ConceptCatalog<TConcept> where TConcept : struct {
 	private readonly Dictionary<int, DataEntry> _entriesById;
 
-	internal ConceptCatalog(IReadOnlyDictionary<int, DataEntry> entries, string conceptName) {
+	public ConceptCatalog(IReadOnlyDictionary<int, DataEntry> entries, string conceptName) {
 		_entriesById = new Dictionary<int, DataEntry>(entries);
 		ConceptName = conceptName;
 	}

@@ -4,7 +4,7 @@
 [![CI Status](https://img.shields.io/github/actions/workflow/status/fm39hz/DataCatalyst/ci.yml?branch=master&style=flat-square)](https://github.com/fm39hz/DataCatalyst/actions)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
 
-**DataCatalyst** is a compile-time composition framework for C#/.NET. Data is the Single Source of Truth. JSON data files define game content, and SourceGen generates everything else.
+**DataCatalyst** is a concept composition framework for C#/.NET. Data is the Single Source of Truth. JSON data files define game content, and SourceGen generates everything else.
 
 ---
 
@@ -36,16 +36,20 @@ SourceGen generates component structs + entry constants automatically.
 ### 2. Load, Resolve, Access
 
 ```csharp
-var result  = JsonDataLoader.LoadDirectory("Data");
-var graph   = DataGraphBuilder.Build(result.Entries);
-var catalog = DataCatalogBuilder.Resolve(graph);
-
-// Multiple sources
+// Simple fluent API
 var catalog = new DataPipeline()
     .Load(new JsonDataLoader(), "Data/")
     .Load(new JsonDataLoader(), "Mods/")
     .Build();
 
+// Which is load under the hood
+var data  = JsonDataLoader.LoadDirectory("Data/");
+var mods  = JsonDataLoader.LoadDirectory("Mods/");
+var result = data.Concat(mods);
+var graph   = DataGraphBuilder.Build(result.Entries);
+var catalog = DataCatalogBuilder.Resolve(graph);
+
+// Access
 var hp  = catalog.Get<Health>(Concept.Enemy.Goblin);
 var atk = catalog.Get<CombatStats>(Concept.Enemy.Goblin);
 ```
@@ -143,7 +147,7 @@ var mat = new DataMaterializer<GameObject>();
 mat.Register<Health>((go, h) => go.GetComponent<HealthBar>().SetMax(h.Max));
 mat.Register<AttackPower>((go, a) => go.GetComponent<DamageDealer>().Power = a.Value);
 
-var goblin = Instantiate(goblinPrefab);
+var goblin = YourGoblinIntialSetupFunctionHere();
 mat.Materialize(catalog.GetEntry(Concept.Enemy.Goblin), goblin);
 ```
 

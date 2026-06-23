@@ -73,13 +73,24 @@ public sealed class GameConceptPlugin : ICatalogPlugin {
 		}
 	}
 
-	private static object? CreateConceptCatalog(Type tagType, Dictionary<int, DataEntry> entries, string conceptName) {
-		var catalogType = typeof(ConceptCatalog<>).MakeGenericType(tagType);
+	private object? CreateConceptCatalog(Type tagType, Dictionary<int, DataEntry> entries, string conceptName) {
+		var catalog = Registry.CreateCatalog(tagType, entries, conceptName);
+		if (catalog != null) return catalog;
 
+		return Fallback(tagType, entries, conceptName);
+	}
+
+#if NET6_0_OR_GREATER
+	[System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("ReflectionAnalysis", "IL2055:UniquenessOfRuntimeType", Justification = "Fallback for non-AOT environments")]
+	[System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("ReflectionAnalysis", "IL3050:AotCall", Justification = "Fallback for non-AOT environments")]
+	[System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("ReflectionAnalysis", "IL2071:UnresolvedGenericRequirement", Justification = "Fallback for non-AOT environments")]
+#endif
+	private static object? Fallback(Type t, Dictionary<int, DataEntry> e, string n) {
+		var catalogType = typeof(ConceptCatalog<>).MakeGenericType(t);
 		return Activator.CreateInstance(catalogType,
-			System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
+			System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public,
 			null,
-			[entries, conceptName],
+			[e, n],
 			null);
 	}
 }

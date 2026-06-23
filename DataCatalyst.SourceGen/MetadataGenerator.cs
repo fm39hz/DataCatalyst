@@ -37,10 +37,12 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 			.Collect();
 
 		var configs = ConfigHelper.GetConfigs(context);
-		var combined = jsonFiles.Combine(configs);
+		var compilation = context.CompilationProvider;
+		var combined = jsonFiles.Combine(configs).Combine(compilation);
 
 		context.RegisterSourceOutput(combined, static (spc, data) => {
-			var (files, configs) = data;
+			var (filesAndConfigs, comp) = data;
+			var (files, configs) = filesAndConfigs;
 			var components = new Dictionary<string, List<KeyValuePair<string, string>>>();
 			var processed = new HashSet<string>();
 			var entryConcepts = new Dictionary<string, string>();
@@ -52,7 +54,17 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 				}
 			}
 
-			if (components.Count == 0) return;
+			// Filter out components already defined in C# compilation
+			var componentsToGenerate = new Dictionary<string, List<KeyValuePair<string, string>>>();
+			foreach (var kv in components) {
+				var typeName = kv.Key;
+				var existing = comp.GetTypeByMetadataName("DataCatalyst.Generated." + typeName);
+				if (existing == null) {
+					componentsToGenerate[typeName] = kv.Value;
+				}
+			}
+
+			if (componentsToGenerate.Count == 0 && entryConcepts.Count == 0) return;
 
 			SourceConfig matchedConfig = new("", "DataCatalyst.Generated", new List<string>());
 			foreach (var file in files) {
@@ -62,9 +74,14 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 				}
 			}
 
-			EmitComponentStructs(spc, components, matchedConfig);
-			EmitRegistrations(spc, components, entryConcepts);
-			EmitMerge(spc, components);
+			if (componentsToGenerate.Count > 0) {
+				EmitComponentStructs(spc, componentsToGenerate, matchedConfig);
+				EmitRegistrations(spc, componentsToGenerate, entryConcepts);
+				EmitMerge(spc, componentsToGenerate);
+				var nsVal = string.IsNullOrEmpty(matchedConfig.Namespace) ? "DataCatalyst.Generated" : matchedConfig.Namespace;
+				var genTypeNames = componentsToGenerate.Keys.Select(k => $"global::{nsVal}.{k}").ToList();
+				EmitAotContexts(spc, genTypeNames, matchedConfig, comp);
+			}
 			EmitEntryConstants(spc, entryConcepts, allEntryKeys);
 		});
 	}
@@ -438,13 +455,10 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 					ArgumentList(SeparatedList(new[] {
 						Argument(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
 							IdentifierName("pVal"), IdentifierName(field.Key))),
-						Argument(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
-							IdentifierName("cVal"), IdentifierName(field.Key)))
+						Argument(DefaultExpression(ParseTypeName(field.Value)))
 					})));
 
-				var notEqual = PrefixUnaryExpression(SyntaxKind.LogicalNotExpression, equalsCall);
-
-				var ifStmt = IfStatement(notEqual,
+				var ifStmt = IfStatement(equalsCall,
 					ExpressionStatement(
 						AssignmentExpression(SyntaxKind.SimpleAssignmentExpression,
 							MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
@@ -502,5 +516,82 @@ public sealed class MetadataGenerator : IIncrementalGenerator {
 
 		spc.AddSource("JsonComponentMergeRegistrations.g.cs",
 			SourceText.From(cu.ToFullString(), Encoding.UTF8));
+	}
+
+	private static void EmitAotContexts(SourceProductionContext spc,
+		List<string> components,
+		SourceConfig config,
+		Compilation compilation) {
+
+		var attributes = new List<AttributeData>();
+
+		// Check current assembly
+		foreach (var attr in compilation.Assembly.GetAttributes()) {
+			if (attr.AttributeClass?.ToDisplayString() == "DataCatalyst.Abstractions.AotContextAttribute") {
+				attributes.Add(attr);
+			}
+		}
+
+		// Check referenced assemblies
+		foreach (var refAssembly in compilation.SourceModule.ReferencedAssemblySymbols) {
+			foreach (var attr in refAssembly.GetAttributes()) {
+				if (attr.AttributeClass?.ToDisplayString() == "DataCatalyst.Abstractions.AotContextAttribute") {
+					attributes.Add(attr);
+				}
+			}
+		}
+
+		if (attributes.Count == 0) return;
+
+		var hasModuleInitializer = compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.ModuleInitializerAttribute") != null;
+
+		foreach (var attr in attributes) {
+			if (attr.ConstructorArguments.Length < 4) continue;
+			var contextName = attr.ConstructorArguments[0].Value as string;
+			var baseType = attr.ConstructorArguments[1].Value as string;
+			var attributeType = attr.ConstructorArguments[2].Value as string;
+			var registerMethod = attr.ConstructorArguments[3].Value as string;
+
+			if (string.IsNullOrEmpty(contextName) || string.IsNullOrEmpty(baseType) ||
+				string.IsNullOrEmpty(attributeType) || string.IsNullOrEmpty(registerMethod)) {
+				continue;
+			}
+
+			// Check if the user has declared this context class in their assembly
+			var ns = config.Namespace ?? "DataCatalyst.Generated";
+			var fullContextName = $"{ns}.{contextName}";
+			var contextSymbol = compilation.GetTypeByMetadataName(fullContextName);
+			if (contextSymbol == null) continue;
+
+			var sb = new StringBuilder();
+			sb.AppendLine("// <auto-generated/>");
+			sb.AppendLine("#nullable enable");
+			sb.AppendLine($"namespace {ns};");
+			sb.AppendLine();
+
+			foreach (var ft in components) {
+				sb.AppendLine($"[{attributeType}(typeof({ft}))]");
+			}
+
+			sb.AppendLine($"internal partial class {contextName} {{}}");
+			sb.AppendLine();
+			sb.AppendLine($"internal static class {contextName}Registration_Metadata {{");
+			sb.AppendLine("	[System.Runtime.CompilerServices.ModuleInitializer]");
+			sb.AppendLine("	internal static void Init() {");
+			sb.AppendLine($"		{registerMethod}({contextName}.Default);");
+			sb.AppendLine("	}");
+			sb.AppendLine("}");
+			sb.AppendLine();
+
+			if (!hasModuleInitializer) {
+				sb.AppendLine("namespace System.Runtime.CompilerServices");
+				sb.AppendLine("{");
+				sb.AppendLine("	[System.AttributeUsage(System.AttributeTargets.Method, Inherited = false)]");
+				sb.AppendLine("	internal sealed class ModuleInitializerAttribute : System.Attribute { }");
+				sb.AppendLine("}");
+			}
+
+			spc.AddSource($"{contextName}_Metadata.g.cs", sb.ToString());
+		}
 	}
 }

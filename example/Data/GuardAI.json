@@ -1,0 +1,74 @@
+{
+	"Concept": "StateEngine",
+	"StateGroup": {
+		"GroupId": "GuardAI",
+		"PriorityTier": 1,
+		"DefaultState": "Patrol",
+		"States": {
+			"Patrol": {
+				"Transitions": [
+					{
+						"TargetState": "Attack",
+						"Priority": 100,
+						"Conditions": {
+							"All": [
+								{
+									"Signal": "PlayerDistance",
+									"Op": "<",
+									"Value": 8.0
+								}
+							]
+						}
+					}
+				]
+			},
+			"Attack": {
+				"Transitions": [
+					{
+						"TargetState": "Retreat",
+						"Priority": 200,
+						"Conditions": {
+							"All": [
+								{
+									"Signal": "ThreatLevel",
+									"Op": ">",
+									"Value": 8.0
+								}
+							]
+						}
+					},
+					{
+						"TargetState": "Patrol",
+						"Priority": 50,
+						"Conditions": {
+							"All": [
+								{
+									"Signal": "PlayerDistance",
+									"Op": ">",
+									"Value": 12.0
+								}
+							]
+						}
+					}
+				]
+			},
+			"Retreat": {
+				"Transitions": [
+					{
+						"TargetState": "Patrol",
+						"Priority": 10,
+						"Conditions": {
+							"All": [
+								{
+									"Signal": "ThreatLevel",
+									"Op": "<=",
+									"Value": 2.0
+								}
+							]
+						}
+					}
+				]
+			}
+		}
+	}
+}

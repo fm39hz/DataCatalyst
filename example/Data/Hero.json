@@ -1,0 +1,6 @@
+{
+	"Concept": "Hero",
+	"Health": { "Current": 100, "Max": 100 },
+	"Damage": { "Min": 10, "Max": 15 },
+	"Label": "Arthur the Hero"
+}

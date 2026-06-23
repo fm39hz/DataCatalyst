@@ -15,13 +15,22 @@ public class JsonDataLoader : IDataLoader {
 	private readonly DataCatalystEnvironment _env;
 
 	/// <summary>Default options: camelCase JSON → PascalCase C#.</summary>
+#if NET6_0_OR_GREATER
+	[System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026:RequiresUnreferencedCode", Justification = "Fallback for non-AOT")]
+	[System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("AOT", "IL3050:RequiresDynamicCode", Justification = "Fallback for non-AOT")]
+#endif
 	public static JsonSerializerOptions DefaultOptions => new() {
 		PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
 		PropertyNameCaseInsensitive = true,
-		TypeInfoResolver = new DefaultJsonTypeInfoResolver()
+		IncludeFields = true,
+		TypeInfoResolver = JsonResolverRegistry.GetCombinedResolver()
 	};
 
 	/// <summary>Creates a loader with default camelCase settings.</summary>
+#if NET6_0_OR_GREATER
+	[System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026:RequiresUnreferencedCode", Justification = "Fallback for non-AOT")]
+	[System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("AOT", "IL3050:RequiresDynamicCode", Justification = "Fallback for non-AOT")]
+#endif
 	public JsonDataLoader() : this(DefaultOptions, null) { }
 
 	public JsonDataLoader(JsonSerializerOptions options, DataCatalystEnvironment? env = null) {
@@ -144,19 +153,41 @@ public class JsonDataLoader : IDataLoader {
 						continue;
 					}
 
-					object deserialized;
+					var typeInfo = options.GetTypeInfo(compType);
+					if (typeInfo == null) {
+						diagnostics ??= new List<string>();
+						diagnostics.Add($"No JSON type info found for component '{prop.Name}' (type {compType.Name}). Skip.");
+						continue;
+					}
+
+					object? deserialized;
 					if (prop.Value.ValueKind == JsonValueKind.Object) {
-						deserialized = JsonSerializer.Deserialize(prop.Value.GetRawText(), compType, options)!;
+						deserialized = JsonSerializer.Deserialize(prop.Value.GetRawText(), typeInfo);
 					} else if (prop.Value.ValueKind == JsonValueKind.String) {
-						var wrapped = $"{{\"Value\":[\"{prop.Value.GetString()}\"]}}";
-						deserialized = JsonSerializer.Deserialize(wrapped, compType, options)!;
-						if (deserialized == null) {
-							wrapped = $"{{\"Value\":\"{prop.Value.GetString()}\"}}";
-							deserialized = JsonSerializer.Deserialize(wrapped, compType, options)!;
+						var valStr = prop.Value.GetString();
+						deserialized = null;
+						var stringTypeInfo = options.GetTypeInfo(typeof(string));
+						var stringArrayTypeInfo = options.GetTypeInfo(typeof(string[]));
+						if (stringTypeInfo != null) {
+							try {
+								var escaped = JsonSerializer.Serialize(valStr, stringTypeInfo);
+								var wrapped = $"{{\"Value\":{escaped}}}";
+								deserialized = JsonSerializer.Deserialize(wrapped, typeInfo);
+							} catch (JsonException) {
+								if (stringArrayTypeInfo != null) {
+									try {
+										var escaped = JsonSerializer.Serialize(new[] { valStr }, stringArrayTypeInfo);
+										var wrapped = $"{{\"Value\":{escaped}}}";
+										deserialized = JsonSerializer.Deserialize(wrapped, typeInfo);
+									} catch (JsonException) {
+										// Keep deserialized as null
+									}
+								}
+							}
 						}
 					} else {
 						var wrapped = $"{{\"Value\":{prop.Value.GetRawText()}}}";
-						deserialized = JsonSerializer.Deserialize(wrapped, compType, options)!;
+						deserialized = JsonSerializer.Deserialize(wrapped, typeInfo);
 					}
 					if (deserialized != null) components[compType] = deserialized;
 				}

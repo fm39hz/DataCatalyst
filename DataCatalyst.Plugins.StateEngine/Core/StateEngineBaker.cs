@@ -34,7 +34,7 @@ public static class StateEngineBaker {
 
 		var stateIdMap = new Dictionary<string, int>();
 		for (int i = 0; i < stateNameList.Count; i++)
-			stateIdMap[stateNameList[i]] = i;
+			stateIdMap[stateNameList[i]] = i + 1;
 
 		var sensorIdMap = new Dictionary<string, int>();
 		foreach (var name in sensorNames) {

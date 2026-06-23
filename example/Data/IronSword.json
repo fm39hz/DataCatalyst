@@ -1,5 +1,6 @@
 {
 	"Concept": "Weapon",
-	"Damage": { "Min": 10, "Max": 20 },
-	"Durability": 100
+	"Damage": { "Min": 5, "Max": 8 },
+	"Durability": 150,
+	"Label": "Iron Sword"
 }

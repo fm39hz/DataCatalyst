@@ -4,6 +4,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using DataCatalyst.Abstractions;
 
 /// <summary>
 /// Registry mapping concept tag types to concept names.
@@ -16,13 +17,24 @@ public sealed class ConceptRegistry : IEnumerable<KeyValuePair<Type, string>> {
 	private readonly Dictionary<string, Type> _nameToTag = [];
 	private readonly Dictionary<Type, string> _tagToName = [];
 	private readonly Dictionary<Type, Type> _tagToKind = [];
+	private readonly Dictionary<Type, Func<IReadOnlyDictionary<int, DataEntry>, string, object>> _catalogFactories = [];
 
-	/// <summary>Register a concept: tag type to name, with optional kind marker type.</summary>
-	public void Register<TConcept>(string name, Type? kind = null) where TConcept : struct {
+	/// <summary>Register a concept: tag type to name, with optional factory and kind marker type.</summary>
+	public void Register<TConcept>(
+		string name,
+		Func<IReadOnlyDictionary<int, DataEntry>, string, object>? catalogFactory = null,
+		Type? kind = null) where TConcept : struct {
 		_nameToTag[name] = typeof(TConcept);
 		_tagToName[typeof(TConcept)] = name;
+		if (catalogFactory != null)
+			_catalogFactories[typeof(TConcept)] = catalogFactory;
 		if (kind != null)
 			_tagToKind[typeof(TConcept)] = kind;
+	}
+
+	/// <summary>Creates a concept-scoped catalog using the registered factory.</summary>
+	public object? CreateCatalog(Type tagType, IReadOnlyDictionary<int, DataEntry> entries, string conceptName) {
+		return _catalogFactories.TryGetValue(tagType, out var factory) ? factory(entries, conceptName) : null;
 	}
 
 	/// <summary>Resolve concept name to tag type.</summary>
