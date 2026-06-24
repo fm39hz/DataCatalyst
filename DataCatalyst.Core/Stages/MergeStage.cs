@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using PipelineAbstractions = DataCatalyst.Pipeline;
 using StageContext = DataCatalyst.Pipeline.PipelineContext;
 using DataCatalyst.Storage;
@@ -28,13 +27,12 @@ internal sealed class MergeStage : PipelineAbstractions.IPipelineStage
                 continue;
             }
 
-            // Simple priority merge: later source with same key wins
-            // Full policy-based merge will be implemented later
-            foreach (var kv in entry.Components)
-                existing.Components[kv.Key] = kv.Value;
-
-            foreach (var kv in entry.CrossRefs)
-                existing.CrossRefs[kv.Key] = kv.Value;
+            foreach (var kv in entry._rawFields)
+            {
+                existing._rawFields[kv.Key] = MergeField(existing._rawFields.GetValueOrDefault(kv.Key), kv.Value);
+                if (!existing._fieldNames.Contains(kv.Key))
+                    existing._fieldNames.Add(kv.Key);
+            }
 
             if (entry.Inherits != null)
                 existing.Inherits = entry.Inherits;
@@ -43,10 +41,41 @@ internal sealed class MergeStage : PipelineAbstractions.IPipelineStage
         }
 
         // Reassign indices
-        var finalList = merged.Values.ToList();
+        var finalList = new List<RawEntry>(merged.Values);
         for (int i = 0; i < finalList.Count; i++)
             finalList[i].AssignedIndex = i;
 
         ctx.Bag["RawEntries"] = finalList;
+    }
+
+    private static object? MergeField(object? existing, object? incoming)
+    {
+        if (existing == null || incoming == null)
+            return incoming ?? existing;
+
+        // Both are dictionaries → recursive deep merge
+        if (existing is Dictionary<string, object?> existDict &&
+            incoming is Dictionary<string, object?> incDict)
+        {
+            foreach (var kv in incDict)
+            {
+                if (existDict.TryGetValue(kv.Key, out var subVal))
+                    existDict[kv.Key] = MergeField(subVal, kv.Value);
+                else
+                    existDict[kv.Key] = kv.Value;
+            }
+            return existDict;
+        }
+
+        // Both are lists → append distinct
+        if (existing is List<object?> existList &&
+            incoming is List<object?> incList)
+        {
+            existList.AddRange(incList);
+            return existList;
+        }
+
+        // Primitives → incoming wins (shallow field replace)
+        return incoming;
     }
 }

@@ -1,3 +1,4 @@
+#pragma warning disable RS1035
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -10,20 +11,34 @@ namespace DataCatalyst.Loaders;
 
 public sealed class JsonDataLoader : LoaderAbstractions.IDataLoader
 {
-    public LoaderAbstractions.LoadResult LoadFile(string path)
+    public LoaderAbstractions.LoadResult Load(string content, string fallbackKey)
     {
         var result = new LoaderAbstractions.LoadResult();
         try
         {
-            var text = File.ReadAllText(path);
-            var key = Path.GetFileNameWithoutExtension(path);
-            ParseJson(text, key, result);
+            ParseJson(content, fallbackKey, result);
         }
         catch (Exception ex)
         {
-            result._diagnostics.Add($"Error loading '{path}': {ex.Message}");
+            result._diagnostics.Add($"Error parsing JSON for '{fallbackKey}': {ex.Message}");
         }
         return result;
+    }
+
+    public LoaderAbstractions.LoadResult LoadFile(string path)
+    {
+        try
+        {
+            var text = File.ReadAllText(path);
+            var key = Path.GetFileNameWithoutExtension(path);
+            return Load(text, key);
+        }
+        catch (Exception ex)
+        {
+            var result = new LoaderAbstractions.LoadResult();
+            result._diagnostics.Add($"Error loading '{path}': {ex.Message}");
+            return result;
+        }
     }
 
     public LoaderAbstractions.LoadResult LoadDirectory(string path)
@@ -63,9 +78,7 @@ public sealed class JsonDataLoader : LoaderAbstractions.IDataLoader
                 // Entry found — continue walking for nested entries in remaining properties
                 foreach (var prop in element.EnumerateObject())
                 {
-                    if (prop.Name == "Concept" || prop.Name == "concept" ||
-                        prop.Name == "$key" || prop.Name == "Id" || prop.Name == "_id" ||
-                        prop.Name == "Inherits" || prop.Name == "inherits")
+                    if (prop.Name == "$concepts" || prop.Name == "$key" || prop.Name == "$inherits")
                         continue;
                     WalkAndDiscover(prop.Value, prop.Name, filename, result, visitedKeys);
                 }
@@ -83,16 +96,13 @@ public sealed class JsonDataLoader : LoaderAbstractions.IDataLoader
         }
     }
 
-    private static readonly JsonEncodedText ConceptProp = JsonEncodedText.Encode("Concept");
-    private static readonly JsonEncodedText ConceptPropLower = JsonEncodedText.Encode("concept");
-
     private bool TryExtractEntry(JsonElement obj, string? parentKey, string? filename,
         LoaderAbstractions.LoadResult result, HashSet<string> visitedKeys,
         out bool extracted)
     {
         extracted = false;
 
-        // Check if this object has a "Concept" field
+        // Check if this object has a "$concepts" field
         if (!TryGetConcept(obj, out var concepts) || concepts.Count == 0)
             return false;
 
@@ -117,40 +127,18 @@ public sealed class JsonDataLoader : LoaderAbstractions.IDataLoader
             }
 
         // Parse Inherits
-        if (obj.TryGetProperty("Inherits", out var inhProp) && inhProp.ValueKind == JsonValueKind.String)
-            entry.Inherits = inhProp.GetString();
-        else if (obj.TryGetProperty("inherits", out inhProp) && inhProp.ValueKind == JsonValueKind.String)
+        if (obj.TryGetProperty("$inherits", out var inhProp) && inhProp.ValueKind == JsonValueKind.String)
             entry.Inherits = inhProp.GetString();
 
         // Parse components
         foreach (var prop in obj.EnumerateObject())
         {
             var name = prop.Name;
-            if (name == "Concept" || name == "concept" ||
-                name == "$key" || name == "Id" || name == "_id" ||
-                name == "Inherits" || name == "inherits")
+            if (name == "$concepts" || name == "$key" || name == "$inherits")
                 continue;
 
-            var rawJson = prop.Value.GetRawText();
-            entry._rawFields[name] = rawJson;
+            entry._rawFields[name] = ToObject(prop.Value);
             entry._fieldNames.Add(name);
-            entry.CrossRefs[name] = rawJson;
-            if (DataCatalyst.Storage.AspectTypeRegistry.TryGetType(name, out var aspectType))
-            {
-                try {
-                    var d = System.Text.Json.JsonSerializer.Deserialize(rawJson, aspectType);
-                    if (d != null) {
-                        entry.Components[aspectType] = d;
-                        System.Console.Error.WriteLine($"[TRACE-JSON] stored {name} as {aspectType.Name}: {d}");
-                    } else {
-                        System.Console.Error.WriteLine($"[TRACE-JSON] {name} deserialized to null");
-                    }
-                } catch (Exception ex) {
-                    System.Console.Error.WriteLine($"[TRACE-JSON] {name} error: {ex.GetType().Name}: {ex.Message}");
-                }
-            } else {
-                System.Console.Error.WriteLine($"[TRACE-JSON] {name} type not found by AspectTypeRegistry");
-            }
         }
 
         result._entries.Add(entry);
@@ -162,8 +150,7 @@ public sealed class JsonDataLoader : LoaderAbstractions.IDataLoader
     {
         concepts = new List<string>();
 
-        if (obj.TryGetProperty("Concept", out var prop) ||
-            obj.TryGetProperty("concept", out prop))
+        if (obj.TryGetProperty("$concepts", out var prop))
         {
             if (prop.ValueKind == JsonValueKind.String)
                 concepts.Add(prop.GetString()!);
@@ -182,16 +169,45 @@ public sealed class JsonDataLoader : LoaderAbstractions.IDataLoader
 
     private string? ExtractKey(JsonElement obj, string? parentKey, string? filename)
     {
-        // Priority: parentKey > $key > _id > Id > Name > Key > filename
         if (!string.IsNullOrEmpty(parentKey)) return parentKey;
 
-        string[] keyFields = { "$key", "_id", "Id", "id", "Name", "name", "Key", "key" };
-        foreach (var field in keyFields)
-        {
-            if (obj.TryGetProperty(field, out var prop) && prop.ValueKind == JsonValueKind.String)
-                return prop.GetString();
-        }
+        if (obj.TryGetProperty("$key", out var prop) && prop.ValueKind == JsonValueKind.String)
+            return prop.GetString();
 
         return filename;
+    }
+
+    private static object? ToObject(JsonElement element)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                var dict = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+                foreach (var prop in element.EnumerateObject())
+                {
+                    dict[prop.Name] = ToObject(prop.Value);
+                }
+                return dict;
+            case JsonValueKind.Array:
+                var list = new List<object?>();
+                foreach (var item in element.EnumerateArray())
+                {
+                    list.Add(ToObject(item));
+                }
+                return list;
+            case JsonValueKind.String:
+                return element.GetString();
+            case JsonValueKind.Number:
+                if (element.TryGetInt32(out var i)) return i;
+                if (element.TryGetInt64(out var l)) return l;
+                return element.GetDouble();
+            case JsonValueKind.True:
+                return true;
+            case JsonValueKind.False:
+                return false;
+            case JsonValueKind.Null:
+            default:
+                return null;
+        }
     }
 }

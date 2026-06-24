@@ -1,6 +1,6 @@
 {
     "Bow": {
-        "Concept": "Item",
+        "$concepts": "Item",
         "CombatStats": { "BaseDamage": 10, "AttackSpeed": 2.2 },
         "Durability": { "Points": 75 },
         "Label": { "Name": "Elven Bow" }

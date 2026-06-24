@@ -72,13 +72,21 @@ internal sealed class BuildWorldStage : PipelineAbstractions.IPipelineStage
             int maxIndex = conceptEntries.Max(e => e.AssignedIndex);
             if (maxIndex < 0) continue;
 
-            // Create generic pool (temporary until SourceGen generates typed pools)
-            var pool = new GenericPool(conceptEntries);
+            // Create pool through EntryRegistry (registered via ModuleInitializer phi-reflection)
+            IStoragePool pool = EntryRegistry.CreatePool(conceptType);
+            if (pool == null)
+            {
+                pool = new GenericPool(conceptEntries);
+            }
+
             pool.Resize(maxIndex + 1);
 
             foreach (var entry in conceptEntries)
             {
-                pool.PopulateFrom(entry.AssignedIndex, entry);
+                foreach (var comp in entry.Components)
+                {
+                    pool.SetRaw(entry.AssignedIndex, comp.Key, comp.Value);
+                }
             }
 
             pools[conceptType] = pool;
@@ -97,11 +105,7 @@ internal sealed class BuildWorldStage : PipelineAbstractions.IPipelineStage
                 var foundEntry = entries.FirstOrDefault(e => e.Key == entryName);
                 if (foundEntry != null)
                 {
-                    var idxProp = typeof(EntryIndex<>)
-                        .MakeGenericType(record.EntryType)
-                        .GetField("Value", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-                    if (idxProp != null)
-                        idxProp.SetValue(null, foundEntry.AssignedIndex);
+                    EntryRegistry.AssignIndex(record.EntryType, foundEntry.AssignedIndex);
                 }
             }
         }
@@ -116,12 +120,7 @@ internal sealed class BuildWorldStage : PipelineAbstractions.IPipelineStage
 internal sealed class GenericPool : DataCatalyst.Storage.IStoragePool
 {
     private readonly List<Dictionary<Type, object>> _rows = new();
-    private readonly Dictionary<int, Dictionary<string, string>> _rawFields = new();
-    private static readonly System.Text.Json.JsonSerializerOptions _jsonOpts = new()
-    {
-        PropertyNameCaseInsensitive = true,
-        IncludeFields = true
-    };
+    private readonly Dictionary<int, Dictionary<string, object?>> _rawFields = new();
 
     public GenericPool(List<RawEntry> sourceEntries)
     {
@@ -142,13 +141,11 @@ internal sealed class GenericPool : DataCatalyst.Storage.IStoragePool
             _rows.Add(new Dictionary<Type, object>());
     }
 
-    public void PopulateFrom(int index, RawEntry entry)
+    public void SetRaw(int index, Type type, object value)
     {
         if (index < 0 || index >= _rows.Count)
             return;
-        var row = _rows[index];
-        foreach (var kv in entry.Components)
-            row[kv.Key] = kv.Value;
+        _rows[index][type] = value;
     }
 
     public T Get<T>(int index) where T : struct
@@ -163,25 +160,24 @@ internal sealed class GenericPool : DataCatalyst.Storage.IStoragePool
             return (T)val;
         }
 
-        // Fallback: deserialize from raw JSON by type name
+        // Fallback: deserialize from raw C# object by type name
         var typeName = typeof(T).Name;
         System.Console.Error.WriteLine($"[TRACE] Get<{typeName}>({index}) → typed miss, rawFields={_rawFields.Count}");
         if (_rawFields.TryGetValue(index, out var fields))
         {
             System.Console.Error.WriteLine($"[TRACE]   rawFields keys: {string.Join(",", fields.Keys)}");
-            if (fields.TryGetValue(typeName, out var rawJson))
+            if (fields.TryGetValue(typeName, out var rawVal))
             {
                 try
                 {
-                    var result = System.Text.Json.JsonSerializer.Deserialize<T>(rawJson, _jsonOpts);
-                    _rows[index][typeof(T)] = result;
-                    System.Console.Error.WriteLine($"[TRACE]   deserialized from raw JSON OK");
-                    return result;
+                    var deserialized = DataCatalyst.Storage.AspectTypeRegistry.Deserialize(typeof(T), rawVal);
+                    if (deserialized is T result)
+                    {
+                        _rows[index][typeof(T)] = result;
+                        return result;
+                    }
                 }
-                catch (Exception ex)
-                {
-                    System.Console.Error.WriteLine($"[TRACE]   deserialize error: {ex.Message}");
-                }
+                catch { }
             }
         }
         else

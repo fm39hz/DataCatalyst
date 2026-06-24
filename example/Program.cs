@@ -9,7 +9,16 @@ using DataCatalyst.Loaders;
 using DataCatalyst.Generated;
 using DataCatalyst.Generated.Entries;
 
-var root = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "example");
+var root = AppContext.BaseDirectory;
+while (root != null && !Directory.Exists(Path.Combine(root, "Data")))
+{
+    root = Directory.GetParent(root)?.FullName!;
+}
+if (string.IsNullOrEmpty(root))
+{
+    root = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "example");
+}
+
 var world = new Pipeline()
     .AddSource("Base", new JsonDataLoader(), Path.Combine(root, "Data"), s =>
         { s.Priority = 0; s.MergePolicy = MergePolicy.Patch; })

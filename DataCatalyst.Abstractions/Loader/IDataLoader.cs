@@ -12,6 +12,7 @@ public sealed class LoadResult
 
 public interface IDataLoader
 {
+    LoadResult Load(string content, string fallbackKey);
     LoadResult LoadFile(string path);
     LoadResult LoadDirectory(string path);
 }

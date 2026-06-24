@@ -1,6 +1,6 @@
 {
 	"Arthur": {
-		"Concept": [
+		"$concepts": [
 			"Creature",
 			"Hero"
 		],
@@ -17,11 +17,11 @@
 			"Name": "Arthur the Brave"
 		},
 		"InitialWeapon": {
-			"WeaponId": "IronSword"
+			"WeaponId": { "$ref": "IronSword" }
 		}
 	},
 	"Goblin": {
-		"Concept": [
+		"$concepts": [
 			"Creature",
 			"Enemy"
 		],
@@ -44,11 +44,11 @@
 			"Meters": 30
 		},
 		"InitialWeapon": {
-			"WeaponId": "WoodenClub"
+			"WeaponId": { "$ref": "WoodenClub" }
 		}
 	},
 	"Orc": {
-		"Concept": [
+		"$concepts": [
 			"Creature",
 			"Enemy"
 		],
@@ -71,7 +71,7 @@
 			"Meters": 40
 		},
 		"InitialWeapon": {
-			"WeaponId": "IronSword"
+			"WeaponId": { "$ref": "IronSword" }
 		}
 	}
 }

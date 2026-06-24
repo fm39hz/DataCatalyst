@@ -12,4 +12,10 @@ public readonly ref struct ConceptScope<TConcept> where TConcept : struct, IConc
     public EntryScope<TConcept, TEntry> At<TEntry>()
         where TEntry : struct, IEntry, IBelongTo<TConcept>
         => new(Pool, EntryIndex<TEntry>.Value);
+
+    public ConceptHandle<TConcept> At(int index)
+        => new(index);
+
+    public T Take<T>(ConceptHandle<TConcept> handle) where T : struct
+        => Pool.Get<T>(handle.Index);
 }

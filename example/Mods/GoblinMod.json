@@ -1,6 +1,6 @@
 {
     "Goblin": {
-        "Concept": "Creature",
+        "$concepts": "Creature",
         "Health": { "Max": 60 },
         "CombatStats": { "BaseDamage": 8 },
         "Label": { "Name": "Goblin Berserker" }

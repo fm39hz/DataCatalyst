@@ -13,5 +13,5 @@ internal sealed class RawEntry
     public Dictionary<string, string> CrossRefs { get; set; } = new();
     public int AssignedIndex { get; set; }
     public List<string> _fieldNames = new();
-    public Dictionary<string, string> _rawFields = new();
+    public Dictionary<string, object?> _rawFields = new();
 }

@@ -1,6 +1,6 @@
 {
 	"IronSword": {
-		"Concept": [
+		"$concepts": [
 			"Item",
 			"Weapon"
 		],
@@ -17,7 +17,7 @@
 		}
 	},
 	"WoodenClub": {
-		"Concept": [
+		"$concepts": [
 			"Item",
 			"Weapon"
 		],
@@ -34,7 +34,7 @@
 		}
 	},
 	"Bow": {
-		"Concept": [
+		"$concepts": [
 			"Item",
 			"Weapon"
 		],
@@ -51,7 +51,7 @@
 		}
 	},
 	"Staff": {
-		"Concept": [
+		"$concepts": [
 			"Item",
 			"Weapon"
 		],

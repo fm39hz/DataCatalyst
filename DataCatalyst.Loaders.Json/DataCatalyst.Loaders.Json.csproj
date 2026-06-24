@@ -13,5 +13,6 @@
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\DataCatalyst.Core\DataCatalyst.Core.csproj"/>
+		<ProjectReference Include="..\DataCatalyst.Loaders.Json.SourceGen\DataCatalyst.Loaders.Json.SourceGen.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 	</ItemGroup>
 </Project>

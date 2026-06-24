@@ -14,6 +14,8 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace DataCatalyst.V2;
 
+using RawEntry = DataCatalyst.Storage.RawEntry;
+
 [Generator]
 public sealed class EntryGenerator : IIncrementalGenerator
 {
@@ -21,14 +23,14 @@ public sealed class EntryGenerator : IIncrementalGenerator
     {
         // Read JSON files from AdditionalFiles
         var jsonFiles = context.AdditionalTextsProvider
-            .Where(static file => file.Path.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+            .Where(static file => LoaderRegistry.TryGetLoader(Path.GetExtension(file.Path), out _))
             .Select(static (text, ct) =>
             {
                 try
                 {
                     var content = text.GetText(ct)?.ToString();
                     if (content == null) return ImmutableArray<RawEntry>.Empty;
-                    return ParseEntries(content, Path.GetFileNameWithoutExtension(text.Path));
+                    return ParseEntries(content, text.Path);
                 }
                 catch
                 {
@@ -108,6 +110,45 @@ public sealed class EntryGenerator : IIncrementalGenerator
                 initStatements.Add(ExpressionStatement(registerCall));
             }
 
+            // Generate EntryIndexAssigner class
+            var assignStatements = new List<StatementSyntax>();
+            foreach (var entry in entries)
+            {
+                var typeName = SanitizeName(entry.Key);
+                var fullEntryType = $"global::DataCatalyst.Generated.Entries.{typeName}";
+                var ifStatement = ParseStatement(
+                    $"if (entryType == typeof({fullEntryType})) global::DataCatalyst.Registry.EntryIndex<{fullEntryType}>.Value = index;\n"
+                );
+                if (ifStatement != null) assignStatements.Add(ifStatement);
+            }
+
+            var assignClass = ClassDeclaration("EntryIndexAssigner")
+                .WithModifiers(TokenList(
+                    Token(SyntaxKind.PublicKeyword),
+                    Token(SyntaxKind.StaticKeyword)))
+                .AddMembers(
+                    MethodDeclaration(PredefinedType(Token(SyntaxKind.VoidKeyword)), "Assign")
+                        .WithModifiers(TokenList(
+                            Token(SyntaxKind.PublicKeyword),
+                            Token(SyntaxKind.StaticKeyword)))
+                        .WithParameterList(ParameterList(SeparatedList<ParameterSyntax>(new[] {
+                            Parameter(Identifier("entryType")).WithType(ParseTypeName("global::System.Type")),
+                            Parameter(Identifier("index")).WithType(PredefinedType(Token(SyntaxKind.IntKeyword)))
+                        })))
+                        .WithBody(Block(assignStatements)));
+
+            entryTypes.Add(assignClass);
+
+            // Register index assigner
+            initStatements.Insert(0, ExpressionStatement(
+                InvocationExpression(
+                    MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        ParseTypeName("global::DataCatalyst.Registry.EntryRegistry"),
+                        IdentifierName("RegisterIndexAssigner")))
+                .WithArgumentList(ArgumentList(SingletonSeparatedList(
+                    Argument(ParseExpression("global::DataCatalyst.Generated.Entries.EntryIndexAssigner.Assign")))))));
+
             // Generate concept marker types
             var uniqueConcepts = new HashSet<string>();
             foreach (var e in entries)
@@ -123,6 +164,29 @@ public sealed class EntryGenerator : IIncrementalGenerator
                     .WithBaseList(BaseList(SingletonSeparatedList<BaseTypeSyntax>(
                         SimpleBaseType(ParseTypeName("global::DataCatalyst.IConcept")))));
                 conceptStructs.Add(cs);
+            }
+
+            // Register pool factories for each concept
+            foreach (var c in uniqueConcepts)
+            {
+                var conceptName = SanitizeName(c);
+                var conceptType = $"global::DataCatalyst.Generated.{conceptName}";
+                var poolType = $"global::DataCatalyst.Generated.{conceptName}Pool";
+                
+                var registerPoolCall = ExpressionStatement(
+                    InvocationExpression(
+                        MemberAccessExpression(
+                            SyntaxKind.SimpleMemberAccessExpression,
+                            ParseTypeName("global::DataCatalyst.Registry.EntryRegistry"),
+                            IdentifierName("RegisterPool")))
+                    .WithArgumentList(ArgumentList(SeparatedList(new[] {
+                        Argument(TypeOfExpression(ParseTypeName(conceptType))),
+                        Argument(ParenthesizedLambdaExpression()
+                            .WithBody(ObjectCreationExpression(ParseTypeName(poolType))
+                                .WithArgumentList(ArgumentList())))
+                    }))));
+                
+                initStatements.Add(registerPoolCall);
             }
 
             var conceptsNs = NamespaceDeclaration(ParseName("DataCatalyst.Generated"))
@@ -164,108 +228,35 @@ public sealed class EntryGenerator : IIncrementalGenerator
         });
     }
 
-    private static ImmutableArray<RawEntry> ParseEntries(string json, string filename)
+    private static ImmutableArray<RawEntry> ParseEntries(string content, string path)
     {
-        var results = new List<RawEntry>();
         try
         {
-            using var doc = JsonDocument.Parse(json);
-            WalkAndDiscover(doc.RootElement, null, filename, results);
-        }
-        catch { }
-        return results.ToImmutableArray();
-    }
-
-    private static void WalkAndDiscover(JsonElement element, string? parentKey,
-        string? filename, List<RawEntry> results)
-    {
-        if (element.ValueKind == JsonValueKind.Object)
-        {
-            if (TryGetConcept(element, out var concepts) && concepts.Count > 0)
+            var ext = Path.GetExtension(path);
+            if (LoaderRegistry.TryGetLoader(ext, out var loader))
             {
-                var key = ExtractKey(element, parentKey, filename);
-                if (key != null)
-                {
-                    results.Add(new RawEntry(key, concepts));
-                }
-
-                // Continue walking for nested entries
-                foreach (var prop in element.EnumerateObject())
-                {
-                    if (IsSkippedField(prop.Name)) continue;
-                    WalkAndDiscover(prop.Value, prop.Name, filename, results);
-                }
+                var filename = Path.GetFileNameWithoutExtension(path);
+                var result = loader.Load(content, filename);
+                return result.Entries.Cast<RawEntry>().ToImmutableArray();
             }
-            else
-            {
-                foreach (var prop in element.EnumerateObject())
-                    WalkAndDiscover(prop.Value, prop.Name, filename, results);
-            }
+            return ImmutableArray<RawEntry>.Empty;
         }
-        else if (element.ValueKind == JsonValueKind.Array)
+        catch
         {
-            foreach (var item in element.EnumerateArray())
-                WalkAndDiscover(item, null, filename, results);
+            return ImmutableArray<RawEntry>.Empty;
         }
-    }
-
-    private static bool TryGetConcept(JsonElement obj, out List<string> concepts)
-    {
-        concepts = new List<string>();
-        if (obj.TryGetProperty("Concept", out var prop) ||
-            obj.TryGetProperty("concept", out prop))
-        {
-            if (prop.ValueKind == JsonValueKind.String)
-                concepts.Add(prop.GetString()!);
-            else if (prop.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var item in prop.EnumerateArray())
-                {
-                    if (item.ValueKind == JsonValueKind.String)
-                        concepts.Add(item.GetString()!);
-                }
-            }
-        }
-        return concepts.Count > 0;
-    }
-
-    private static string? ExtractKey(JsonElement obj, string? parentKey, string? filename)
-    {
-        if (!string.IsNullOrEmpty(parentKey)) return parentKey;
-
-        string[] keyFields = { "$key", "_id", "Id", "id", "Name", "name", "Key", "key" };
-        foreach (var field in keyFields)
-        {
-            if (obj.TryGetProperty(field, out var prop) && prop.ValueKind == JsonValueKind.String)
-                return prop.GetString();
-        }
-        return filename;
-    }
-
-    private static bool IsSkippedField(string name)
-    {
-        return name == "Concept" || name == "concept" || name == "$key" ||
-               name == "Id" || name == "_id" || name == "Inherits" || name == "inherits";
     }
 
     private static string SanitizeName(string name)
     {
         if (string.IsNullOrEmpty(name)) return "Unknown";
         // Remove invalid chars, ensure starts with letter
-        var sb = new StringBuilder(name.Length);
-        for (int i = 0; i < name.Length; i++)
-        {
-            var c = name[i];
-            if (char.IsLetterOrDigit(c) || c == '_')
-                sb.Append(c);
-            else
-                sb.Append('_');
-        }
-        if (sb.Length == 0 || !char.IsLetter(sb[0]))
-            sb.Insert(0, '_');
-        return sb.ToString();
+        var chars = name.Select(c => (char.IsLetterOrDigit(c) || c == '_') ? c : '_').ToArray();
+        var result = new string(chars);
+        if (result.Length == 0 || !char.IsLetter(result[0]))
+            result = "_" + result;
+        return result;
     }
 
-    private readonly record struct RawEntry(string Key, List<string> Concepts);
     private readonly record struct EntryData(string Key, ImmutableArray<string> Concepts);
 }

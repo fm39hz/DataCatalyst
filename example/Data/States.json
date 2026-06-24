@@ -1,6 +1,6 @@
 {
 	"BasicAI": {
-		"Concept": "GameState",
+		"$concepts": "GameState",
 		"StateGroup": {
 			"GroupId": "BasicAI",
 			"DefaultState": "Idle"

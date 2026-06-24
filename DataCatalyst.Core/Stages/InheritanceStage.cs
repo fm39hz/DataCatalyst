@@ -42,10 +42,16 @@ internal sealed class InheritanceStage : PipelineAbstractions.IPipelineStage
 
             Resolve(parent);
 
-            // CopyMissing: parent component → child if not present
-            foreach (var kv in parent.Components)
-                if (!entry.Components.ContainsKey(kv.Key))
-                    entry.Components[kv.Key] = kv.Value;
+            // CopyMissing: parent aspect → child if not present in _rawFields
+            foreach (var kv in parent._rawFields)
+            {
+                if (!entry._rawFields.ContainsKey(kv.Key))
+                {
+                    entry._rawFields[kv.Key] = kv.Value;
+                    if (!entry._fieldNames.Contains(kv.Key))
+                        entry._fieldNames.Add(kv.Key);
+                }
+            }
 
             visiting.Remove(entry.Key);
             visited.Add(entry.Key);

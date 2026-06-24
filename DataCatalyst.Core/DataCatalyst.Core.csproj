@@ -7,9 +7,7 @@
 		<PackageTags>data-catalyst;game-data;runtime;core</PackageTags>
 	</PropertyGroup>
 
-	<ItemGroup>
-		<PackageReference Include="System.Text.Json"/>
-	</ItemGroup>
+
 	<ItemGroup>
 		<ProjectReference Include="..\DataCatalyst.Abstractions\DataCatalyst.Abstractions.csproj"/>
 	</ItemGroup>

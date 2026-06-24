@@ -3,6 +3,7 @@
 	<Project Path="DataCatalyst.Core/DataCatalyst.Core.csproj"/>
 	<Project Path="DataCatalyst.SourceGen/DataCatalyst.SourceGen.csproj"/>
 	<Project Path="DataCatalyst.Loaders.Json/DataCatalyst.Loaders.Json.csproj"/>
+	<Project Path="DataCatalyst.Loaders.Json.SourceGen/DataCatalyst.Loaders.Json.SourceGen.csproj"/>
 
 	<Project Path="DataCatalyst.Extensions/DataCatalyst.Extensions.csproj"/>
 	<Project Path="DataCatalyst.Plugins.StateEngine/DataCatalyst.Plugins.StateEngine.csproj"/>

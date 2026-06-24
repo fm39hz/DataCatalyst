@@ -1,53 +1,43 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
 
-namespace DataCatalyst.Storage;
-
-public static class AspectTypeRegistry
+namespace DataCatalyst.Storage
 {
-    private static readonly Dictionary<string, Type> _typeByName
-        = new(StringComparer.OrdinalIgnoreCase);
-    private static bool _initialized;
-
-    public static void Initialize()
+    public static class AspectTypeRegistry
     {
-        if (_initialized) return;
-        _initialized = true;
+        private static readonly Dictionary<string, Type> _typeByName
+            = new(StringComparer.OrdinalIgnoreCase);
+        private static readonly Dictionary<Type, Func<object, object?>> _deserializers
+            = new();
 
-        var entryAsm = Assembly.GetEntryAssembly();
-        if (entryAsm != null) ScanAssembly(entryAsm);
-
-        foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
-            if (asm != entryAsm)
-                ScanAssembly(asm);
-    }
-
-    private static void ScanAssembly(Assembly asm)
-    {
-        try
+        public static bool TryGetType(string name, [global::System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Type? type)
         {
-            foreach (var type in asm.GetTypes())
-            {
-                if (type.IsValueType && !type.IsPrimitive && !type.IsEnum
-                    && type.Namespace != null && !type.Namespace.StartsWith("System"))
-                {
-                    _typeByName[type.Name] = type;
-                }
-            }
+            return _typeByName.TryGetValue(name, out type);
         }
-        catch { }
-    }
 
-    public static bool TryGetType(string name, out Type? type)
-    {
-        Initialize();
-        return _typeByName.TryGetValue(name, out type);
-    }
+        public static void Register(Type type)
+        {
+            _typeByName[type.Name] = type;
+        }
 
-    public static void Register(Type type)
-    {
-        _typeByName[type.Name] = type;
+        public static void RegisterDeserializer(Type type, Func<object, object?> deserializer)
+        {
+            _deserializers[type] = deserializer;
+        }
+
+        public static object? Deserialize(Type type, object? rawVal)
+        {
+            if (_deserializers.TryGetValue(type, out var deserializer))
+            {
+                return deserializer(rawVal!);
+            }
+
+            return null;
+        }
+
+        public static void Initialize()
+        {
+            // No reflection initialization needed as types are registered via ModuleInitializer
+        }
     }
 }
