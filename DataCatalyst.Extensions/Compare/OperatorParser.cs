@@ -1,52 +1,28 @@
-namespace DataCatalyst.Extensions.Compare;
-
 using System;
-using System.Collections.Generic;
 
-/// <summary>Parses and evaluates numeric comparison operators.</summary>
-public static class OperatorParser {
-	/// <summary>Default tolerance for floating-point comparison.</summary>
-	public const float DefaultEpsilon = 0.001f;
+namespace DataCatalyst.Compare;
 
-	private static readonly Dictionary<string, CompareOp> Map = new(StringComparer.OrdinalIgnoreCase) {
-		["=="] = CompareOp.Equal,
-		["eq"] = CompareOp.Equal,
-		["!="] = CompareOp.NotEqual,
-		["neq"] = CompareOp.NotEqual,
-		[">"] = CompareOp.GreaterThan,
-		["gt"] = CompareOp.GreaterThan,
-		[">="] = CompareOp.GreaterThanOrEqual,
-		["gte"] = CompareOp.GreaterThanOrEqual,
-		["<"] = CompareOp.LessThan,
-		["lt"] = CompareOp.LessThan,
-		["<="] = CompareOp.LessThanOrEqual,
-		["lte"] = CompareOp.LessThanOrEqual
-	};
+public static class OperatorParser
+{
+    public static CompareOp Parse(string op) => op switch
+    {
+        "==" or "=" => CompareOp.Equal,
+        "!=" or "<>" => CompareOp.NotEqual,
+        "<" => CompareOp.LessThan,
+        "<=" => CompareOp.LessThanOrEqual,
+        ">" => CompareOp.GreaterThan,
+        ">=" => CompareOp.GreaterThanOrEqual,
+        _ => throw new ArgumentException($"Unknown operator '{op}'", nameof(op)),
+    };
 
-	/// <summary>Converts a string token to a CompareOp value.</summary>
-	public static CompareOp Parse(string op) {
-#if NET6_0_OR_GREATER
-		ArgumentNullException.ThrowIfNull(op);
-#else
-		if (op == null) {
-			throw new ArgumentNullException(nameof(op));
-		}
-#endif
-		if (Map.TryGetValue(op, out var result)) {
-			return result;
-		}
-
-		throw new ArgumentException($"Unknown operator: {op}");
-	}
-
-	/// <summary>Evaluates a numeric comparison with tolerance.</summary>
-	public static bool Evaluate(float value, CompareOp op, float threshold, float epsilon = DefaultEpsilon) => op switch {
-		CompareOp.Equal => Math.Abs(value - threshold) < epsilon,
-		CompareOp.NotEqual => Math.Abs(value - threshold) >= epsilon,
-		CompareOp.GreaterThan => value > threshold,
-		CompareOp.GreaterThanOrEqual => value >= threshold,
-		CompareOp.LessThan => value < threshold,
-		CompareOp.LessThanOrEqual => value <= threshold,
-		_ => false
-	};
+    public static bool Evaluate(float value, CompareOp op, float threshold) => op switch
+    {
+        CompareOp.Equal => value == threshold,
+        CompareOp.NotEqual => value != threshold,
+        CompareOp.LessThan => value < threshold,
+        CompareOp.LessThanOrEqual => value <= threshold,
+        CompareOp.GreaterThan => value > threshold,
+        CompareOp.GreaterThanOrEqual => value >= threshold,
+        _ => false,
+    };
 }

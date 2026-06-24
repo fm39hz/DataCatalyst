@@ -4,23 +4,22 @@
 		<TargetFramework>net10.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
-		<PublishAot>true</PublishAot>
 		<EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+		<CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)/Generated</CompilerGeneratedFilesOutputPath>
 	</PropertyGroup>
+
 	<ItemGroup>
 		<AdditionalFiles Include="Data/**/*.json" />
-		<AdditionalFiles Include="Metadata/**/*.json" />
+		<AdditionalFiles Include="DLC/**/*.json" />
+		<AdditionalFiles Include="Mods/**/*.json" />
 	</ItemGroup>
+
 	<ItemGroup>
 		<ProjectReference Include="..\DataCatalyst.Abstractions\DataCatalyst.Abstractions.csproj" />
 		<ProjectReference Include="..\DataCatalyst.Core\DataCatalyst.Core.csproj" />
 		<ProjectReference Include="..\DataCatalyst.Loaders.Json\DataCatalyst.Loaders.Json.csproj" />
-		<ProjectReference Include="..\DataCatalyst.SourceGen\DataCatalyst.SourceGen.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-		<ProjectReference Include="..\DataCatalyst.SourceGen\DataCatalyst.SourceGen.csproj" ReferenceOutputAssembly="true" />
 		<ProjectReference Include="..\DataCatalyst.Extensions\DataCatalyst.Extensions.csproj" />
 		<ProjectReference Include="..\DataCatalyst.Plugins.StateEngine\DataCatalyst.Plugins.StateEngine.csproj" />
-	</ItemGroup>
-	<ItemGroup>
-	  <PackageReference Include="Arch" />
+		<ProjectReference Include="..\DataCatalyst.SourceGen\DataCatalyst.SourceGen.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 	</ItemGroup>
 </Project>

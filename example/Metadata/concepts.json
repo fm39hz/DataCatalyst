@@ -1,8 +1,0 @@
-{
-	"Hero": { "description": "Anh hùng, nhân vật người chơi trong game" },
-	"Enemy": { "description": "Kẻ địch, quái vật, boss trong game" },
-	"Weapon": { "description": "Vũ khí trang bị cho nhân vật" },
-	"Currency": { "description": "Tiền tệ trao đổi trong game" },
-	"Sensor": { "description": "Tín hiệu cảm biến từ môi trường game" },
-	"StateEngine": { "description": "Định nghĩa đồ thị trạng thái AI" }
-}

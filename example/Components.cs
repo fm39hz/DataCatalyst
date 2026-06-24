@@ -1,40 +1,24 @@
-namespace DataCatalyst.Generated;
+using DataCatalyst.Attributes;
 
-using DataCatalyst.Abstractions;
+namespace Example;
 
-[DataComponent]
-public struct Health {
-	public int Current;
-	public int Max;
-}
+[GameAspect]
+public record struct Health { public int Current { get; set; } public int Max { get; set; } }
 
-[DataComponent]
-public struct Damage {
-	public int Min;
-	public int Max;
-}
+[GameAspect]
+public record struct CombatStats { public int BaseDamage { get; set; } public int BaseDefense { get; set; } public float AttackSpeed { get; set; } }
 
-[DataComponent]
-public struct ExperienceReward {
-	public int Value;
-}
+[GameAspect]
+public record struct Label { public string Name { get; set; } }
 
-[DataComponent]
-public struct Amount {
-	public int Value;
-}
+[GameAspect]
+public record struct Durability { public int Points { get; set; } }
 
-[DataComponent]
-public struct Label {
-	public string Value;
-}
+[GameAspect]
+public record struct ExperienceReward { public int Amount { get; set; } }
 
-[DataComponent]
-public struct Durability {
-	public int Value;
-}
+[GameAspect]
+public record struct PatrolRadius { public int Meters { get; set; } }
 
-[DataComponent]
-public struct CurrentAIState {
-	public int StateId;
-}
+[GameAspect]
+public record struct InitialWeapon { public string WeaponId { get; set; } }

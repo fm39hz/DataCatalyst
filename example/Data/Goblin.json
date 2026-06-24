@@ -1,7 +1,0 @@
-{
-	"Concept": "Enemy",
-	"Health": { "Current": 40, "Max": 40 },
-	"Damage": { "Min": 4, "Max": 6 },
-	"ExperienceReward": 20,
-	"Label": "Goblin Scout"
-}

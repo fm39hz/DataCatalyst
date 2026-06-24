@@ -4,7 +4,7 @@
 [![CI Status](https://img.shields.io/github/actions/workflow/status/fm39hz/DataCatalyst/ci.yml?branch=master&style=flat-square)](https://github.com/fm39hz/DataCatalyst/actions)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
 
-**DataCatalyst** is a concept composition framework for C#/.NET. Data is the Single Source of Truth. JSON data files define game content, and SourceGen generates everything else.
+**DataCatalyst** is a concept composer framework for C#/.NET
 
 ---
 
@@ -21,60 +21,61 @@ dotnet add package DataCatalyst.Loaders.Json
 
 ### 1. Write Data
 
-`Data/Goblin.json`:
+`Data/Creatures.json`:
 
 ```json
 {
-	"concept": "Enemy",
-	"health": { "current": 50, "max": 50 },
-	"combatStats": { "attackPower": 8, "defense": 5 }
+	"hero": {
+		"concept": ["Creature", "Player", "Protagonist"],
+		"health": { "initial": 50, "max": 50 },
+		"combatStats": { "baseDamage": 8, "baseDefense": 5 }
+	}
 }
 ```
 
-SourceGen generates component structs + entry constants automatically.
+### 2. With Concept & Aspect
 
-### 2. Load, Resolve, Access
+```csharp
+[GameConcept]
+public record struct Creature : IConcept;
+
+[GameConcept]
+public record struct Player : IConcept;
+
+[GameConcept]
+public record struct Protagonist : IConcept;
+
+[GameAspect]
+public record struct Health { public int Initial; public int Max; }
+public record struct CombatStats { public int BaseDamage; public int BaseDefense; }
+```
+
+### 3. Load, Build & Access
 
 ```csharp
 // Simple fluent API
-var catalog = new DataPipeline()
-    .Load(new JsonDataLoader(), "Data/")
-    .Load(new JsonDataLoader(), "Mods/")
-    .Build();
+World world = new Pipeline()
+    .AddSource("Base", new JsonLoader(), "Data/")
+    .AddSource("Mods", new JsonLoader(), "Mods/")
+    .Build(out var diagnostics);
 
-// Which is load under the hood
-var data  = JsonDataLoader.LoadDirectory("Data/");
-var mods  = JsonDataLoader.LoadDirectory("Mods/");
-var result = data.Concat(mods);
-var graph   = DataGraphBuilder.Build(result.Entries);
-var catalog = DataCatalogBuilder.Resolve(graph);
+// Access - typed, zero string, intellisense
+int hp  = world.FromConcept<Creature>().At<Hero>().Take<Health>().Initial;
+int atk = world.FromConcept<Player>().At<Hero>().Take<CombatStats>().BaseDamage;
 
-// Access
-var hp  = catalog.Get<Health>(Concept.Enemy.Goblin);
-var atk = catalog.Get<CombatStats>(Concept.Enemy.Goblin);
+foreach (ref readonly var entry in world.FromConcept<Creature>().All) {
+    Use(entry.Take<Health>());
+}
 ```
 
-### 3. With Concepts
-
-```json
-// concepts.json
-{ "Enemy": { "description": "Hostile entities" } }
-```
-
-```csharp
-var hp = catalog.Get<Health>(Concept.Enemy.Goblin);
-var enemies = catalog.GetConcept<Concept.Enemy>();
-enemies.Get<Health>(Concept.Enemy.Goblin);
-```
-
-`Concept.Enemy.Goblin` is `const int` - compile-time safe
+`Hero` is a generated entry marker type implementing `IBelongTo<Creature>`, `IBelongTo<Player>`, `IBelongTo<Protagonist>` - compile-time safe.
 
 ---
 
 ## 📦 Packages
 
 ```bash
-dotnet add package DataCatalyst                              # SourceGen + Core
+dotnet add package DataCatalyst                               # SourceGen + Core
 dotnet add package DataCatalyst.Loaders.Json                  # JSON loader
 dotnet add package DataCatalyst.Extensions                    # Compare, Composition, Materialization
 dotnet add package DataCatalyst.Plugins.StateEngine
@@ -91,97 +92,98 @@ SourceGen packages as analyzers:
 
 ## 🧩 Usage
 
-### DataCatalog
+### World - typed runtime catalog
 
 Pipeline final result
 
 ```csharp
-catalog.Get<Health>(Concept.Enemy.Goblin).Current
-catalog.TryGet<Element>(Concept.Enemy.FireDragon, out var e)
-catalog.GetEntry(Concept.Enemy.Goblin).SourceFile
+world.FromConcept<Creature>().At<Hero>().Take<Health>().Initial;
+world.FromConcept<Creature>().TryGet<Element>(out var e)
 
 // Concept-scoped view
-var enemies = catalog.GetConcept<Concept.Enemy>();
-enemies.Get<Health>(Concept.Enemy.Goblin).Current
+var creatures = world.FromConcept<Creature>();
+creatures.At<Hero>().Take<Health>().Initial;
+```
+
+### Concept
+
+A concept, as its name implies, stands for a concept about something in your game.
+
+```csharp
+[GameConcept]
+public record struct Creature : IConcept;
+```
+
+### Aspect
+
+An aspect is a data unit attached to entries of a concept. Multiple concepts entries can share aspect types.
+
+```csharp
+[GameAspect]
+public record struct Health { public int Initial; public int Max; }
 ```
 
 ### Loader
 
-Implement `IDataLoader` to use any format (CSV, MsgPack, ...).
+Implement `IDataLoader` to use any format (CSV, YAML, MsgPack, ...).
 
 ```csharp
 public class CsvDataLoader : IDataLoader {
     public LoadResult LoadDirectory(string path) {
         foreach (var file in Directory.GetFiles(path, "*.csv"))
-            // Parse CSV → DataEntry with typed components
+            // Parse CSV -> RawEntry with typed components
     }
     public LoadResult LoadFile(string path) => LoadDirectory(Path.GetDirectoryName(path));
 }
 ```
 
-### Plugin
+### Pipeline Stage
 
-Plugin is your specialized use case for your game that hook into pipeline
+Stage is your specialized processing step that hooks into the pipeline
 
 ```csharp
-[DataPlugin(DependsOn = [typeof(GameConceptPlugin)])]
-public class MyPlugin : ICatalogPlugin {
-    public bool IsEnabled => true;
-    public void OnLoad() => env.Primitives.Register<MyComponent>();
-    public void OnCatalogResolved(DataCatalog catalog, List<string> diags) {
-        foreach (var entry in catalog.Entries.Values)
-            if (entry.TryGet<MyComponent>(out var c))
-                Process(c);
+public class ValidateStage : IPipelineStage {
+    public string Id => "ValidateCreatures";
+    public void Execute(PipelineContext ctx) {
+        foreach (var entry in ctx.Entries) {
+            if (entry.Concepts.Contains("Creature") && !entry.HasAspect<Health>())
+                ctx.Diagnostics.Warn($"{entry.Key} missing Health");
+        }
     }
 }
 ```
 
-Pipeline hooks: `IPostLoadPlugin` (after load) → `IGraphPlugin` (after graph) → `ICatalogPlugin` (after catalog).
+Inject into pipeline at five hooks: `StagePosition.AfterLoad`, `AfterMerge`, `AfterResolve`, `BeforeBuild`.
 
 ### Materializer
 
-Bridge from DataCatalyst's component sang engine-specific object (GameObject, Node, ...).
+Bridge from DataCatalyst's World to engine-specific objects. Define a pattern once, SourceGen dispatches all aspects.
 
 ```csharp
-var mat = new DataMaterializer<GameObject>();
-mat.Register<Health>((go, h) => go.GetComponent<HealthBar>().SetMax(h.Max));
-mat.Register<AttackPower>((go, a) => go.GetComponent<DamageDealer>().Power = a.Value);
+[Materializer]
+partial class EcsMaterializer : IMaterializer<Entity> {
+    readonly World _w;
+    void Apply<T>(Entity e, T c) where T : struct => _w.Add(e, c);
+}
 
-var goblin = YourGoblinIntialSetupFunctionHere();
-mat.Materialize(catalog.GetEntry(Concept.Enemy.Goblin), goblin);
+// Usage - ECS
+var mat = new EcsMaterializer(world);
+mat.Apply(entity, world.FromConcept<Creature>().At<Hero>());
+
+// Usage - Godot/Unity with [Materialize]
+[Materialize]
+partial class Player : CharacterBody2D {
+    public override void _Ready() => this.Materialize();
+}
 ```
 
 ### Extensions
 
-Custom per-source config - per-loader namespace, injected attributes (Type-safe, no strings).
-
-```csharp
-// Game data - additional attribute here
-[assembly: DataCatalystConfig("Data/", Namespace = "Game.Components",
-    Attributes = new[] { typeof(YourAttribute) })]
-
-// Mod data - different namespace, different attribute
-[assembly: DataCatalystConfig("Mods/", Namespace = "Mod.Components",
-    Attributes = new[] { typeof(YourAnotherAttribute) })]
-```
-
-SourceGen generates separate namespaces per source:
-
-```csharp
-// Data/ → Game.Components
-namespace Game.Components;
-[IComponent] public partial struct Health { int Current; int Max; }
-
-// Mods/ → Mod.Components
-namespace Mod.Components;
-[IComponent] public partial struct Health { int Current; int Max; }
-```
-
-| Namespace                                 | Types                                                                              |
-| ----------------------------------------- | ---------------------------------------------------------------------------------- |
-| `DataCatalyst.Extensions.Compare`         | `CompareOp`, `OperatorParser`                                                      |
-| `DataCatalyst.Extensions.Composition`     | `TransitionDef`, `ConditionGroupDef`, `SensorConditionDef`, `SensorInfluenceDef`   |
-| `DataCatalyst.Extensions.Materialization` | `DataMaterializer<T>`, `ComponentMaterializer<TC,TT>`, `IComponentMaterializer<T>` |
+| Namespace                                 | Types                                                                            |
+| ----------------------------------------- | -------------------------------------------------------------------------------- |
+| `DataCatalyst.Extensions.Compare`         | `CompareOp`, `OperatorParser`                                                    |
+| `DataCatalyst.Extensions.Composition`     | `TransitionDef`, `ConditionGroupDef`, `SensorConditionDef`, `SensorInfluenceDef` |
+| `DataCatalyst.Extensions.Materialization` | `IMaterializer<T>`, `MaterializerAttribute`, `MaterializeAttribute`              |
 
 ---
 
@@ -189,53 +191,56 @@ namespace Mod.Components;
 
 ### StateEngine
 
-Data-driven hierarchical FSM. States and signals are concepts - nothing special.
+Data-driven hierarchical FSM. States, signals, and transitions are data - behavior is never hardcoded.
 
 ```json
 {
-	"concept": "Locomotion",
-	"defaultState": "Idle",
-	"states": {
-		"idle": {
-			"transitions": [
-				{
-					"targetState": "Walk",
-					"priority": 5,
-					"conditions": {
-						"all": [
-							{
-								"signal": "PlayerDistance",
-								"op": "<",
-								"value": 20
+	"goblinAI": {
+		"concept": "LocomotionStates",
+		"stateGroup": {
+			"groupId": "GoblinAI",
+			"defaultState": "Patrol",
+			"states": {
+				"patrol": {
+					"transitions": [
+						{
+							"targetState": "Chase",
+							"priority": 100,
+							"conditions": {
+								"all": [
+									{
+										"signal": "PlayerDistance",
+										"op": "<",
+										"value": 8
+									}
+								]
 							}
-						]
-					}
+						}
+					]
 				}
-			]
-		},
-		"walk": {},
-		"chase": {}
+			}
+		}
 	}
 }
 ```
 
-```json
-{ "concept": "AISensor", "defaultValue": 999 }
-```
-
 ```csharp
-var locomotion = catalog.Get<StateGroup>(Concept.Locomotion.Locomotion);
-var baked = StateEngineBaker.Bake(locomotion, catalog);
+// Bake - resolve string names to int IDs
+var baked = StateEngineBaker.Bake(
+    world.FromConcept<LocomotionStates>().At<GoblinAI>().Take<StateGroup>(),
+    world
+);
 
+// Evaluate - ONE engine for ALL entities
 var result = StateEngineEvaluator.Evaluate(
     baked.DefaultStateId, baked, viableStates,
     signalId => signalId switch {
-        Concept.AISensor.PlayerDistance => entity.DistanceToPlayer,
+        PlayerDistance => entity.DistanceToPlayer,
         _ => 0f
     });
 ```
 
-StateEngine is originally designed for ECS: ONE system evaluates ALL entities, but it is compat with normal use-case
+StateEngine is originally designed for ECS: ONE system evaluates ALL entities, but is compatible with normal use-cases.
 
 ---
 

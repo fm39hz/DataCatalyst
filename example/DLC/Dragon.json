@@ -1,0 +1,15 @@
+{
+    "Dragon": {
+        "Concept": ["Creature", "Enemy"],
+        "Health": { "Current": 500, "Max": 500 },
+        "CombatStats": { "BaseDamage": 35, "BaseDefense": 25, "AttackSpeed": 0.6 },
+        "Label": { "Name": "Elder Dragon" },
+        "ExperienceReward": { "Amount": 500 }
+    },
+    "FireSword": {
+        "Concept": ["Item", "Weapon"],
+        "CombatStats": { "BaseDamage": 18, "BaseDefense": 5, "AttackSpeed": 1.1 },
+        "Durability": { "Points": 120 },
+        "Label": { "Name": "Flame Sword" }
+    }
+}

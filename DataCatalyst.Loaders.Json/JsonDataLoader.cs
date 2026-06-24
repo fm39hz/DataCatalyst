@@ -1,209 +1,197 @@
-namespace DataCatalyst.Loaders;
-
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
-using System.Text.Json.Serialization.Metadata;
-using DataCatalyst.Abstractions;
-using DataCatalyst.Core;
+using LoaderAbstractions = DataCatalyst.Loader;
+using DataCatalyst.Storage;
 
-public class JsonDataLoader : IDataLoader {
-	private const string JsonFilter = "*.json";
-	private readonly JsonSerializerOptions _options;
-	private readonly DataCatalystEnvironment _env;
+namespace DataCatalyst.Loaders;
 
-	/// <summary>Default options: camelCase JSON → PascalCase C#.</summary>
-#if NET6_0_OR_GREATER
-	[System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026:RequiresUnreferencedCode", Justification = "Fallback for non-AOT")]
-	[System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("AOT", "IL3050:RequiresDynamicCode", Justification = "Fallback for non-AOT")]
-#endif
-	public static JsonSerializerOptions DefaultOptions => new() {
-		PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-		PropertyNameCaseInsensitive = true,
-		IncludeFields = true,
-		TypeInfoResolver = JsonResolverRegistry.GetCombinedResolver()
-	};
+public sealed class JsonDataLoader : LoaderAbstractions.IDataLoader
+{
+    public LoaderAbstractions.LoadResult LoadFile(string path)
+    {
+        var result = new LoaderAbstractions.LoadResult();
+        try
+        {
+            var text = File.ReadAllText(path);
+            var key = Path.GetFileNameWithoutExtension(path);
+            ParseJson(text, key, result);
+        }
+        catch (Exception ex)
+        {
+            result._diagnostics.Add($"Error loading '{path}': {ex.Message}");
+        }
+        return result;
+    }
 
-	/// <summary>Creates a loader with default camelCase settings.</summary>
-#if NET6_0_OR_GREATER
-	[System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026:RequiresUnreferencedCode", Justification = "Fallback for non-AOT")]
-	[System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("AOT", "IL3050:RequiresDynamicCode", Justification = "Fallback for non-AOT")]
-#endif
-	public JsonDataLoader() : this(DefaultOptions, null) { }
+    public LoaderAbstractions.LoadResult LoadDirectory(string path)
+    {
+        var result = new LoaderAbstractions.LoadResult();
+        if (!Directory.Exists(path))
+        {
+            result._diagnostics.Add($"Directory not found: {path}");
+            return result;
+        }
 
-	public JsonDataLoader(JsonSerializerOptions options, DataCatalystEnvironment? env = null) {
-		_options = options;
-		_env = env ?? new DataCatalystEnvironment();
-	}
+        foreach (var file in Directory.EnumerateFiles(path, "*.json"))
+        {
+            var fileResult = LoadFile(file);
+            result._entries.AddRange(fileResult._entries);
+            result._diagnostics.AddRange(fileResult._diagnostics);
+        }
 
-	public LoadResult LoadFile(string path) {
-		var result = new LoadResult();
-		var key = Path.GetFileNameWithoutExtension(path);
-		var text = File.ReadAllText(path);
-		if (TryParseEntry(key, text, _options, _env, out var entry, out var diag)) {
-			result._entries.Add(entry);
-		}
-		if (diag != null) result._diagnostics.AddRange(diag);
+        return result;
+    }
 
-		foreach (var p in _env.Plugins.EnabledPlugins.OfType<IPostLoadPlugin>())
-			p.OnEntriesLoaded(result._entries, result._diagnostics);
+    private void ParseJson(string json, string fallbackKey, LoaderAbstractions.LoadResult result)
+    {
+        using var doc = JsonDocument.Parse(json);
+        WalkAndDiscover(doc.RootElement, null, fallbackKey, result);
+    }
 
-		return result;
-	}
+    private void WalkAndDiscover(JsonElement element, string? parentKey, string? filename,
+        LoaderAbstractions.LoadResult result, HashSet<string>? visitedKeys = null)
+    {
+        visitedKeys ??= new HashSet<string>();
 
-	public LoadResult LoadDirectory(string path) {
-		return LoadDirectory(path, _options, _env);
-	}
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            if (TryExtractEntry(element, parentKey, filename, result, visitedKeys, out var extracted))
+            {
+                // Entry found — continue walking for nested entries in remaining properties
+                foreach (var prop in element.EnumerateObject())
+                {
+                    if (prop.Name == "Concept" || prop.Name == "concept" ||
+                        prop.Name == "$key" || prop.Name == "Id" || prop.Name == "_id" ||
+                        prop.Name == "Inherits" || prop.Name == "inherits")
+                        continue;
+                    WalkAndDiscover(prop.Value, prop.Name, filename, result, visitedKeys);
+                }
+            }
+            else
+            {
+                foreach (var prop in element.EnumerateObject())
+                    WalkAndDiscover(prop.Value, prop.Name, filename, result, visitedKeys);
+            }
+        }
+        else if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in element.EnumerateArray())
+                WalkAndDiscover(item, null, filename, result, visitedKeys);
+        }
+    }
 
-	// --- Static API (backward compat) ---
+    private static readonly JsonEncodedText ConceptProp = JsonEncodedText.Encode("Concept");
+    private static readonly JsonEncodedText ConceptPropLower = JsonEncodedText.Encode("concept");
 
-	public static LoadResult LoadDirectory(string directory, JsonSerializerOptions options, DataCatalystEnvironment? env = null) {
-		env ??= DataCatalystEnvironment.Default;
-		var result = new LoadResult();
+    private bool TryExtractEntry(JsonElement obj, string? parentKey, string? filename,
+        LoaderAbstractions.LoadResult result, HashSet<string> visitedKeys,
+        out bool extracted)
+    {
+        extracted = false;
 
-		foreach (var filePath in Directory.EnumerateFiles(directory, JsonFilter)) {
-			var key = Path.GetFileNameWithoutExtension(filePath);
-			var text = File.ReadAllText(filePath);
-			if (TryParseEntry(key, text, options, env, out var entry, out var diag)) {
-				result._entries.Add(entry);
-			}
-			if (diag != null) result._diagnostics.AddRange(diag);
-		}
+        // Check if this object has a "Concept" field
+        if (!TryGetConcept(obj, out var concepts) || concepts.Count == 0)
+            return false;
 
-		foreach (var p in env.Plugins.EnabledPlugins.OfType<IPostLoadPlugin>())
-			p.OnEntriesLoaded(result._entries, result._diagnostics);
+        // Extract entry key
+        var key = ExtractKey(obj, parentKey, filename);
+        if (key == null || !visitedKeys.Add(key))
+        {
+            result._diagnostics.Add(key == null
+                ? "Entry has no key"
+                : $"Duplicate entry key '{key}' skipped");
+            return true; // Was an entry, but couldn't extract
+        }
 
-		return result;
-	}
+        var entry = new RawEntry { Key = key };
 
-	public static LoadResult LoadArray(string filePath, string keyField, JsonSerializerOptions options, DataCatalystEnvironment? env = null) {
-		env ??= DataCatalystEnvironment.Default;
-		var result = new LoadResult();
-		var text = File.ReadAllText(filePath);
+        // Parse concepts
+        foreach (var c in concepts)
+            if (!string.IsNullOrEmpty(c))
+            {
+                entry.Concepts.Add(c);
+                entry.ConceptSet.Add(c);
+            }
 
-		using var doc = JsonDocument.Parse(text);
-		if (doc.RootElement.ValueKind != JsonValueKind.Array) {
-			result._diagnostics.Add($"Root element in '{filePath}' is not an array.");
-			return result;
-		}
+        // Parse Inherits
+        if (obj.TryGetProperty("Inherits", out var inhProp) && inhProp.ValueKind == JsonValueKind.String)
+            entry.Inherits = inhProp.GetString();
+        else if (obj.TryGetProperty("inherits", out inhProp) && inhProp.ValueKind == JsonValueKind.String)
+            entry.Inherits = inhProp.GetString();
 
-		int index = 0;
-		foreach (var element in doc.RootElement.EnumerateArray()) {
-			if (!element.TryGetProperty(keyField, out var keyEl) || keyEl.ValueKind != JsonValueKind.String) {
-				result._diagnostics.Add($"Element at index {index} in file '{filePath}' is missing string key field '{keyField}'.");
-				index++; continue;
-			}
-			var key = keyEl.GetString();
-			if (string.IsNullOrEmpty(key)) {
-				result._diagnostics.Add($"Element at index {index} in file '{filePath}' has empty key field '{keyField}'.");
-				index++; continue;
-			}
-			if (TryParseEntry(key, element.GetRawText(), options, env, out var entry, out var diag, keyField)) {
-				result._entries.Add(entry);
-			}
-			if (diag != null) result._diagnostics.AddRange(diag);
-			index++;
-		}
-		return result;
-	}
+        // Parse components
+        foreach (var prop in obj.EnumerateObject())
+        {
+            var name = prop.Name;
+            if (name == "Concept" || name == "concept" ||
+                name == "$key" || name == "Id" || name == "_id" ||
+                name == "Inherits" || name == "inherits")
+                continue;
 
-	private static Type? ResolveComponent(string name, PrimitiveRegistry primitives) => primitives.TryResolveId(name, out var type) ? type : null;
+            var rawJson = prop.Value.GetRawText();
+            entry._rawFields[name] = rawJson;
+            entry._fieldNames.Add(name);
+            entry.CrossRefs[name] = rawJson;
+            if (DataCatalyst.Storage.AspectTypeRegistry.TryGetType(name, out var aspectType))
+            {
+                try {
+                    var d = System.Text.Json.JsonSerializer.Deserialize(rawJson, aspectType);
+                    if (d != null) {
+                        entry.Components[aspectType] = d;
+                        System.Console.Error.WriteLine($"[TRACE-JSON] stored {name} as {aspectType.Name}: {d}");
+                    } else {
+                        System.Console.Error.WriteLine($"[TRACE-JSON] {name} deserialized to null");
+                    }
+                } catch (Exception ex) {
+                    System.Console.Error.WriteLine($"[TRACE-JSON] {name} error: {ex.GetType().Name}: {ex.Message}");
+                }
+            } else {
+                System.Console.Error.WriteLine($"[TRACE-JSON] {name} type not found by AspectTypeRegistry");
+            }
+        }
 
-	private static bool IsConceptProperty(string name) =>
-		string.Equals(name, "Concept", StringComparison.Ordinal) ||
-		string.Equals(name, "concept", StringComparison.Ordinal);
+        result._entries.Add(entry);
+        extracted = true;
+        return true;
+    }
 
-	private static string? TryGetConceptValue(JsonElement root) {
-		if (root.TryGetProperty("Concept", out var val) && val.ValueKind == JsonValueKind.String)
-			return val.GetString();
-		if (root.TryGetProperty("concept", out val) && val.ValueKind == JsonValueKind.String)
-			return val.GetString();
-		return null;
-	}
+    private bool TryGetConcept(JsonElement obj, out List<string> concepts)
+    {
+        concepts = new List<string>();
 
-	private static bool TryParseEntry(string key, string json, JsonSerializerOptions options,
-		DataCatalystEnvironment env, out DataEntry entry, out List<string>? diagnostics,
-		string? keyField = null) {
+        if (obj.TryGetProperty("Concept", out var prop) ||
+            obj.TryGetProperty("concept", out prop))
+        {
+            if (prop.ValueKind == JsonValueKind.String)
+                concepts.Add(prop.GetString()!);
+            else if (prop.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in prop.EnumerateArray())
+                {
+                    if (item.ValueKind == JsonValueKind.String)
+                        concepts.Add(item.GetString()!);
+                }
+            }
+        }
 
-		entry = null!;
-		diagnostics = null;
-		try {
-			using var doc = JsonDocument.Parse(json);
-			var root = doc.RootElement;
-			if (root.ValueKind != JsonValueKind.Object) return false;
+        return concepts.Count > 0;
+    }
 
-				var primitives = env.Primitives;
-				var components = new Dictionary<Type, object>();
+    private string? ExtractKey(JsonElement obj, string? parentKey, string? filename)
+    {
+        // Priority: parentKey > $key > _id > Id > Name > Key > filename
+        if (!string.IsNullOrEmpty(parentKey)) return parentKey;
 
-				var conceptName = TryGetConceptValue(root);
-				if (conceptName != null) {
-					components[typeof(Concept)] = new Concept { Value = new[] { conceptName } };
-				}
+        string[] keyFields = { "$key", "_id", "Id", "id", "Name", "name", "Key", "key" };
+        foreach (var field in keyFields)
+        {
+            if (obj.TryGetProperty(field, out var prop) && prop.ValueKind == JsonValueKind.String)
+                return prop.GetString();
+        }
 
-				foreach (var prop in root.EnumerateObject()) {
-					if (prop.Name == keyField) continue;
-					if (IsConceptProperty(prop.Name)) continue;
-
-					var compType = ResolveComponent(prop.Name, primitives);
-					if (compType == null) {
-						diagnostics ??= new List<string>();
-						diagnostics.Add($"Unknown field '{prop.Name}' in entry '{key}'. Type mapping not found — value skipped.");
-						continue;
-					}
-
-					var typeInfo = options.GetTypeInfo(compType);
-					if (typeInfo == null) {
-						diagnostics ??= new List<string>();
-						diagnostics.Add($"No JSON type info found for component '{prop.Name}' (type {compType.Name}). Skip.");
-						continue;
-					}
-
-					object? deserialized;
-					if (prop.Value.ValueKind == JsonValueKind.Object) {
-						deserialized = JsonSerializer.Deserialize(prop.Value.GetRawText(), typeInfo);
-					} else if (prop.Value.ValueKind == JsonValueKind.String) {
-						var valStr = prop.Value.GetString();
-						deserialized = null;
-						var stringTypeInfo = options.GetTypeInfo(typeof(string));
-						var stringArrayTypeInfo = options.GetTypeInfo(typeof(string[]));
-						if (stringTypeInfo != null) {
-							try {
-								var escaped = JsonSerializer.Serialize(valStr, stringTypeInfo);
-								var wrapped = $"{{\"Value\":{escaped}}}";
-								deserialized = JsonSerializer.Deserialize(wrapped, typeInfo);
-							} catch (JsonException) {
-								if (stringArrayTypeInfo != null) {
-									try {
-										var escaped = JsonSerializer.Serialize(new[] { valStr }, stringArrayTypeInfo);
-										var wrapped = $"{{\"Value\":{escaped}}}";
-										deserialized = JsonSerializer.Deserialize(wrapped, typeInfo);
-									} catch (JsonException) {
-										// Keep deserialized as null
-									}
-								}
-							}
-						}
-					} else {
-						var wrapped = $"{{\"Value\":{prop.Value.GetRawText()}}}";
-						deserialized = JsonSerializer.Deserialize(wrapped, typeInfo);
-					}
-					if (deserialized != null) components[compType] = deserialized;
-				}
-
-				if (!components.ContainsKey(typeof(Concept))) {
-					diagnostics ??= new List<string>();
-					diagnostics.Add($"Entry '{key}' has no Concept field — assigned to 'Core' concept.");
-					components[typeof(Concept)] = new Concept { Value = new[] { "Core" } };
-				}
-
-				entry = new DataEntry(key, components);
-			return true;
-		}
-		catch (Exception ex) {
-			diagnostics = [ex.Message];
-			return false;
-		}
-	}
+        return filename;
+    }
 }

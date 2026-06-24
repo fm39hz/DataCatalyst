@@ -1,0 +1,9 @@
+{
+	"BasicAI": {
+		"Concept": "GameState",
+		"StateGroup": {
+			"GroupId": "BasicAI",
+			"DefaultState": "Idle"
+		}
+	}
+}

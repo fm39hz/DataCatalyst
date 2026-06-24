@@ -1,0 +1,6 @@
+/build
+/p:TargetFramework=net10.0
+/p:MSBuildSDKsOverride=
+/nr:false
+/v:minimal
+example/Example.csproj

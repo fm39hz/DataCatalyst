@@ -1,0 +1,77 @@
+{
+	"Arthur": {
+		"Concept": [
+			"Creature",
+			"Hero"
+		],
+		"Health": {
+			"Current": 150,
+			"Max": 150
+		},
+		"CombatStats": {
+			"BaseDamage": 20,
+			"BaseDefense": 15,
+			"AttackSpeed": 1.2
+		},
+		"Label": {
+			"Name": "Arthur the Brave"
+		},
+		"InitialWeapon": {
+			"WeaponId": "IronSword"
+		}
+	},
+	"Goblin": {
+		"Concept": [
+			"Creature",
+			"Enemy"
+		],
+		"Health": {
+			"Current": 40,
+			"Max": 40
+		},
+		"CombatStats": {
+			"BaseDamage": 6,
+			"BaseDefense": 3,
+			"AttackSpeed": 1.5
+		},
+		"Label": {
+			"Name": "Goblin Scout"
+		},
+		"ExperienceReward": {
+			"Amount": 20
+		},
+		"PatrolRadius": {
+			"Meters": 30
+		},
+		"InitialWeapon": {
+			"WeaponId": "WoodenClub"
+		}
+	},
+	"Orc": {
+		"Concept": [
+			"Creature",
+			"Enemy"
+		],
+		"Health": {
+			"Current": 80,
+			"Max": 80
+		},
+		"CombatStats": {
+			"BaseDamage": 14,
+			"BaseDefense": 8,
+			"AttackSpeed": 0.8
+		},
+		"Label": {
+			"Name": "Orc Warrior"
+		},
+		"ExperienceReward": {
+			"Amount": 50
+		},
+		"PatrolRadius": {
+			"Meters": 40
+		},
+		"InitialWeapon": {
+			"WeaponId": "IronSword"
+		}
+	}
+}

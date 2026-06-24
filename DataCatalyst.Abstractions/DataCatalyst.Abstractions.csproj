@@ -7,6 +7,8 @@
 		<PackageTags>data-catalyst;game-data;source-generator;abstractions</PackageTags>
 	</PropertyGroup>
 	<ItemGroup>
+		<InternalsVisibleTo Include="DataCatalyst.Core" />
+		<InternalsVisibleTo Include="Example" />
 		<InternalsVisibleTo Include="DataCatalyst.Loaders.Json" />
 		<InternalsVisibleTo Include="DataCatalyst.Tests" />
 	</ItemGroup>

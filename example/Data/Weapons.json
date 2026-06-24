@@ -1,0 +1,70 @@
+{
+	"IronSword": {
+		"Concept": [
+			"Item",
+			"Weapon"
+		],
+		"CombatStats": {
+			"BaseDamage": 12,
+			"BaseDefense": 3,
+			"AttackSpeed": 1.0
+		},
+		"Durability": {
+			"Points": 100
+		},
+		"Label": {
+			"Name": "Iron Sword"
+		}
+	},
+	"WoodenClub": {
+		"Concept": [
+			"Item",
+			"Weapon"
+		],
+		"CombatStats": {
+			"BaseDamage": 4,
+			"BaseDefense": 1,
+			"AttackSpeed": 0.7
+		},
+		"Durability": {
+			"Points": 30
+		},
+		"Label": {
+			"Name": "Wooden Club"
+		}
+	},
+	"Bow": {
+		"Concept": [
+			"Item",
+			"Weapon"
+		],
+		"CombatStats": {
+			"BaseDamage": 8,
+			"BaseDefense": 0,
+			"AttackSpeed": 2.0
+		},
+		"Durability": {
+			"Points": 60
+		},
+		"Label": {
+			"Name": "Short Bow"
+		}
+	},
+	"Staff": {
+		"Concept": [
+			"Item",
+			"Weapon"
+		],
+		"CombatStats": {
+			"BaseDamage": 6,
+			"BaseDefense": 5,
+			"AttackSpeed": 1.1
+		},
+		"Durability": {
+			"Points": 80
+		},
+		"Label": {
+			"Name": "Wooden Staff"
+		}
+	}
+}

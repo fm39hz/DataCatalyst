@@ -1,7 +1,0 @@
-{
-	"Concept": "Enemy",
-	"Health": { "Current": 80, "Max": 80 },
-	"Damage": { "Min": 8, "Max": 12 },
-	"ExperienceReward": 50,
-	"Label": "Orc Warrior"
-}

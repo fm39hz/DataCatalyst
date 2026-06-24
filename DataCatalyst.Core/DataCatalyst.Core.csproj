@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFrameworks>netstandard2.1;net8.0</TargetFrameworks>
+		<TargetFramework>netstandard2.1</TargetFramework>
 		<RootNamespace>DataCatalyst.Core</RootNamespace>
 		<AssemblyName>DataCatalyst.Core</AssemblyName>
 		<Description>DataCatalyst runtime infrastructure — primitive registry, data graph, catalog builder, and supporting types.</Description>
@@ -15,6 +15,8 @@
 	</ItemGroup>
 	<ItemGroup>
 		<InternalsVisibleTo Include="DataCatalyst.Plugins.StateEngine" />
+		<InternalsVisibleTo Include="DataCatalyst.Loaders.Json" />
+		<InternalsVisibleTo Include="Example" />
 		<InternalsVisibleTo Include="DataCatalyst.Tests" />
 	</ItemGroup>
 </Project>
