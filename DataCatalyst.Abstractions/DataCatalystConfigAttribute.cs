@@ -8,17 +8,13 @@ using System;
 /// Type-safe — attributes passed as System.Type, not strings.
 /// </summary>
 [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)]
-public sealed class DataCatalystConfigAttribute : Attribute {
+public sealed class DataCatalystConfigAttribute(string sourcePath = "") : Attribute {
 	/// <summary>Path prefix this config applies to. Empty = all sources.</summary>
-	public string SourcePath { get; }
+	public string SourcePath { get; } = sourcePath;
 
 	/// <summary>Namespace for generated components.</summary>
 	public string Namespace { get; set; } = "DataCatalyst.Generated";
 
 	/// <summary>Additional attributes to inject on generated components for this source.</summary>
 	public Type[]? Attributes { get; set; }
-
-	public DataCatalystConfigAttribute(string sourcePath = "") {
-		SourcePath = sourcePath;
-	}
 }

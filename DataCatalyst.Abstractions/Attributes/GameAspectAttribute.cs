@@ -1,5 +1,6 @@
-using System;
 namespace DataCatalyst.Attributes;
+
+using System;
 
 [AttributeUsage(AttributeTargets.Struct)]
 public sealed class GameAspectAttribute : Attribute { }
