@@ -1,9 +1,8 @@
 {
-	"BasicAI": {
-		"$concepts": "GameState",
-		"StateGroup": {
-			"GroupId": "BasicAI",
-			"DefaultState": "Idle"
-		}
-	}
+    "BasicAI": {
+        "$concepts": ["GameState"],
+        "$aspects": [
+            { "$aspect": "StateGroup", "GroupId": "BasicAI", "DefaultState": "Idle" }
+        ]
+    }
 }

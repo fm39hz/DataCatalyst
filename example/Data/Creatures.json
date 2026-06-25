@@ -1,77 +1,125 @@
 {
-	"Arthur": {
-		"$concepts": [
-			"Creature",
-			"Hero"
-		],
-		"Health": {
-			"Current": 150,
-			"Max": 150
-		},
-		"CombatStats": {
-			"BaseDamage": 20,
-			"BaseDefense": 15,
-			"AttackSpeed": 1.2
-		},
-		"Label": {
-			"Name": "Arthur the Brave"
-		},
-		"InitialWeapon": {
-			"WeaponId": { "$ref": "IronSword" }
-		}
-	},
-	"Goblin": {
-		"$concepts": [
-			"Creature",
-			"Enemy"
-		],
-		"Health": {
-			"Current": 40,
-			"Max": 40
-		},
-		"CombatStats": {
-			"BaseDamage": 6,
-			"BaseDefense": 3,
-			"AttackSpeed": 1.5
-		},
-		"Label": {
-			"Name": "Goblin Scout"
-		},
-		"ExperienceReward": {
-			"Amount": 20
-		},
-		"PatrolRadius": {
-			"Meters": 30
-		},
-		"InitialWeapon": {
-			"WeaponId": { "$ref": "WoodenClub" }
-		}
-	},
-	"Orc": {
-		"$concepts": [
-			"Creature",
-			"Enemy"
-		],
-		"Health": {
-			"Current": 80,
-			"Max": 80
-		},
-		"CombatStats": {
-			"BaseDamage": 14,
-			"BaseDefense": 8,
-			"AttackSpeed": 0.8
-		},
-		"Label": {
-			"Name": "Orc Warrior"
-		},
-		"ExperienceReward": {
-			"Amount": 50
-		},
-		"PatrolRadius": {
-			"Meters": 40
-		},
-		"InitialWeapon": {
-			"WeaponId": { "$ref": "IronSword" }
-		}
-	}
+    "Arthur": {
+        "$concepts": [
+            "Creature",
+            "Hero"
+        ],
+        "$aspects": [
+            {
+                "$aspect": "Health",
+                "Current": 150,
+                "Max": 150
+            },
+            {
+                "$aspect": "CombatStats",
+                "BaseDamage": 20,
+                "BaseDefense": 15,
+                "AttackSpeed": 1.2
+            },
+            {
+                "$aspect": "Label",
+                "Name": "Arthur the Brave"
+            },
+            {
+                "$aspect": "InitialWeapon",
+                "WeaponId": {
+                    "$ref": "IronSword"
+                }
+            },
+            {
+                "$aspect": "Mana",
+                "Current": 100,
+                "Max": 100
+            },
+            {
+                "aspect": "Stamina",
+                "Current": 80,
+                "Max": 100
+            }
+        ]
+    },
+    "Goblin": {
+        "$concepts": [
+            "Creature",
+            "Enemy"
+        ],
+        "$aspects": [
+            {
+                "$aspect": "Health",
+                "Current": 40,
+                "Max": 40
+            },
+            {
+                "$aspect": "CombatStats",
+                "BaseDamage": 6,
+                "BaseDefense": 3,
+                "AttackSpeed": 1.5
+            },
+            {
+                "$aspect": "Label",
+                "Name": "Goblin Scout"
+            },
+            {
+                "$aspect": "ExperienceReward",
+                "Amount": 20
+            },
+            {
+                "$aspect": "PatrolRadius",
+                "Meters": 30
+            },
+            {
+                "$aspect": "InitialWeapon",
+                "WeaponId": {
+                    "$ref": "WoodenClub"
+                }
+            },
+            {
+                "$aspect": "Mana",
+                "Current": 20,
+                "Max": 30
+            },
+            {
+                "aspect": "Stamina",
+                "Current": 50,
+                "Max": 60
+            }
+        ]
+    },
+    "Orc": {
+        "$concepts": [
+            "Creature",
+            "Enemy"
+        ],
+        "$aspects": [
+            {
+                "$aspect": "Health",
+                "Current": 80,
+                "Max": 80
+            },
+            {
+                "$aspect": "CombatStats",
+                "BaseDamage": 14,
+                "BaseDefense": 8,
+                "AttackSpeed": 0.8
+            },
+            {
+                "$aspect": "Label",
+                "Name": "Orc Warrior"
+            },
+            {
+                "$aspect": "ExperienceReward",
+                "Amount": 50
+            },
+            {
+                "$aspect": "PatrolRadius",
+                "Meters": 40
+            },
+            {
+                "$aspect": "InitialWeapon",
+                "WeaponId": {
+                    "$ref": "IronSword"
+                }
+            }
+        ]
+    }
 }

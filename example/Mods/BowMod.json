@@ -1,8 +1,10 @@
 {
     "Bow": {
-        "$concepts": "Item",
-        "CombatStats": { "BaseDamage": 10, "AttackSpeed": 2.2 },
-        "Durability": { "Points": 75 },
-        "Label": { "Name": "Elven Bow" }
+        "$concepts": ["Item"],
+        "$aspects": [
+            { "$aspect": "CombatStats",  "BaseDamage": 10, "AttackSpeed": 2.2 },
+            { "$aspect": "Durability",   "Points": 75 },
+            { "$aspect": "Label",        "Name": "Elven Bow" }
+        ]
     }
 }

@@ -126,14 +126,41 @@ public sealed class JsonDataLoader : LoaderAbstractions.IDataLoader
         if (obj.TryGetProperty("$inherits", out var inhProp) && inhProp.ValueKind == JsonValueKind.String)
             entry.Inherits = inhProp.GetString();
 
-        foreach (var prop in obj.EnumerateObject())
+        // New format: $aspects array
+        if (obj.TryGetProperty("$aspects", out var aspectsProp) && aspectsProp.ValueKind == JsonValueKind.Array)
         {
-            var name = prop.Name;
-            if (name == "$concepts" || name == "$key" || name == "$inherits")
-                continue;
+            foreach (var item in aspectsProp.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.Object) continue;
+                if (!item.TryGetProperty("$aspect", out var anameProp)) continue;
+                var aname = anameProp.GetString() ?? "";
+                if (string.IsNullOrEmpty(aname)) continue;
 
-            entry.RawFields[name] = ToObject(prop.Value);
-            entry.FieldNames.Add(name);
+                if (item.TryGetProperty("$ref", out var refProp))
+                    entry.RawFields[aname] = refProp.GetString();
+                else
+                {
+                    var dict = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var f in item.EnumerateObject())
+                    {
+                        if (f.Name == "$aspect" || f.Name == "$ref") continue;
+                        dict[f.Name] = ToObject(f.Value);
+                    }
+                    entry.RawFields[aname] = dict;
+                }
+                entry.FieldNames.Add(aname);
+            }
+        }
+        else
+        {
+            // Old format: all non-special fields
+            foreach (var prop in obj.EnumerateObject())
+            {
+                var name = prop.Name;
+                if (name == "$concepts" || name == "$key" || name == "$inherits") continue;
+                entry.RawFields[name] = ToObject(prop.Value);
+                entry.FieldNames.Add(name);
+            }
         }
 
         result._entries.Add(entry);

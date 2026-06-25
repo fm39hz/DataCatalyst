@@ -1,0 +1,20 @@
+{
+    "$concepts": { "Creature": {}, "Enemy": {}, "Hero": {}, "Item": {}, "Weapon": {} },
+    "$aspects": {
+        "Health":           { "Current": "int", "Max": "int" },
+        "CombatStats":      { "BaseDamage": "int", "BaseDefense": "int", "AttackSpeed": "float" },
+        "Label":            { "Name": "string" },
+        "InitialWeapon":    { "WeaponId": "string" },
+        "ExperienceReward": { "Amount": "int" },
+        "PatrolRadius":     { "Meters": "int" },
+        "Durability":       { "Points": "int" },
+        "Mana":             { "Current": "int", "Max": "int" }
+    },
+    "$mapping": {
+        "Creature": ["Health", "CombatStats", "Label", "InitialWeapon", "Mana"],
+        "Enemy":    ["ExperienceReward", "PatrolRadius"],
+        "Hero":     [],
+        "Item":     ["Label", "Durability"],
+        "Weapon":   ["CombatStats", "Durability", "Label"]
+    }
+}
