@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFramework>netstandard2.1</TargetFramework>
+		<TargetFramework>net10.0</TargetFramework>
 		<RootNamespace>DataCatalyst.Core</RootNamespace>
 		<AssemblyName>DataCatalyst.Core</AssemblyName>
 		<Description>DataCatalyst runtime infrastructure — primitive registry, data graph, catalog builder, and supporting types.</Description>

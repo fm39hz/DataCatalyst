@@ -9,29 +9,12 @@
 		<SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
 		<DevelopmentDependency>true</DevelopmentDependency>
 		<PackageId>DataCatalyst</PackageId>
-		<Description>Roslyn source generator that discovers [DataPrimitive] types and generates primitive registrations. Provides the compile-time foundation for data-driven composition.</Description>
-		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<NoWarn>RS2008</NoWarn>
+		<NoWarn>RS2008;RS1035</NoWarn>
 	</PropertyGroup>
 
 	<ItemGroup>
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all"/>
 		<PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all"/>
 		<PackageReference Include="System.Text.Json" PrivateAssets="all"/>
-	</ItemGroup>
-
-	<ItemGroup>
-		<None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false"/>
-		<None Include="..\README.md" Pack="true" PackagePath="\" Visible="false"/>
-	</ItemGroup>
-
-	<ItemGroup>
-		<None Include="build\DataCatalyst.targets" Pack="true" PackagePath="build\DataCatalyst.targets" Visible="false"/>
-		<None Include="build\DataCatalyst.targets" Pack="true" PackagePath="buildTransitive\DataCatalyst.targets" Visible="false"/>
-	</ItemGroup>
-	<ItemGroup>
-		<Compile Include="..\DataCatalyst.Abstractions\Loader\IDataLoader.cs" Link="Shared\IDataLoader.cs" />
-		<Compile Include="..\DataCatalyst.Abstractions\Storage\RawEntry.cs" Link="Shared\RawEntry.cs" />
-		<Compile Include="..\DataCatalyst.Loaders.Json\JsonDataLoader.cs" Link="Shared\JsonDataLoader.cs" />
 	</ItemGroup>
 </Project>

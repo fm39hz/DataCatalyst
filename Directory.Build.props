@@ -19,6 +19,10 @@
 		<MinVerDefaultVersion>0.0.1-alpha.0</MinVerDefaultVersion>
 	</PropertyGroup>
 
+	<PropertyGroup Condition="'$(TargetFramework)' == 'net10.0' And '$(IsPackable)' != 'false'">
+		<IsAotCompatible>true</IsAotCompatible>
+	</PropertyGroup>
+
 
 	<ItemGroup>
 		<Compile Include="$(MSBuildThisFileDirectory)Polyfill.cs" Visible="false"/>

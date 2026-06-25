@@ -14,8 +14,4 @@ public interface ISchemaLoader
 
     /// <summary>Load schema from all files in a directory.</summary>
     SchemaRegistry LoadSchemaDirectory(string path);
-
-    /// <summary>Load raw entries, validated against schema.
-    /// Returns validation errors in LoadResult.Diagnostics.</summary>
-    LoadResult LoadEntries(string content, string key, SchemaRegistry schema);
 }

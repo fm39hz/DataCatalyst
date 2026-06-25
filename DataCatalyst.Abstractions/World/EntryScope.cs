@@ -15,6 +15,6 @@ public readonly ref struct EntryScope<TConcept, TEntry>
         Index = index;
     }
 
-    public T Take<T>() where T : struct
-        => Pool.Get<T>(Index);
+    public ref readonly T Take<T>() where T : struct
+        => ref Pool.Get<T>(Index);
 }

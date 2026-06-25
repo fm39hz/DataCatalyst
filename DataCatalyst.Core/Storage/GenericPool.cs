@@ -1,15 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace DataCatalyst.Storage;
 
-/// <summary>Fallback pool when SourceGen hasn't generated a typed pool.
-/// Components are pre-deserialized by ResolveCrossRefStage.</summary>
 internal sealed class GenericPool : IStoragePool
 {
-    private readonly List<Dictionary<Type, object>> _rows = new();
-
-    public GenericPool() { }
+    readonly List<Dictionary<Type, object>> _rows = new();
 
     public int Count => _rows.Count;
 
@@ -21,20 +18,20 @@ internal sealed class GenericPool : IStoragePool
 
     public void SetRaw(int index, Type type, object value)
     {
-        if (index < 0 || index >= _rows.Count) return;
-        _rows[index][type] = value;
+        if (index >= 0 && index < _rows.Count)
+            _rows[index][type] = value;
     }
 
-    public T Get<T>(int index) where T : struct
+    public ref readonly T Get<T>(int index) where T : struct
     {
-        if (index < 0 || index >= _rows.Count) throw new IndexOutOfRangeException();
-        if (_rows[index].TryGetValue(typeof(T), out var val)) return (T)val;
-        return default;
+        if (index < 0 || index >= _rows.Count)
+            throw new IndexOutOfRangeException();
+        return ref Unsafe.Unbox<T>(_rows[index][typeof(T)]);
     }
 
     public void Set<T>(int index, T value) where T : struct
     {
-        if (index < 0 || index >= _rows.Count) throw new IndexOutOfRangeException();
-        _rows[index][typeof(T)] = value;
+        if (index >= 0 && index < _rows.Count)
+            _rows[index][typeof(T)] = value;
     }
 }

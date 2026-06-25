@@ -1,18 +1,23 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Frozen;
+using DataCatalyst.Schema;
 using DataCatalyst.Storage;
 
 namespace DataCatalyst.World;
 
 public sealed class World
 {
-    internal readonly Dictionary<Type, IStoragePool> Pools;
-    internal readonly Dictionary<Type, int> EntryIndices;
+    internal readonly FrozenDictionary<Type, IStoragePool> Pools;
+    internal readonly FrozenDictionary<Type, int> EntryIndices;
+    internal readonly SchemaRegistry? Schema;
 
-    internal World(Dictionary<Type, IStoragePool> pools, Dictionary<Type, int> entryIndices)
+    internal World(Dictionary<Type, IStoragePool> pools, Dictionary<Type, int> entryIndices,
+        SchemaRegistry? schema = null)
     {
-        Pools = pools;
-        EntryIndices = entryIndices;
+        Pools = pools.ToFrozenDictionary();
+        EntryIndices = entryIndices.ToFrozenDictionary();
+        Schema = schema;
     }
 
     public ConceptScope<TConcept> FromConcept<TConcept>()
@@ -24,7 +29,6 @@ public sealed class World
         return new ConceptScope<TConcept>(this);
     }
 
-    /// <summary>Looks up the assigned storage index for an entry type.</summary>
     public int GetEntryIndex(Type entryType)
         => EntryIndices.TryGetValue(entryType, out var idx) ? idx : -1;
 }

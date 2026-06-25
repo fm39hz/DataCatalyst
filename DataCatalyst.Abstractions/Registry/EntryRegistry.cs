@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Frozen;
 using DataCatalyst.Storage;
 
 namespace DataCatalyst.Registry;
@@ -13,13 +14,14 @@ public static class EntryRegistry
 
     private static readonly List<Record> _entries = new();
     private static readonly Dictionary<Type, Func<IStoragePool>> _poolFactories = new();
+    private static FrozenDictionary<Type, Func<IStoragePool>>? _frozenPoolFactories;
     private static bool _frozen;
 
-    public static void Register<TEntry>(params Type[] concepts)
+    public static void Register<TEntry>(params ReadOnlySpan<Type> concepts)
         where TEntry : struct, IEntry
     {
         if (_frozen) throw new InvalidOperationException("Registry frozen after pipeline build");
-        _entries.Add(new(typeof(TEntry), concepts));
+        _entries.Add(new(typeof(TEntry), concepts.ToArray()));
     }
 
     public static void RegisterPool(Type conceptType, Func<IStoragePool> factory)
@@ -29,9 +31,17 @@ public static class EntryRegistry
     }
 
     public static IStoragePool? CreatePool(Type conceptType)
-        => _poolFactories.TryGetValue(conceptType, out var f) ? f() : null;
+    {
+        if (_frozenPoolFactories != null)
+            return _frozenPoolFactories.TryGetValue(conceptType, out var f) ? f() : null;
+        return _poolFactories.TryGetValue(conceptType, out var factory) ? factory() : null;
+    }
 
     public static IReadOnlyList<Record> All => _entries;
 
-    internal static void Freeze() => _frozen = true;
+    internal static void Freeze()
+    {
+        _frozen = true;
+        _frozenPoolFactories = _poolFactories.ToFrozenDictionary();
+    }
 }

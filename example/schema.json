@@ -1,20 +1,34 @@
 {
-    "$concepts": { "Creature": {}, "Enemy": {}, "Hero": {}, "Item": {}, "Weapon": {} },
+    "$concepts": { "Creature": {}, "Enemy": {}, "Hero": {}, "Item": {}, "Weapon": {}, "GameState": {} },
     "$aspects": {
         "Health":           { "Current": "int", "Max": "int" },
+        "Mana":             { "Current": "int", "Max": "int" },
         "CombatStats":      { "BaseDamage": "int", "BaseDefense": "int", "AttackSpeed": "float" },
         "Label":            { "Name": "string" },
         "InitialWeapon":    { "WeaponId": "string" },
         "ExperienceReward": { "Amount": "int" },
         "PatrolRadius":     { "Meters": "int" },
         "Durability":       { "Points": "int" },
-        "Mana":             { "Current": "int", "Max": "int" }
+        "StateGroup":       { "GroupId": "string", "DefaultState": "string" }
     },
     "$mapping": {
-        "Creature": ["Health", "CombatStats", "Label", "InitialWeapon", "Mana"],
+        "Creature": ["Health", "Mana", "CombatStats", "Label", "InitialWeapon"],
         "Enemy":    ["ExperienceReward", "PatrolRadius"],
         "Hero":     [],
         "Item":     ["Label", "Durability"],
-        "Weapon":   ["CombatStats", "Durability", "Label"]
+        "Weapon":   ["CombatStats", "Durability", "Label"],
+        "GameState": ["StateGroup"]
+    },
+    "$entries": {
+        "Arthur":    ["Creature", "Hero"],
+        "Goblin":    ["Creature", "Enemy"],
+        "Orc":       ["Creature", "Enemy"],
+        "Dragon":    ["Creature", "Enemy"],
+        "BasicAI":   ["GameState"],
+        "IronSword": ["Item", "Weapon"],
+        "WoodenClub":["Item", "Weapon"],
+        "Bow":       ["Item", "Weapon"],
+        "Staff":     ["Item", "Weapon"],
+        "FireSword": ["Item", "Weapon"]
     }
 }
