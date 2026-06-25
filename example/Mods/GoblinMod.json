@@ -1,10 +1,9 @@
 {
     "Goblin": {
-        "$concepts": ["Creature"],
-        "$aspects": [
-            { "$aspect": "Health",        "Max": 60 },
-            { "$aspect": "CombatStats",   "BaseDamage": 8 },
-            { "$aspect": "Label",         "Name": "Goblin Berserker" }
-        ]
+        "$Creature": {
+            "Health": { "Max": 60 },
+            "CombatStats": { "BaseDamage": 8 },
+            "Label": { "Name": "Goblin Berserker" }
+        }
     }
 }

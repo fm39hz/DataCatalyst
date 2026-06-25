@@ -1,125 +1,36 @@
 {
     "Arthur": {
-        "$concepts": [
-            "Creature",
-            "Hero"
-        ],
-        "$aspects": [
-            {
-                "$aspect": "Health",
-                "Current": 150,
-                "Max": 150
-            },
-            {
-                "$aspect": "CombatStats",
-                "BaseDamage": 20,
-                "BaseDefense": 15,
-                "AttackSpeed": 1.2
-            },
-            {
-                "$aspect": "Label",
-                "Name": "Arthur the Brave"
-            },
-            {
-                "$aspect": "InitialWeapon",
-                "WeaponId": {
-                    "$ref": "IronSword"
-                }
-            },
-            {
-                "$aspect": "Mana",
-                "Current": 100,
-                "Max": 100
-            },
-            {
-                "aspect": "Stamina",
-                "Current": 80,
-                "Max": 100
-            }
-        ]
+        "$Creature": {
+            "Health": { "Current": 150, "Max": 150 },
+            "CombatStats": { "BaseDamage": 20, "BaseDefense": 15, "AttackSpeed": 1.2 },
+            "Label": { "Name": "Arthur the Brave" },
+            "InitialWeapon": { "WeaponId": "IronSword" },
+            "Mana": { "Current": 100, "Max": 100 }
+        },
+        "$Hero": {},
+        "Stamina": { "Current": 80, "Max": 100 }
     },
     "Goblin": {
-        "$concepts": [
-            "Creature",
-            "Enemy"
-        ],
-        "$aspects": [
-            {
-                "$aspect": "Health",
-                "Current": 40,
-                "Max": 40
-            },
-            {
-                "$aspect": "CombatStats",
-                "BaseDamage": 6,
-                "BaseDefense": 3,
-                "AttackSpeed": 1.5
-            },
-            {
-                "$aspect": "Label",
-                "Name": "Goblin Scout"
-            },
-            {
-                "$aspect": "ExperienceReward",
-                "Amount": 20
-            },
-            {
-                "$aspect": "PatrolRadius",
-                "Meters": 30
-            },
-            {
-                "$aspect": "InitialWeapon",
-                "WeaponId": {
-                    "$ref": "WoodenClub"
-                }
-            },
-            {
-                "$aspect": "Mana",
-                "Current": 20,
-                "Max": 30
-            },
-            {
-                "aspect": "Stamina",
-                "Current": 50,
-                "Max": 60
-            }
-        ]
+        "$Creature": {
+            "Health": { "Current": 40, "Max": 40 },
+            "CombatStats": { "BaseDamage": 6, "BaseDefense": 3, "AttackSpeed": 1.5 },
+            "Label": { "Name": "Goblin Scout" },
+            "InitialWeapon": { "WeaponId": "WoodenClub" },
+            "Mana": { "Current": 20, "Max": 30 }
+        },
+        "$Enemy": {
+            "ExperienceReward": { "Amount": 20 },
+            "PatrolRadius": { "Meters": 30 }
+        },
+        "Stamina": { "Current": 50, "Max": 60 }
     },
     "Orc": {
-        "$concepts": [
-            "Creature",
-            "Enemy"
-        ],
-        "$aspects": [
-            {
-                "$aspect": "Health",
-                "Current": 80,
-                "Max": 80
-            },
-            {
-                "$aspect": "CombatStats",
-                "BaseDamage": 14,
-                "BaseDefense": 8,
-                "AttackSpeed": 0.8
-            },
-            {
-                "$aspect": "Label",
-                "Name": "Orc Warrior"
-            },
-            {
-                "$aspect": "ExperienceReward",
-                "Amount": 50
-            },
-            {
-                "$aspect": "PatrolRadius",
-                "Meters": 40
-            },
-            {
-                "$aspect": "InitialWeapon",
-                "WeaponId": {
-                    "$ref": "IronSword"
-                }
-            }
-        ]
+        "$Creature": {
+            "Health": { "Current": 80, "Max": 80 },
+            "CombatStats": { "BaseDamage": 14, "BaseDefense": 8, "AttackSpeed": 0.8 },
+            "Label": { "Name": "Orc Warrior" },
+            "InitialWeapon": { "WeaponId": "IronSword" }
+        },
+        "$Enemy": {}
     }
 }

@@ -16,7 +16,6 @@
 		<AdditionalFiles Include="Data/**/*.json" />
 		<AdditionalFiles Include="DLC/**/*.json" />
 		<AdditionalFiles Include="Mods/**/*.json" />
-		<AdditionalFiles Include="schema.json" />
 	</ItemGroup>
 
 	<ItemGroup>

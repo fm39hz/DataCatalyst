@@ -112,9 +112,9 @@ public static class StateEngineBaker
         var c = conditions.Value;
         return new BakedConditionGroup
         {
-            All = c.All?.Select(BakeCondition).ToArray() ?? new BakedSensorCondition[0],
-            Any = c.Any?.Select(BakeCondition).ToArray() ?? new BakedSensorCondition[0],
-            None = c.None?.Select(BakeCondition).ToArray() ?? new BakedSensorCondition[0],
+            All = c.All?.Select(BakeCondition).ToArray() ?? System.Array.Empty<BakedSensorCondition>(),
+            Any = c.Any?.Select(BakeCondition).ToArray() ?? System.Array.Empty<BakedSensorCondition>(),
+            None = c.None?.Select(BakeCondition).ToArray() ?? System.Array.Empty<BakedSensorCondition>(),
         };
     }
 
@@ -131,7 +131,7 @@ public static class StateEngineBaker
 
     private static BakedSensorInfluence[] BakeInfluences(List<SensorInfluenceDef>? influences)
     {
-        if (influences == null) return new BakedSensorInfluence[0];
+        if (influences == null) return System.Array.Empty<BakedSensorInfluence>();
         return influences.Select(i => new BakedSensorInfluence
         {
             SignalId = i.Signal.GetHashCode(),

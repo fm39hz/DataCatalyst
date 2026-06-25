@@ -31,84 +31,122 @@ public sealed class JsonDataLoader : LoaderAbstractions.IDataLoader
         var result = new LoaderAbstractions.LoadResult();
         if (!Directory.Exists(path)) { result._diagnostics.Add($"Directory not found: {path}"); return result; }
         foreach (var file in Directory.EnumerateFiles(path, "*.json"))
-        { var fr = LoadFile(file); result._entries.AddRange(fr._entries); result._diagnostics.AddRange(fr._diagnostics); }
+        {
+            var fr = LoadFile(file);
+            result._entries.AddRange(fr._entries);
+            result._diagnostics.AddRange(fr._diagnostics);
+            foreach (var kv in fr.Mappings)
+            {
+                if (!result._mappings.TryGetValue(kv.Key, out var list))
+                    result._mappings[kv.Key] = list = new List<string>();
+                foreach (var val in kv.Value)
+                {
+                    if (!list.Contains(val))
+                        list.Add(val);
+                }
+            }
+        }
         return result;
     }
 
-    void ParseJson(string json, string fallbackKey, LoaderAbstractions.LoadResult result)
-    { using var doc = JsonDocument.Parse(json); WalkAndDiscover(doc.RootElement, null, fallbackKey, result); }
-
-    void WalkAndDiscover(JsonElement el, string? parentKey, string? fn, LoaderAbstractions.LoadResult result, HashSet<string>? visited = null)
+    static void ParseJson(string json, string fallbackKey, LoaderAbstractions.LoadResult result)
     {
-        visited ??= new HashSet<string>();
-        if (el.ValueKind == JsonValueKind.Object) {
-            if (TryExtractEntry(el, parentKey, fn, result, visited, out var _)) {
-                foreach (var p in el.EnumerateObject())
-                    if (p.Name != "$concepts" && p.Name != "$key" && p.Name != "$inherits")
-                        WalkAndDiscover(p.Value, p.Name, fn, result, visited);
-            } else { foreach (var p in el.EnumerateObject()) WalkAndDiscover(p.Value, p.Name, fn, result, visited); }
-        } else if (el.ValueKind == JsonValueKind.Array) {
-            foreach (var i in el.EnumerateArray()) WalkAndDiscover(i, null, fn, result, visited);
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (root.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var p in root.EnumerateObject())
+            {
+                TryExtractEntry(p.Value, p.Name, fallbackKey, result, visited);
+            }
+        }
+        else if (root.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in root.EnumerateArray())
+            {
+                TryExtractEntry(item, null, fallbackKey, result, visited);
+            }
         }
     }
 
-    bool TryExtractEntry(JsonElement obj, string? parentKey, string? fn, LoaderAbstractions.LoadResult result,
-        HashSet<string> visited, out bool extracted)
+    static bool TryExtractEntry(JsonElement obj, string? parentKey, string? fn, LoaderAbstractions.LoadResult result,
+        HashSet<string> visited)
     {
-        extracted = false;
-        if (!TryGetConcepts(obj, out var concepts) || concepts.Count == 0) return false;
+        if (obj.ValueKind != JsonValueKind.Object) return false;
         var key = ExtractKey(obj, parentKey, fn);
         if (key == null || !visited.Add(key)) {
             result._diagnostics.Add(key == null ? "Entry has no key" : $"Duplicate entry key '{key}' skipped");
             return true;
         }
+
         var entry = new RawEntry { Key = key };
-        foreach (var c in concepts) { if (!string.IsNullOrEmpty(c)) { entry.Concepts.Add(c); entry.ConceptSet.Add(c); } }
+        
         if (obj.TryGetProperty("$inherits", out var inh) && inh.ValueKind == JsonValueKind.String)
             entry.Inherits = inh.GetString();
+        else if (obj.TryGetProperty("inherits", out var inh2) && inh2.ValueKind == JsonValueKind.String)
+            entry.Inherits = inh2.GetString();
 
-        if (obj.TryGetProperty("$aspects", out var ap) && ap.ValueKind == JsonValueKind.Array) {
-            foreach (var item in ap.EnumerateArray()) {
-                if (item.ValueKind != JsonValueKind.Object) continue;
-                if (!item.TryGetProperty("$aspect", out var anp)) continue;
-                var an = anp.GetString() ?? ""; if (string.IsNullOrEmpty(an)) continue;
-                if (item.TryGetProperty("$ref", out var rp))
-                    entry.RawFields[an] = rp.GetString();
-                else {
-                    var d = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-                    foreach (var f in item.EnumerateObject()) { if (f.Name == "$aspect" || f.Name == "$ref") continue; d[f.Name] = ToObject(f.Value); }
-                    entry.RawFields[an] = d;
+        var conceptNames = new HashSet<string>(
+            DataCatalyst.Registry.EntryRegistry.All.SelectMany(r => r.Concepts).Select(t => t.Name),
+            StringComparer.OrdinalIgnoreCase
+        );
+
+        foreach (var p in obj.EnumerateObject())
+        {
+            if (p.Name.Equals("$inherits", StringComparison.OrdinalIgnoreCase) || 
+                p.Name.Equals("inherits", StringComparison.OrdinalIgnoreCase) ||
+                p.Name.Equals("$key", StringComparison.OrdinalIgnoreCase) ||
+                p.Name.Equals("key", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            // Check if it starts with '$' (Concepts)
+            if (p.Name.StartsWith('$'))
+            {
+                var conceptName = p.Name.Substring(1);
+                if (conceptNames.Contains(conceptName))
+                {
+                    entry.Concepts.Add(conceptName);
+                    entry.ConceptSet.Add(conceptName);
+
+                    if (p.Value.ValueKind == JsonValueKind.Object)
+                    {
+                        foreach (var asp in p.Value.EnumerateObject())
+                        {
+                            var aspectName = asp.Name;
+                            entry.FieldNames.Add(aspectName);
+                            entry.RawFields[aspectName] = ToObject(asp.Value);
+                            
+                            if (!result._mappings.TryGetValue(conceptName, out var list))
+                                result._mappings[conceptName] = list = new List<string>();
+                            if (!list.Contains(aspectName))
+                                list.Add(aspectName);
+                        }
+                    }
                 }
-                entry.FieldNames.Add(an);
+                else
+                {
+                    result._diagnostics.Add($"Unknown concept '{conceptName}' specified with '$' prefix in entry '{key}'");
+                }
             }
-        } else {
-            foreach (var p in obj.EnumerateObject()) {
-                if (p.Name == "$concepts" || p.Name == "$key" || p.Name == "$inherits") continue;
-                entry.RawFields[p.Name] = ToObject(p.Value);
-                entry.FieldNames.Add(p.Name);
+            else
+            {
+                // Entry-level aspect (like Stamina)
+                var aspectName = p.Name;
+                entry.FieldNames.Add(aspectName);
+                entry.RawFields[aspectName] = ToObject(p.Value);
             }
         }
-        result._entries.Add(entry);
-        extracted = true;
-        return true;
-    }
 
-    static bool TryGetConcepts(JsonElement obj, out List<string> concepts)
-    {
-        concepts = new List<string>();
-        if (obj.TryGetProperty("$concepts", out var p)) {
-            if (p.ValueKind == JsonValueKind.String) concepts.Add(p.GetString()!);
-            else if (p.ValueKind == JsonValueKind.Array)
-                foreach (var i in p.EnumerateArray())
-                    if (i.ValueKind == JsonValueKind.String) concepts.Add(i.GetString()!);
-        }
-        return concepts.Count > 0;
+        result._entries.Add(entry);
+        return true;
     }
 
     static string? ExtractKey(JsonElement obj, string? parentKey, string? fn)
     {
         if (!string.IsNullOrEmpty(parentKey)) return parentKey;
         if (obj.TryGetProperty("$key", out var p) && p.ValueKind == JsonValueKind.String) return p.GetString();
+        if (obj.TryGetProperty("key", out var p2) && p2.ValueKind == JsonValueKind.String) return p2.GetString();
         return fn;
     }
 

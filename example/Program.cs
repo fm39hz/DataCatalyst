@@ -13,7 +13,6 @@ if (string.IsNullOrEmpty(root))
     root = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "example");
 
 var world = new Pipeline()
-    .LoadSchemaFrom(new JsonSchemaLoader(), Path.Combine(root, "."))
     .AddSource("Base", new JsonDataLoader(), Path.Combine(root, "Data"), s =>
         { s.Priority = 0; s.MergePolicy = MergePolicy.Patch; })
     .AddSource("DLC", new JsonDataLoader(), Path.Combine(root, "DLC"), s =>

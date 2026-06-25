@@ -1,34 +1,46 @@
 {
     "IronSword": {
-        "$concepts": ["Item", "Weapon"],
-        "$aspects": [
-            { "$aspect": "CombatStats",  "BaseDamage": 12, "BaseDefense": 3, "AttackSpeed": 1.0 },
-            { "$aspect": "Durability",   "Points": 100 },
-            { "$aspect": "Label",        "Name": "Iron Sword" }
-        ]
+        "$Item": {
+            "Label": { "Name": "Iron Sword" },
+            "Durability": { "Points": 100 }
+        },
+        "$Weapon": {
+            "CombatStats": { "BaseDamage": 12, "BaseDefense": 3, "AttackSpeed": 1.0 },
+            "Durability": { "Points": 100 },
+            "Label": { "Name": "Iron Sword" }
+        }
     },
     "WoodenClub": {
-        "$concepts": ["Item", "Weapon"],
-        "$aspects": [
-            { "$aspect": "CombatStats",  "BaseDamage": 4, "BaseDefense": 1, "AttackSpeed": 0.7 },
-            { "$aspect": "Durability",   "Points": 30 },
-            { "$aspect": "Label",        "Name": "Wooden Club" }
-        ]
+        "$Item": {
+            "Label": { "Name": "Wooden Club" },
+            "Durability": { "Points": 30 }
+        },
+        "$Weapon": {
+            "CombatStats": { "BaseDamage": 4, "BaseDefense": 1, "AttackSpeed": 0.7 },
+            "Durability": { "Points": 30 },
+            "Label": { "Name": "Wooden Club" }
+        }
     },
     "Bow": {
-        "$concepts": ["Item", "Weapon"],
-        "$aspects": [
-            { "$aspect": "CombatStats",  "BaseDamage": 8, "BaseDefense": 0, "AttackSpeed": 2.0 },
-            { "$aspect": "Durability",   "Points": 60 },
-            { "$aspect": "Label",        "Name": "Short Bow" }
-        ]
+        "$Item": {
+            "Label": { "Name": "Short Bow" },
+            "Durability": { "Points": 60 }
+        },
+        "$Weapon": {
+            "CombatStats": { "BaseDamage": 8, "BaseDefense": 0, "AttackSpeed": 2.0 },
+            "Durability": { "Points": 60 },
+            "Label": { "Name": "Short Bow" }
+        }
     },
     "Staff": {
-        "$concepts": ["Item", "Weapon"],
-        "$aspects": [
-            { "$aspect": "CombatStats",  "BaseDamage": 6, "BaseDefense": 5, "AttackSpeed": 1.1 },
-            { "$aspect": "Durability",   "Points": 80 },
-            { "$aspect": "Label",        "Name": "Wooden Staff" }
-        ]
+        "$Item": {
+            "Label": { "Name": "Wooden Staff" },
+            "Durability": { "Points": 80 }
+        },
+        "$Weapon": {
+            "CombatStats": { "BaseDamage": 6, "BaseDefense": 5, "AttackSpeed": 1.1 },
+            "Durability": { "Points": 80 },
+            "Label": { "Name": "Wooden Staff" }
+        }
     }
 }

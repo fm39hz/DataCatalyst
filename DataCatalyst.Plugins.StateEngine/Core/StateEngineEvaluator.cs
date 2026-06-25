@@ -24,9 +24,9 @@ public static class StateEngineEvaluator
         HashSet<int> viableStates,
         Func<int, float> readSensor)
     {
-        if (group == null) throw new ArgumentNullException(nameof(group));
-        if (viableStates == null) throw new ArgumentNullException(nameof(viableStates));
-        if (readSensor == null) throw new ArgumentNullException(nameof(readSensor));
+        ArgumentNullException.ThrowIfNull(group);
+        ArgumentNullException.ThrowIfNull(viableStates);
+        ArgumentNullException.ThrowIfNull(readSensor);
 
         if (!group.States.TryGetValue(currentStateId, out var currentState))
             return new Result(0, false);

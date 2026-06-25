@@ -29,7 +29,7 @@ internal sealed class DynamicPool : IStoragePool
     public ref readonly T Get<T>(int index) where T : struct
     {
         if (index < 0 || index >= _typedRow.Count)
-            throw new IndexOutOfRangeException();
+            throw new ArgumentOutOfRangeException(nameof(index));
         if (_typedRow[index].TryGetValue(typeof(T), out var val))
             return ref Unsafe.Unbox<T>(val);
         return ref Unsafe.NullRef<T>(); // fallback; caller should check

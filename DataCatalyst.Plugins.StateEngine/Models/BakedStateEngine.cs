@@ -14,7 +14,7 @@ public sealed class BakedStateGroup
 public sealed class BakedState
 {
     public int StateId { get; init; }
-    public BakedTransition[] Transitions { get; init; } = new BakedTransition[0];
+    public BakedTransition[] Transitions { get; init; } = System.Array.Empty<BakedTransition>();
 }
 
 public sealed class BakedTransition
@@ -22,14 +22,14 @@ public sealed class BakedTransition
     public int TargetStateId { get; init; }
     public float BasePriority { get; init; }
     public BakedConditionGroup? Conditions { get; init; }
-    public BakedSensorInfluence[] Influences { get; init; } = new BakedSensorInfluence[0];
+    public BakedSensorInfluence[] Influences { get; init; } = System.Array.Empty<BakedSensorInfluence>();
 }
 
 public sealed class BakedConditionGroup
 {
-    public BakedSensorCondition[] All { get; init; } = new BakedSensorCondition[0];
-    public BakedSensorCondition[] Any { get; init; } = new BakedSensorCondition[0];
-    public BakedSensorCondition[] None { get; init; } = new BakedSensorCondition[0];
+    public BakedSensorCondition[] All { get; init; } = System.Array.Empty<BakedSensorCondition>();
+    public BakedSensorCondition[] Any { get; init; } = System.Array.Empty<BakedSensorCondition>();
+    public BakedSensorCondition[] None { get; init; } = System.Array.Empty<BakedSensorCondition>();
 }
 
 public sealed class BakedSensorCondition

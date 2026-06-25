@@ -25,7 +25,7 @@ internal sealed class GenericPool : IStoragePool
     public ref readonly T Get<T>(int index) where T : struct
     {
         if (index < 0 || index >= _rows.Count)
-            throw new IndexOutOfRangeException();
+            throw new ArgumentOutOfRangeException(nameof(index));
         return ref Unsafe.Unbox<T>(_rows[index][typeof(T)]);
     }
 

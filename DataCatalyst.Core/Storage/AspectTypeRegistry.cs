@@ -8,6 +8,8 @@ public static class AspectTypeRegistry
     static readonly Dictionary<string, Type> _typeByName = new(StringComparer.OrdinalIgnoreCase);
     static readonly Dictionary<Type, Func<object, object?>> _deserializers = new();
 
+    public static IEnumerable<Type> RegisteredTypes => _typeByName.Values;
+
     public static bool TryGetType(string name, out Type? type)
         => _typeByName.TryGetValue(name, out type);
 

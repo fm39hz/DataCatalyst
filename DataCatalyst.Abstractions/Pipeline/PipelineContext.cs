@@ -13,5 +13,6 @@ public sealed class PipelineContext
     public List<DataSource>? SortedSources { get; set; }
     public List<RawEntry> RawEntries { get; set; } = new();
     public HashSet<string> AllKeys { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, List<string>> Mappings { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public List<ResolvedEntry> Entries { get; } = new();
 }
