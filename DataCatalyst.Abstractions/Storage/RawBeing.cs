@@ -3,7 +3,7 @@ namespace DataCatalyst.Storage;
 using System;
 using System.Collections.Generic;
 
-public sealed class RawEntry {
+public sealed class RawBeing {
 	public int MergePolicyValue { get; set; }
 	public string Key { get; set; } = string.Empty;
 	public List<string> Concepts { get; set; } = [];

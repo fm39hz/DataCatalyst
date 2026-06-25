@@ -3,7 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Collections.Generic;
 using Example;
-using DataCatalyst.World;
+using DataCatalyst.Knowledge;
 using DataCatalyst.Pipeline;
 using DataCatalyst.Loaders;
 using DataCatalyst.Generated;
@@ -17,7 +17,7 @@ while (root != null && !Directory.Exists(Path.Combine(root, "Data")))
 if (string.IsNullOrEmpty(root))
     root = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "example");
 
-var world = new Pipeline()
+var knowledge = new Pipeline()
     .AddSource("Base", new JsonDataLoader(), Path.Combine(root, "Data"), s =>
         { s.Priority = 0; s.MergePolicy = MergePolicy.Patch; })
     .AddSource("DLC", new JsonDataLoader(), Path.Combine(root, "DLC"), s =>
@@ -26,7 +26,7 @@ var world = new Pipeline()
         { s.Priority = 2; s.MergePolicy = MergePolicy.FieldPatch; })
     .Build(out var diagnostics);
 
-if (world == null)
+if (knowledge == null)
 {
     Console.WriteLine("Pipeline build failed!");
     foreach (var item in diagnostics.Items)
@@ -36,30 +36,30 @@ if (world == null)
     return;
 }
 
-Console.WriteLine($"Concepts: {world.Schema?.ConceptAspects.Count}");
-Console.WriteLine($"Aspects:  {world.Schema?.Aspects.Count}");
+Console.WriteLine($"Concepts: {knowledge.Schema?.ConceptAspects.Count}");
+Console.WriteLine($"Aspects:  {knowledge.Schema?.Aspects.Count}");
 
-if (world.Schema != null)
-    foreach (var kv in world.Schema.ConceptAspects)
+if (knowledge.Schema != null)
+    foreach (var kv in knowledge.Schema.ConceptAspects)
     {
-        var cname = world.Schema.TryGetConceptName(kv.Key, out var n) ? n! : "?";
-        var anames = kv.Value.Select(id => world.Schema.TryGetAspectName(id, out var a) ? a! : "?").ToArray();
+        var cname = knowledge.Schema.TryGetConceptName(kv.Key, out var n) ? n! : "?";
+        var anames = kv.Value.Select(id => knowledge.Schema.TryGetAspectName(id, out var a) ? a! : "?").ToArray();
         Console.WriteLine($"  {cname}: [{string.Join(", ", anames)}]");
     }
 
-Console.WriteLine($"\n=== World ===");
-var arthur = world.FromConcept<Creature>().At<Arthur>();
+Console.WriteLine($"\n=== Knowledge ===");
+var arthur = knowledge.Of<Creature>().At<Arthur>();
 Console.WriteLine($"Arthur HP:   {arthur.Take<Health>().Current}/{arthur.Take<Health>().Max}");
 Console.WriteLine($"Arthur Mana: {arthur.Take<Mana>().Current}/{arthur.Take<Mana>().Max}");
 
-var goblin = world.FromConcept<Creature>().At<Goblin>();
+var goblin = knowledge.Of<Creature>().At<Goblin>();
 Console.WriteLine($"Goblin HP:   {goblin.Take<Health>().Current}/{goblin.Take<Health>().Max}");
-Console.WriteLine($"Goblin XP:   {world.FromConcept<Enemy>().At<Goblin>().Take<ExperienceReward>().Amount}");
+Console.WriteLine($"Goblin XP:   {knowledge.Of<Enemy>().At<Goblin>().Take<ExperienceReward>().Amount}");
 
 // === StateEngine Simulation ===
 Console.WriteLine($"\n=== StateEngine Simulation ===");
-var stateGroupDef = world.FromConcept<GameState>().At<BasicAI>().Take<StateGroup>();
-var baked = StateEngineBaker.Bake(stateGroupDef, world);
+var stateGroupDef = knowledge.Of<GameState>().At<BasicAI>().Take<StateGroup>();
+var baked = StateEngineBaker.Bake(stateGroupDef, knowledge);
 
 var sortedStateNames = stateGroupDef.States.Keys.OrderBy(s => s).ToList();
 var idToName = new Dictionary<int, string>();

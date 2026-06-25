@@ -1,14 +1,14 @@
-namespace DataCatalyst.World;
+namespace DataCatalyst.Knowledge;
 
 using DataCatalyst.Storage;
 
-public readonly ref struct EntryScope<TConcept, TEntry>
+public readonly ref struct BeingScope<TConcept, TBeing>
 	where TConcept : struct, IConcept
-	where TEntry : struct, IEntry, IBelongTo<TConcept> {
+	where TBeing : struct, IBeing, IBelongTo<TConcept> {
 	internal readonly IStoragePool Pool;
 	internal readonly int Index;
 
-	internal EntryScope(IStoragePool pool, int index) {
+	internal BeingScope(IStoragePool pool, int index) {
 		Pool = pool;
 		Index = index;
 	}

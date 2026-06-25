@@ -1,19 +1,19 @@
-namespace DataCatalyst.World;
+namespace DataCatalyst.Knowledge;
 
 public readonly ref struct ConceptScope<TConcept> where TConcept : struct, IConcept {
-	internal readonly World World;
+	internal readonly Knowledge Knowledge;
 
-	internal ConceptScope(World world) {
-		World = world;
+	internal ConceptScope(Knowledge knowledge) {
+		Knowledge = knowledge;
 	}
 
-	public EntryScope<TConcept, TEntry> At<TEntry>()
-		where TEntry : struct, IEntry, IBelongTo<TConcept>
-		=> new(World.Pools[typeof(TConcept)], World.GetEntryIndex(typeof(TEntry)));
+	public BeingScope<TConcept, TBeing> At<TBeing>()
+		where TBeing : struct, IBeing, IBelongTo<TConcept>
+		=> new(Knowledge.Pools[typeof(TConcept)], Knowledge.GetBeingIndex(typeof(TBeing)));
 
 	public ConceptHandle<TConcept> At(int index)
 		=> new(index);
 
 	public T Take<T>(ConceptHandle<TConcept> handle) where T : struct
-		=> World.Pools[typeof(TConcept)].Get<T>(handle.Index);
+		=> Knowledge.Pools[typeof(TConcept)].Get<T>(handle.Index);
 }

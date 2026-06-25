@@ -7,7 +7,7 @@ using DataCatalyst.Composition;
 using DataCatalyst.StateEngine.Models;
 
 public static class StateEngineBaker {
-	public static BakedStateGroup Bake(StateGroup group, DataCatalyst.World.World? world) {
+	public static BakedStateGroup Bake(StateGroup group, Knowledge.Knowledge? world) {
 		if (group.States == null || group.States.Count == 0) {
 			return new BakedStateGroup { GroupId = group.GroupId };
 		}

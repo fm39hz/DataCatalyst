@@ -8,7 +8,6 @@ using DataCatalyst.Registry;
 using DataCatalyst.Schema;
 using DataCatalyst.Storage;
 
-
 public sealed class Pipeline {
 	private readonly List<DataSource> _sources = [];
 
@@ -17,7 +16,7 @@ public sealed class Pipeline {
 	public Pipeline AddSource(string name, IDataLoader loader, string path,
 		Action<DataSource>? configure = null) { var s = new DataSource(name, loader, path); configure?.Invoke(s); _sources.Add(s); return this; }
 
-	public DataCatalyst.World.World Build(out DiagnosticBag diagnostics) {
+	public Knowledge.Knowledge Build(out DiagnosticBag diagnostics) {
 		diagnostics = new DiagnosticBag();
 		var ctx = new PipelineContext();
 		ResolveSources(ctx);
@@ -33,11 +32,11 @@ public sealed class Pipeline {
 		if (ctx.Diagnostics.HasErrors) { PipeDiag(ctx, diagnostics); return null!; }
 		ResolveCrossRefs(ctx);
 		if (ctx.Diagnostics.HasErrors) { PipeDiag(ctx, diagnostics); return null!; }
-		BuildWorld(ctx);
+		BuildKnowledge(ctx);
 		if (ctx.Diagnostics.HasErrors) { PipeDiag(ctx, diagnostics); return null!; }
 		PipeDiag(ctx, diagnostics);
-		EntryRegistry.Freeze();
-		return ctx.World ?? throw new InvalidOperationException("Build produced no World");
+		BeingRegistry.Freeze();
+		return ctx.Knowledge ?? throw new InvalidOperationException("Build produced no Knowledge");
 	}
 
 	private void ResolveSources(PipelineContext ctx) {
@@ -74,7 +73,7 @@ public sealed class Pipeline {
 
 	private void Load(PipelineContext ctx) {
 		var sorted = ctx.SortedSources ?? _sources;
-		var all = new List<RawEntry>();
+		var all = new List<RawBeing>();
 		var keys = new HashSet<string>();
 		foreach (var src in sorted) {
 			var result = src.Loader.LoadDirectory(src.Path);
@@ -83,8 +82,8 @@ public sealed class Pipeline {
 			}
 
 			var pv = (int)src.MergePolicy;
-			foreach (var e in result.Entries) {
-				if (e is RawEntry re) { re.MergePolicyValue = pv; re.AssignedIndex = all.Count; all.Add(re); keys.Add(re.Key); }
+			foreach (var e in result.Beings) {
+				if (e is RawBeing re) { re.MergePolicyValue = pv; re.AssignedIndex = all.Count; all.Add(re); keys.Add(re.Key); }
 			}
 
 			foreach (var kv in result.Mappings) {
@@ -98,9 +97,9 @@ public sealed class Pipeline {
 					}
 				}
 			}
-			ctx.Diagnostics.Info($"Loaded {result.Entries.Count} from '{src.Name}'");
+			ctx.Diagnostics.Info($"Loaded {result.Beings.Count} from '{src.Name}'");
 		}
-		ctx.RawEntries = all;
+		ctx.RawBeings = all;
 		ctx.AllKeys = keys;
 	}
 
@@ -120,7 +119,7 @@ public sealed class Pipeline {
 		}
 
 		var conceptTypes = new HashSet<Type>();
-		foreach (var record in EntryRegistry.All) {
+		foreach (var record in BeingRegistry.All) {
 			foreach (var conceptType in record.Concepts) {
 				conceptTypes.Add(conceptType);
 			}
@@ -142,13 +141,13 @@ public sealed class Pipeline {
 	}
 
 	private static void Merge(PipelineContext ctx) {
-		var entries = ctx.RawEntries;
+		var entries = ctx.RawBeings;
 		if (entries == null || entries.Count == 0) {
 			return;
 		}
 
 		const int FP = 1, OV = 2, RP = 3;
-		var merged = new Dictionary<string, RawEntry>(StringComparer.OrdinalIgnoreCase);
+		var merged = new Dictionary<string, RawBeing>(StringComparer.OrdinalIgnoreCase);
 		foreach (var e in entries) {
 			if (!merged.TryGetValue(e.Key, out var ex)) { merged[e.Key] = e; continue; }
 			switch (e.MergePolicyValue) {
@@ -166,16 +165,16 @@ public sealed class Pipeline {
 					break;
 			}
 		}
-		var final = new List<RawEntry>(merged.Values);
+		var final = new List<RawBeing>(merged.Values);
 		for (var i = 0; i < final.Count; i++) {
 			final[i].AssignedIndex = i;
 		}
 
-		ctx.RawEntries = final;
+		ctx.RawBeings = final;
 	}
 
 	private static void Inherit(PipelineContext ctx) {
-		var entries = ctx.RawEntries;
+		var entries = ctx.RawBeings;
 		if (entries == null) {
 			return;
 		}
@@ -183,7 +182,7 @@ public sealed class Pipeline {
 		var byKey = entries.ToDictionary(e => e.Key);
 		var visited = new HashSet<string>();
 		var visiting = new HashSet<string>();
-		void Resolve(RawEntry e) {
+		void Resolve(RawBeing e) {
 			if (e.Inherits == null || visited.Contains(e.Key)) {
 				return;
 			}
@@ -210,12 +209,12 @@ public sealed class Pipeline {
 	}
 
 	private void ResolveIDs(PipelineContext ctx) {
-		var raw = ctx.RawEntries;
+		var raw = ctx.RawBeings;
 		if (raw == null || raw.Count == 0) {
 			return;
 		}
 
-		ctx.Entries.Clear();
+		ctx.Beings.Clear();
 		foreach (var re in raw) {
 			var concepts = new List<int>();
 			var conceptSet = new HashSet<int>();
@@ -232,7 +231,7 @@ public sealed class Pipeline {
 					aspects[id] = kv.Value;
 				}
 			}
-			ctx.Entries.Add(new ResolvedEntry {
+			ctx.Beings.Add(new ResolvedBeing {
 				Key = re.Key,
 				AssignedIndex = re.AssignedIndex,
 				Inherits = re.Inherits,
@@ -241,11 +240,11 @@ public sealed class Pipeline {
 				AspectFields = aspects,
 			});
 		}
-		ctx.RawEntries.Clear();
+		ctx.RawBeings.Clear();
 	}
 
 	private void ResolveCrossRefs(PipelineContext ctx) {
-		var entries = ctx.Entries;
+		var entries = ctx.Beings;
 		if (entries == null || entries.Count == 0) {
 			return;
 		}
@@ -280,10 +279,10 @@ public sealed class Pipeline {
 		}
 	}
 
-	private void BuildWorld(PipelineContext ctx) {
-		var entries = ctx.Entries;
-		if (entries == null || entries.Count == 0) { ctx.Diagnostics.Error("No entries"); return; }
-		var byConcept = new Dictionary<int, List<ResolvedEntry>>();
+	private void BuildKnowledge(PipelineContext ctx) {
+		var entries = ctx.Beings;
+		if (entries == null || entries.Count == 0) { ctx.Diagnostics.Error("No beings"); return; }
+		var byConcept = new Dictionary<int, List<ResolvedBeing>>();
 		var nameIndex = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 		foreach (var e in entries) {
 			nameIndex[e.Key] = e.AssignedIndex;
@@ -292,7 +291,7 @@ public sealed class Pipeline {
 			}
 		}
 		var pools = new Dictionary<Type, IStoragePool>();
-		var entryIndices = new Dictionary<Type, int>();
+		var beingIndices = new Dictionary<Type, int>();
 		foreach (var kv in byConcept) {
 			var ct = FindType(kv.Key);
 			if (ct == null) { ctx.Diagnostics.Warn($"No type for concept ID '{kv.Key}'"); continue; }
@@ -319,7 +318,7 @@ public sealed class Pipeline {
 				pool = dp;
 			}
 			else {
-				pool = EntryRegistry.CreatePool(ct) ?? new GenericPool();
+				pool = BeingRegistry.CreatePool(ct) ?? new GenericPool();
 				pool.Resize(maxIdx + 1);
 				foreach (var e in ce) {
 					foreach (var comp in e.Components) {
@@ -330,24 +329,24 @@ public sealed class Pipeline {
 				}
 			}
 			pools[ct] = pool;
-			foreach (var rec in EntryRegistry.All) {
+			foreach (var rec in BeingRegistry.All) {
 				if (!rec.Concepts.Contains(ct)) {
 					continue;
 				}
 
-				var found = entries.FirstOrDefault(e => e.Key == rec.EntryType.Name);
+				var found = entries.FirstOrDefault(e => e.Key == rec.BeingType.Name);
 				if (found != null) {
-					entryIndices[rec.EntryType] = found.AssignedIndex;
+					beingIndices[rec.BeingType] = found.AssignedIndex;
 				}
 			}
 		}
-		ctx.World = DataCatalyst.World.WorldFactory.Create(pools, entryIndices, Schema);
+		ctx.Knowledge = Knowledge.KnowledgeFactory.Create(pools, beingIndices, Schema);
 		ctx.Diagnostics.Info($"Built {pools.Count} concept pools");
 	}
 
 	private Type? FindType(int conceptId) {
 		if (Schema.TryGetConceptName(conceptId, out var name) && name != null) {
-			foreach (var r in EntryRegistry.All) {
+			foreach (var r in BeingRegistry.All) {
 				foreach (var c in r.Concepts) {
 					if (string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase)) {
 						return c;
@@ -386,8 +385,8 @@ public sealed class Pipeline {
 		return n;
 	}
 
-	private static void DoReplace(RawEntry e, RawEntry n) { e.RawFields.Clear(); e.FieldNames.Clear(); e.Components.Clear(); e.Concepts = n.Concepts; e.ConceptSet = n.ConceptSet; e.Inherits = n.Inherits; foreach (var kv in n.RawFields) { e.RawFields[kv.Key] = kv.Value; e.FieldNames.Add(kv.Key); } }
-	private static void DoOverlay(RawEntry e, RawEntry n) {
+	private static void DoReplace(RawBeing e, RawBeing n) { e.RawFields.Clear(); e.FieldNames.Clear(); e.Components.Clear(); e.Concepts = n.Concepts; e.ConceptSet = n.ConceptSet; e.Inherits = n.Inherits; foreach (var kv in n.RawFields) { e.RawFields[kv.Key] = kv.Value; e.FieldNames.Add(kv.Key); } }
+	private static void DoOverlay(RawBeing e, RawBeing n) {
 		foreach (var kv in n.RawFields) {
 			e.RawFields[kv.Key] = kv.Value;
 			if (!e.FieldNames.Contains(kv.Key)) {
@@ -398,7 +397,7 @@ public sealed class Pipeline {
 			e.Inherits = n.Inherits;
 		}
 	}
-	private static void DoPatch(RawEntry e, RawEntry n) {
+	private static void DoPatch(RawBeing e, RawBeing n) {
 		foreach (var kv in n.RawFields) {
 			e.RawFields[kv.Key] = DeepMerge(e.RawFields.GetValueOrDefault(kv.Key), kv.Value, false);
 			if (!e.FieldNames.Contains(kv.Key)) {
@@ -409,7 +408,7 @@ public sealed class Pipeline {
 			e.Inherits = n.Inherits;
 		}
 	}
-	private static void DoFieldPatch(RawEntry e, RawEntry n) {
+	private static void DoFieldPatch(RawBeing e, RawBeing n) {
 		foreach (var kv in n.RawFields) {
 			e.RawFields[kv.Key] = DeepMerge(e.RawFields.GetValueOrDefault(kv.Key), kv.Value, true);
 			if (!e.FieldNames.Contains(kv.Key)) {

@@ -80,20 +80,20 @@ public sealed class ConceptInfo(string name, string ns) : IEquatable<ConceptInfo
 	}
 }
 
-public sealed class JsonDataInfo(string entriesString) : IEquatable<JsonDataInfo> {
-	public string EntriesString { get; } = entriesString;
+public sealed class JsonDataInfo(string beingsString) : IEquatable<JsonDataInfo> {
+	public string BeingsString { get; } = beingsString;
 
 	public bool Equals(JsonDataInfo? other) {
 		if (other is null) {
 			return false;
 		}
 
-		return EntriesString == other.EntriesString;
+		return BeingsString == other.BeingsString;
 	}
 
 	public override bool Equals(object? obj) => Equals(obj as JsonDataInfo);
 
-	public override int GetHashCode() => EntriesString?.GetHashCode() ?? 0;
+	public override int GetHashCode() => BeingsString?.GetHashCode() ?? 0;
 }
 
 [Generator]
@@ -128,23 +128,24 @@ public sealed class AspectGenerator : IIncrementalGenerator {
 						return "";
 					}
 
-					var entries = new List<string>();
-					foreach (var entryProp in r.EnumerateObject()) {
-						var entryKey = entryProp.Name;
-						if (entryKey.Equals("$mapping", StringComparison.OrdinalIgnoreCase) ||
-							entryKey.Equals("$concepts", StringComparison.OrdinalIgnoreCase) ||
-							entryKey.Equals("$aspects", StringComparison.OrdinalIgnoreCase) ||
-							entryKey.Equals("$entries", StringComparison.OrdinalIgnoreCase)) {
+					var beings = new List<string>();
+					foreach (var beingProp in r.EnumerateObject()) {
+						var beingKey = beingProp.Name;
+						if (beingKey.Equals("$mapping", StringComparison.OrdinalIgnoreCase) ||
+							beingKey.Equals("$concepts", StringComparison.OrdinalIgnoreCase) ||
+							beingKey.Equals("$aspects", StringComparison.OrdinalIgnoreCase) ||
+							beingKey.Equals("$entries", StringComparison.OrdinalIgnoreCase) ||
+							beingKey.Equals("$beings", StringComparison.OrdinalIgnoreCase)) {
 							continue;
 						}
 
-						var entryObj = entryProp.Value;
-						if (entryObj.ValueKind != JsonValueKind.Object) {
+						var beingObj = beingProp.Value;
+						if (beingObj.ValueKind != JsonValueKind.Object) {
 							continue;
 						}
 
 						var props = new List<string>();
-						foreach (var prop in entryObj.EnumerateObject()) {
+						foreach (var prop in beingObj.EnumerateObject()) {
 							if (prop.Name.Equals("$inherits", StringComparison.OrdinalIgnoreCase) ||
 								prop.Name.Equals("inherits", StringComparison.OrdinalIgnoreCase)) {
 								continue;
@@ -160,10 +161,10 @@ public sealed class AspectGenerator : IIncrementalGenerator {
 							props.Add($"{prop.Name}({string.Join(",", nested)})");
 						}
 						props.Sort();
-						entries.Add($"{entryKey}[{string.Join(";", props)}]");
+						beings.Add($"{beingKey}[{string.Join(";", props)}]");
 					}
-					entries.Sort();
-					return string.Join("|", entries);
+					beings.Sort();
+					return string.Join("|", beings);
 				}
 				catch {
 					return "";
@@ -174,17 +175,17 @@ public sealed class AspectGenerator : IIncrementalGenerator {
 			.Select((ar, _) => {
 				var merged = new Dictionary<string, Dictionary<string, HashSet<string>>>(StringComparer.OrdinalIgnoreCase);
 				foreach (var fileContent in ar) {
-					foreach (var entryPart in fileContent.Split('|')) {
-						var bracketIdx = entryPart.IndexOf('[');
+					foreach (var beingPart in fileContent.Split('|')) {
+						var bracketIdx = beingPart.IndexOf('[');
 						if (bracketIdx <= 0) {
 							continue;
 						}
 
-						var entryKey = entryPart.Substring(0, bracketIdx);
-						var body = entryPart.Substring(bracketIdx + 1, entryPart.Length - bracketIdx - 2);
+						var beingKey = beingPart.Substring(0, bracketIdx);
+						var body = beingPart.Substring(bracketIdx + 1, beingPart.Length - bracketIdx - 2);
 
-						if (!merged.TryGetValue(entryKey, out var propsDict)) {
-							merged[entryKey] = propsDict = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+						if (!merged.TryGetValue(beingKey, out var propsDict)) {
+							merged[beingKey] = propsDict = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
 						}
 
 						foreach (var propPart in body.Split(';')) {
@@ -211,15 +212,15 @@ public sealed class AspectGenerator : IIncrementalGenerator {
 					}
 				}
 
-				var entryList = new List<string>();
-				foreach (var entryKv in merged.OrderBy(x => x.Key)) {
+				var beingList = new List<string>();
+				foreach (var beingKv in merged.OrderBy(x => x.Key)) {
 					var propList = new List<string>();
-					foreach (var propKv in entryKv.Value.OrderBy(x => x.Key)) {
+					foreach (var propKv in beingKv.Value.OrderBy(x => x.Key)) {
 						propList.Add($"{propKv.Key}({string.Join(",", propKv.Value.OrderBy(s => s))})");
 					}
-					entryList.Add($"{entryKv.Key}[{string.Join(";", propList)}]");
+					beingList.Add($"{beingKv.Key}[{string.Join(";", propList)}]");
 				}
-				return new JsonDataInfo(string.Join("|", entryList));
+				return new JsonDataInfo(string.Join("|", beingList));
 			});
 
 		var combined = aspectDeclarations.Collect()
@@ -239,25 +240,25 @@ public sealed class AspectGenerator : IIncrementalGenerator {
 			var aspectNames = new HashSet<string>(aspects.Select(a => a!.Name), StringComparer.OrdinalIgnoreCase);
 			var conceptNames = new HashSet<string>(concepts.Select(c => c!.Name), StringComparer.OrdinalIgnoreCase);
 
-			var entryConcepts = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+			var beingConcepts = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
 			var conceptAspects = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
 
-			if (!string.IsNullOrEmpty(jsonData.EntriesString)) {
-				foreach (var entryPart in jsonData.EntriesString.Split('|')) {
-					if (string.IsNullOrEmpty(entryPart)) {
+			if (!string.IsNullOrEmpty(jsonData.BeingsString)) {
+				foreach (var beingPart in jsonData.BeingsString.Split('|')) {
+					if (string.IsNullOrEmpty(beingPart)) {
 						continue;
 					}
 
-					var bracketIdx = entryPart.IndexOf('[');
+					var bracketIdx = beingPart.IndexOf('[');
 					if (bracketIdx <= 0) {
 						continue;
 					}
 
-					var entryKey = entryPart.Substring(0, bracketIdx);
-					var body = entryPart.Substring(bracketIdx + 1, entryPart.Length - bracketIdx - 2);
+					var beingKey = beingPart.Substring(0, bracketIdx);
+					var body = beingPart.Substring(bracketIdx + 1, beingPart.Length - bracketIdx - 2);
 
-					if (!entryConcepts.TryGetValue(entryKey, out var cList)) {
-						entryConcepts[entryKey] = cList = [];
+					if (!beingConcepts.TryGetValue(beingKey, out var cList)) {
+						beingConcepts[beingKey] = cList = [];
 					}
 
 					foreach (var propPart in body.Split(';')) {
@@ -293,7 +294,7 @@ public sealed class AspectGenerator : IIncrementalGenerator {
 									new DiagnosticDescriptor(
 										"DC0001",
 										"Unknown Concept",
-										$"Unknown concept '{conceptName}' specified with '$' prefix in entry '{entryKey}'",
+										$"Unknown concept '{conceptName}' specified with '$' prefix in being '{beingKey}'",
 										"DataCatalyst",
 										DiagnosticSeverity.Warning,
 										isEnabledByDefault: true),
@@ -352,15 +353,15 @@ public sealed class AspectGenerator : IIncrementalGenerator {
 				deserIdx++;
 			}
 
-			// Entry structs
-			foreach (var kv in entryConcepts) {
+			// Being structs
+			foreach (var kv in beingConcepts) {
 				var en = Sanitize(kv.Key);
 				var ifaces = string.Join(", ", kv.Value.Select(c =>
 					$"global::DataCatalyst.IBelongTo<global::DataCatalyst.Generated.{Sanitize(c)}>"));
 
 				var baseDecl = string.IsNullOrEmpty(ifaces)
-					? $"public record struct {en} : global::DataCatalyst.IEntry {{ }}"
-					: $"public record struct {en} : global::DataCatalyst.IEntry, {ifaces} {{ }}";
+					? $"public record struct {en} : global::DataCatalyst.IBeing {{ }}"
+					: $"public record struct {en} : global::DataCatalyst.IBeing, {ifaces} {{ }}";
 
 				var s = ParseMemberDeclaration(baseDecl);
 				if (s != null) {
@@ -369,7 +370,7 @@ public sealed class AspectGenerator : IIncrementalGenerator {
 
 				var typeArgs = string.Join(", ", kv.Value.Select(c => $"typeof(global::DataCatalyst.Generated.{Sanitize(c)})"));
 				ini.Add(ParseStatement(
-					$"global::DataCatalyst.Registry.EntryRegistry.Register<global::DataCatalyst.Generated.{en}>({typeArgs});\n")!);
+					$"global::DataCatalyst.Registry.BeingRegistry.Register<global::DataCatalyst.Generated.{en}>({typeArgs});\n")!);
 			}
 
 			// Typed pools for concepts
@@ -408,7 +409,7 @@ public sealed class {cn}Pool : global::DataCatalyst.Storage.IStoragePool {{
     public void SetRaw(int index, global::System.Type type, object value) {{ if (index < 0 || index >= _data.Length) return; {setRawCases} }}
 }}")!);
 				ini.Add(ParseStatement(
-					$"global::DataCatalyst.Registry.EntryRegistry.RegisterPool(typeof(global::DataCatalyst.Generated.{cn}), () => new {cn}Pool());\n")!);
+					$"global::DataCatalyst.Registry.BeingRegistry.RegisterPool(typeof(global::DataCatalyst.Generated.{cn}), () => new {cn}Pool());\n")!);
 			}
 
 			// SchemaGen class = ModuleInitializer + inline deserializer helpers

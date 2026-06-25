@@ -5,8 +5,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
-using DataCatalyst.Storage;
 using DataCatalyst.Loader;
+using DataCatalyst.Storage;
 
 public sealed class JsonDataLoader : IDataLoader {
 	public LoadResult Load(string content, string fallbackKey) {
@@ -26,7 +26,7 @@ public sealed class JsonDataLoader : IDataLoader {
 		if (!Directory.Exists(path)) { result._diagnostics.Add($"Directory not found: {path}"); return result; }
 		foreach (var file in Directory.EnumerateFiles(path, "*.json")) {
 			var fr = LoadFile(file);
-			result._entries.AddRange(fr._entries);
+			result._beings.AddRange(fr._beings);
 			result._diagnostics.AddRange(fr._diagnostics);
 			foreach (var kv in fr.Mappings) {
 				if (!result._mappings.TryGetValue(kv.Key, out var list)) {
@@ -49,17 +49,17 @@ public sealed class JsonDataLoader : IDataLoader {
 		var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 		if (root.ValueKind == JsonValueKind.Object) {
 			foreach (var p in root.EnumerateObject()) {
-				TryExtractEntry(p.Value, p.Name, fallbackKey, result, visited);
+				TryExtractBeing(p.Value, p.Name, fallbackKey, result, visited);
 			}
 		}
 		else if (root.ValueKind == JsonValueKind.Array) {
 			foreach (var item in root.EnumerateArray()) {
-				TryExtractEntry(item, null, fallbackKey, result, visited);
+				TryExtractBeing(item, null, fallbackKey, result, visited);
 			}
 		}
 	}
 
-	private static bool TryExtractEntry(JsonElement obj, string? parentKey, string? fn, LoadResult result,
+	private static bool TryExtractBeing(JsonElement obj, string? parentKey, string? fn, LoadResult result,
 		HashSet<string> visited) {
 		if (obj.ValueKind != JsonValueKind.Object) {
 			return false;
@@ -67,21 +67,21 @@ public sealed class JsonDataLoader : IDataLoader {
 
 		var key = ExtractKey(obj, parentKey, fn);
 		if (key == null || !visited.Add(key)) {
-			result._diagnostics.Add(key == null ? "Entry has no key" : $"Duplicate entry key '{key}' skipped");
+			result._diagnostics.Add(key == null ? "Being has no key" : $"Duplicate being key '{key}' skipped");
 			return true;
 		}
 
-		var entry = new RawEntry { Key = key };
+		var being = new RawBeing { Key = key };
 
 		if (obj.TryGetProperty("$inherits", out var inh) && inh.ValueKind == JsonValueKind.String) {
-			entry.Inherits = inh.GetString();
+			being.Inherits = inh.GetString();
 		}
 		else if (obj.TryGetProperty("inherits", out var inh2) && inh2.ValueKind == JsonValueKind.String) {
-			entry.Inherits = inh2.GetString();
+			being.Inherits = inh2.GetString();
 		}
 
 		var conceptNames = new HashSet<string>(
-			Registry.EntryRegistry.All.SelectMany(r => r.Concepts).Select(t => t.Name),
+			Registry.BeingRegistry.All.SelectMany(r => r.Concepts).Select(t => t.Name),
 			StringComparer.OrdinalIgnoreCase
 		);
 
@@ -97,14 +97,14 @@ public sealed class JsonDataLoader : IDataLoader {
 			if (p.Name.StartsWith('$')) {
 				var conceptName = p.Name[1..];
 				if (conceptNames.Contains(conceptName)) {
-					entry.Concepts.Add(conceptName);
-					entry.ConceptSet.Add(conceptName);
+					being.Concepts.Add(conceptName);
+					being.ConceptSet.Add(conceptName);
 
 					if (p.Value.ValueKind == JsonValueKind.Object) {
 						foreach (var asp in p.Value.EnumerateObject()) {
 							var aspectName = asp.Name;
-							entry.FieldNames.Add(aspectName);
-							entry.RawFields[aspectName] = ToObject(asp.Value);
+							being.FieldNames.Add(aspectName);
+							being.RawFields[aspectName] = ToObject(asp.Value);
 
 							if (!result._mappings.TryGetValue(conceptName, out var list)) {
 								result._mappings[conceptName] = list = [];
@@ -117,18 +117,18 @@ public sealed class JsonDataLoader : IDataLoader {
 					}
 				}
 				else {
-					result._diagnostics.Add($"Unknown concept '{conceptName}' specified with '$' prefix in entry '{key}'");
+					result._diagnostics.Add($"Unknown concept '{conceptName}' specified with '$' prefix in being '{key}'");
 				}
 			}
 			else {
-				// Entry-level aspect (like Stamina)
+				// Being-level aspect (like Stamina)
 				var aspectName = p.Name;
-				entry.FieldNames.Add(aspectName);
-				entry.RawFields[aspectName] = ToObject(p.Value);
+				being.FieldNames.Add(aspectName);
+				being.RawFields[aspectName] = ToObject(p.Value);
 			}
 		}
 
-		result._entries.Add(entry);
+		result._beings.Add(being);
 		return true;
 	}
 
