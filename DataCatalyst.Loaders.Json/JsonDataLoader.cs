@@ -102,23 +102,20 @@ public sealed class JsonDataLoader : LoaderAbstractions.IDataLoader
     {
         extracted = false;
 
-        // Check if this object has a "$concepts" field
         if (!TryGetConcept(obj, out var concepts) || concepts.Count == 0)
             return false;
 
-        // Extract entry key
         var key = ExtractKey(obj, parentKey, filename);
         if (key == null || !visitedKeys.Add(key))
         {
             result._diagnostics.Add(key == null
                 ? "Entry has no key"
                 : $"Duplicate entry key '{key}' skipped");
-            return true; // Was an entry, but couldn't extract
+            return true;
         }
 
         var entry = new RawEntry { Key = key };
 
-        // Parse concepts
         foreach (var c in concepts)
             if (!string.IsNullOrEmpty(c))
             {
@@ -126,19 +123,17 @@ public sealed class JsonDataLoader : LoaderAbstractions.IDataLoader
                 entry.ConceptSet.Add(c);
             }
 
-        // Parse Inherits
         if (obj.TryGetProperty("$inherits", out var inhProp) && inhProp.ValueKind == JsonValueKind.String)
             entry.Inherits = inhProp.GetString();
 
-        // Parse components
         foreach (var prop in obj.EnumerateObject())
         {
             var name = prop.Name;
             if (name == "$concepts" || name == "$key" || name == "$inherits")
                 continue;
 
-            entry._rawFields[name] = ToObject(prop.Value);
-            entry._fieldNames.Add(name);
+            entry.RawFields[name] = ToObject(prop.Value);
+            entry.FieldNames.Add(name);
         }
 
         result._entries.Add(entry);

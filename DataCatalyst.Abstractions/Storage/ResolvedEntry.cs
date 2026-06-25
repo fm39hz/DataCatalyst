@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
+using DataCatalyst.Storage;
 
 namespace DataCatalyst.Storage;
 
-internal sealed class RawEntry
+/// <summary>Entry after cross-references are resolved and aspects are deserialized.
+/// Immutable-style data for the Build phase.</summary>
+public sealed class ResolvedEntry
 {
     public string Key { get; set; } = string.Empty;
     public List<string> Concepts { get; set; } = new();
@@ -12,6 +15,4 @@ internal sealed class RawEntry
     public Dictionary<Type, object> Components { get; set; } = new();
     public Dictionary<string, string> CrossRefs { get; set; } = new();
     public int AssignedIndex { get; set; }
-    public List<string> _fieldNames = new();
-    public Dictionary<string, object?> _rawFields = new();
 }

@@ -1,197 +1,68 @@
 using System;
-using DataCatalyst.Storage;
 using System.Collections.Generic;
 using System.Linq;
-using PipelineAbstractions = DataCatalyst.Pipeline;
-using StageContext = DataCatalyst.Pipeline.PipelineContext;
-
+using DataCatalyst.Pipeline;
 using DataCatalyst.Registry;
+using DataCatalyst.Storage;
 using WorldAbstractions = DataCatalyst.World;
-using DataCatalyst;
 
 namespace DataCatalyst.Stages;
 
-internal sealed class BuildWorldStage : PipelineAbstractions.IPipelineStage
+internal sealed class BuildWorldStage : IPipelineStage
 {
     public string Id => "BuildWorld";
 
-    public void Execute(StageContext ctx)
+    public void Execute(PipelineContext ctx)
     {
-        DataCatalyst.Storage.AspectTypeRegistry.Initialize();
-        var entries = ctx.Bag["RawEntries"] as List<RawEntry>;
-        if (entries == null)
-        {
-            ctx.Diagnostics.Error("No entries to build world");
-            return;
-        }
+        var entries = ctx.Entries;
+        if (entries == null || entries.Count == 0)
+        { ctx.Diagnostics.Error("No entries to build world"); return; }
 
-        // Group entries by concept
-        var byConcept = new Dictionary<string, List<RawEntry>>();
-        foreach (var entry in entries)
-        {
-            foreach (var concept in entry.Concepts)
-            {
-                if (!byConcept.ContainsKey(concept))
-                    byConcept[concept] = new List<RawEntry>();
-                byConcept[concept].Add(entry);
-            }
-        }
+        var byConcept = new Dictionary<string, List<ResolvedEntry>>();
+        foreach (var e in entries)
+            foreach (var c in e.Concepts)
+                (byConcept.TryGetValue(c, out var l) ? l : (byConcept[c] = new())).Add(e);
 
-        // Build pools per concept
-        var pools = new Dictionary<Type, DataCatalyst.Storage.IStoragePool>();
+        var pools = new Dictionary<Type, IStoragePool>();
+        var entryIndices = new Dictionary<Type, int>();
 
         foreach (var kv in byConcept)
         {
-            var conceptName = kv.Key;
-            var conceptEntries = kv.Value;
+            var ct = FindConceptType(kv.Key);
+            if (ct == null)
+            { ctx.Diagnostics.Warn($"Concept '{kv.Key}' has no registered type — skipping"); continue; }
 
-            // Try to match concept name to a registered concept type
-            Type? conceptType = null;
-            foreach (var record in EntryRegistry.All)
+            var ce = kv.Value;
+            int maxIdx = ce.Max(e => e.AssignedIndex);
+            if (maxIdx < 0) continue;
+
+            var pool = EntryRegistry.CreatePool(ct) ?? new GenericPool();
+            pool.Resize(maxIdx + 1);
+
+            foreach (var e in ce)
+                foreach (var comp in e.Components)
+                    pool.SetRaw(e.AssignedIndex, comp.Key, comp.Value);
+
+            pools[ct] = pool;
+
+            foreach (var rec in EntryRegistry.All)
             {
-                foreach (var c in record.Concepts)
-                {
-                    if (c.Name == conceptName)
-                    {
-                        conceptType = c;
-                        break;
-                    }
-                }
-                if (conceptType != null) break;
-            }
-
-            // For now, skip concepts without registered type (no SourceGen yet)
-            if (conceptType == null)
-            {
-                ctx.Diagnostics.Warn($"Concept '{conceptName}' has no registered type — skipping pool creation");
-                continue;
-            }
-
-            // Find max index for this concept
-            var conceptEntryIds = new HashSet<string>(conceptEntries.Select(e => e.Key));
-            int maxIndex = conceptEntries.Max(e => e.AssignedIndex);
-            if (maxIndex < 0) continue;
-
-            // Create pool through EntryRegistry (registered via ModuleInitializer phi-reflection)
-            IStoragePool pool = EntryRegistry.CreatePool(conceptType);
-            if (pool == null)
-            {
-                pool = new GenericPool(conceptEntries);
-            }
-
-            pool.Resize(maxIndex + 1);
-
-            foreach (var entry in conceptEntries)
-            {
-                foreach (var comp in entry.Components)
-                {
-                    pool.SetRaw(entry.AssignedIndex, comp.Key, comp.Value);
-                }
-            }
-
-            pools[conceptType] = pool;
-
-            // Assign EntryIndex for entries of this concept
-            foreach (var record in EntryRegistry.All)
-            {
-                bool belongsToThisConcept = false;
-                foreach (var c in record.Concepts)
-                {
-                    if (c == conceptType) { belongsToThisConcept = true; break; }
-                }
-                if (!belongsToThisConcept) continue;
-
-                var entryName = record.EntryType.Name;
-                var foundEntry = entries.FirstOrDefault(e => e.Key == entryName);
-                if (foundEntry != null)
-                {
-                    EntryRegistry.AssignIndex(record.EntryType, foundEntry.AssignedIndex);
-                }
+                if (!rec.Concepts.Contains(ct)) continue;
+                var found = entries.FirstOrDefault(e => e.Key == rec.EntryType.Name);
+                if (found != null)
+                    entryIndices[rec.EntryType] = found.AssignedIndex;
             }
         }
 
-        // Build World
-        ctx.World = DataCatalyst.World.WorldFactory.Create(pools);
+        ctx.World = WorldAbstractions.WorldFactory.Create(pools, entryIndices);
         ctx.Diagnostics.Info($"Built world with {pools.Count} concept pools");
     }
-}
 
-// Temporary generic pool until SourceGen generates typed pools
-internal sealed class GenericPool : DataCatalyst.Storage.IStoragePool
-{
-    private readonly List<Dictionary<Type, object>> _rows = new();
-    private readonly Dictionary<int, Dictionary<string, object?>> _rawFields = new();
-
-    public GenericPool(List<RawEntry> sourceEntries)
+    private static Type? FindConceptType(string name)
     {
-        System.Console.Error.WriteLine($"[TRACE] GenericPool: {sourceEntries.Count} entries");
-        foreach (var entry in sourceEntries)
-        {
-            System.Console.Error.WriteLine($"[TRACE]   entry '{entry.Key}' idx={entry.AssignedIndex} rawFields={entry._rawFields.Count} comps={entry.Components.Count}");
-            if (entry._rawFields.Count > 0)
-                _rawFields[entry.AssignedIndex] = new(entry._rawFields, StringComparer.OrdinalIgnoreCase);
-        }
-    }
-
-    public int Count => _rows.Count;
-
-    public void Resize(int size)
-    {
-        while (_rows.Count < size)
-            _rows.Add(new Dictionary<Type, object>());
-    }
-
-    public void SetRaw(int index, Type type, object value)
-    {
-        if (index < 0 || index >= _rows.Count)
-            return;
-        _rows[index][type] = value;
-    }
-
-    public T Get<T>(int index) where T : struct
-    {
-        if (index < 0 || index >= _rows.Count)
-            throw new IndexOutOfRangeException();
-
-        // Try typed lookup first
-        if (_rows[index].TryGetValue(typeof(T), out var val))
-        {
-            System.Console.Error.WriteLine($"[TRACE] Get<{typeof(T).Name}>({index}) → typed hit");
-            return (T)val;
-        }
-
-        // Fallback: deserialize from raw C# object by type name
-        var typeName = typeof(T).Name;
-        System.Console.Error.WriteLine($"[TRACE] Get<{typeName}>({index}) → typed miss, rawFields={_rawFields.Count}");
-        if (_rawFields.TryGetValue(index, out var fields))
-        {
-            System.Console.Error.WriteLine($"[TRACE]   rawFields keys: {string.Join(",", fields.Keys)}");
-            if (fields.TryGetValue(typeName, out var rawVal))
-            {
-                try
-                {
-                    var deserialized = DataCatalyst.Storage.AspectTypeRegistry.Deserialize(typeof(T), rawVal);
-                    if (deserialized is T result)
-                    {
-                        _rows[index][typeof(T)] = result;
-                        return result;
-                    }
-                }
-                catch { }
-            }
-        }
-        else
-        {
-            System.Console.Error.WriteLine($"[TRACE]   no raw fields for index {index}");
-        }
-
-        return default;
-    }
-
-    public void Set<T>(int index, T value) where T : struct
-    {
-        if (index < 0 || index >= _rows.Count)
-            throw new IndexOutOfRangeException();
-        _rows[index][typeof(T)] = value;
+        foreach (var r in EntryRegistry.All)
+            foreach (var c in r.Concepts)
+                if (c.Name == name) return c;
+        return null;
     }
 }

@@ -1,111 +1,90 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using PipelineAbstractions = DataCatalyst.Pipeline;
-using StageContext = DataCatalyst.Pipeline.PipelineContext;
+using DataCatalyst.Pipeline;
 using DataCatalyst.Storage;
 
 namespace DataCatalyst.Stages;
 
-internal sealed class ResolveCrossRefStage : PipelineAbstractions.IPipelineStage
+internal sealed class ResolveCrossRefStage : IPipelineStage
 {
     public string Id => "ResolveCrossRef";
 
-    public void Execute(StageContext ctx)
+    public void Execute(PipelineContext ctx)
     {
-        var entries = ctx.Bag["RawEntries"] as List<RawEntry>;
-        if (entries == null) return;
+        var rawEntries = ctx.RawEntries;
+        var allKeys = ctx.AllKeys;
+        if (rawEntries == null || allKeys == null) return;
 
-        var allKeys = ctx.Bag["AllKeys"] as HashSet<string>;
-        if (allKeys == null) return;
-
-        foreach (var entry in entries)
+        foreach (var entry in rawEntries)
         {
-            // 1. Walk and resolve "$ref" in raw fields
-            foreach (var name in entry._rawFields.Keys.ToList())
+            // Walk raw fields and resolve $ref references
+            foreach (var name in entry.RawFields.Keys.ToList())
             {
-                var rawVal = entry._rawFields[name];
-                bool modified = false;
-                var resolvedVal = ResolveRefsInNode(rawVal, allKeys, ref modified, ctx, entry.Key, name);
-                if (modified)
-                {
-                    entry._rawFields[name] = resolvedVal;
-                }
+                bool mod = false;
+                entry.RawFields[name] = ResolveRefs(entry.RawFields[name], allKeys, ref mod, ctx, entry.Key, name);
             }
 
-            // 2. Deserialize resolved raw C# object tree into entry.Components
-            foreach (var name in entry._rawFields.Keys)
+            // Deserialize resolved raw objects into typed components
+            foreach (var name in entry.RawFields.Keys)
             {
-                var rawVal = entry._rawFields[name];
-                if (AspectTypeRegistry.TryGetType(name, out var aspectType))
+                var raw = entry.RawFields[name];
+                if (AspectTypeRegistry.TryGetType(name, out var t))
                 {
                     try
                     {
-                        var d = AspectTypeRegistry.Deserialize(aspectType, rawVal);
-                        if (d != null)
-                        {
-                            entry.Components[aspectType] = d;
-                        }
+                        var d = AspectTypeRegistry.Deserialize(t, raw);
+                        if (d != null) entry.Components[t] = d;
                     }
                     catch (Exception ex)
                     {
-                        ctx.Diagnostics.Error($"Failed to deserialize aspect '{name}' for entry '{entry.Key}': {ex.Message}");
+                        ctx.Diagnostics.Error($"Deserialize '{name}' for '{entry.Key}': {ex.Message}");
                     }
                 }
             }
         }
+
+        // Transition: RawEntry → ResolvedEntry (discard raw fields, keep typed components)
+        ctx.Entries.Clear();
+        foreach (var re in rawEntries)
+        {
+            var resolved = new ResolvedEntry
+            {
+                Key = re.Key,
+                AssignedIndex = re.AssignedIndex,
+                Inherits = re.Inherits,
+                Concepts = re.Concepts,
+                ConceptSet = re.ConceptSet,
+                Components = re.Components,
+                CrossRefs = re.CrossRefs,
+            };
+            ctx.Entries.Add(resolved);
+        }
+
+        // RawEntries no longer needed — clear to free memory
+        ctx.RawEntries.Clear();
     }
 
-    private static object? ResolveRefsInNode(object? node, HashSet<string> allKeys, ref bool modified, StageContext ctx, string entryKey, string aspectName)
+    private static object? ResolveRefs(object? node, HashSet<string> keys, ref bool mod, PipelineContext ctx, string ek, string an)
     {
         if (node == null) return null;
 
         if (node is Dictionary<string, object?> obj)
         {
-            // Check if this node is a reference object like {"$ref": "Target"}
-            if (obj.TryGetValue("$ref", out var refVal) && refVal is string targetKey)
+            if (obj.TryGetValue("$ref", out var rv) && rv is string tk)
             {
-                if (allKeys.Contains(targetKey))
-                {
-                    ctx.Diagnostics.Info($"Resolved cross-ref '{entryKey}.{aspectName}' → '{targetKey}'");
-                }
-                else
-                {
-                    ctx.Diagnostics.Warn($"Unresolved cross-ref '{entryKey}.{aspectName}' → '{targetKey}'");
-                }
-                modified = true;
-                return targetKey; // replace the ref object with resolved targetKey string
+                if (keys.Contains(tk)) ctx.Diagnostics.Info($"Resolved cross-ref '{ek}.{an}' → '{tk}'");
+                else ctx.Diagnostics.Warn($"Unresolved cross-ref '{ek}.{an}' → '{tk}'");
+                mod = true; return tk;
             }
-
-            // Recursively walk properties
-            var keys = obj.Keys.ToList();
-            foreach (var key in keys)
-            {
-                var val = obj[key];
-                var resolved = ResolveRefsInNode(val, allKeys, ref modified, ctx, entryKey, aspectName + "." + key);
-                if (resolved != val)
-                {
-                    obj[key] = resolved;
-                    modified = true;
-                }
-            }
+            foreach (var k in obj.Keys.ToList())
+            { var v = obj[k]; var r = ResolveRefs(v, keys, ref mod, ctx, ek, an + "." + k); if (r != v) { obj[k] = r; mod = true; } }
             return obj;
         }
 
         if (node is List<object?> list)
-        {
             for (int i = 0; i < list.Count; i++)
-            {
-                var val = list[i];
-                var resolved = ResolveRefsInNode(val, allKeys, ref modified, ctx, entryKey, aspectName + $"[{i}]");
-                if (resolved != val)
-                {
-                    list[i] = resolved;
-                    modified = true;
-                }
-            }
-            return list;
-        }
+            { var v = list[i]; var r = ResolveRefs(v, keys, ref mod, ctx, ek, an + $"[{i}]"); if (r != v) { list[i] = r; mod = true; } }
 
         return node;
     }

@@ -31,7 +31,7 @@
 	</ItemGroup>
 	<ItemGroup>
 		<Compile Include="..\DataCatalyst.Abstractions\Loader\IDataLoader.cs" Link="Shared\IDataLoader.cs" />
-		<Compile Include="..\DataCatalyst.Core\Storage\RawEntry.cs" Link="Shared\RawEntry.cs" />
+		<Compile Include="..\DataCatalyst.Abstractions\Storage\RawEntry.cs" Link="Shared\RawEntry.cs" />
 		<Compile Include="..\DataCatalyst.Loaders.Json\JsonDataLoader.cs" Link="Shared\JsonDataLoader.cs" />
 	</ItemGroup>
 </Project>

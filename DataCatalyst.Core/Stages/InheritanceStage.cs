@@ -1,19 +1,18 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using PipelineAbstractions = DataCatalyst.Pipeline;
-using StageContext = DataCatalyst.Pipeline.PipelineContext;
+using DataCatalyst.Pipeline;
 using DataCatalyst.Storage;
 
 namespace DataCatalyst.Stages;
 
-internal sealed class InheritanceStage : PipelineAbstractions.IPipelineStage
+internal sealed class InheritanceStage : IPipelineStage
 {
     public string Id => "Inherit";
 
-    public void Execute(StageContext ctx)
+    public void Execute(PipelineContext ctx)
     {
-        var entries = ctx.Bag["RawEntries"] as List<RawEntry>;
+        var entries = ctx.RawEntries;
         if (entries == null) return;
 
         var byKey = entries.ToDictionary(e => e.Key);
@@ -22,42 +21,30 @@ internal sealed class InheritanceStage : PipelineAbstractions.IPipelineStage
 
         void Resolve(RawEntry entry)
         {
-            if (entry.Inherits == null) return;
+            if (entry.Inherits == null || visited.Contains(entry.Key)) return;
             if (visiting.Contains(entry.Key))
-            {
-                ctx.Diagnostics.Error($"Cycle detected: {entry.Key}");
-                return;
-            }
-            if (visited.Contains(entry.Key)) return;
+            { ctx.Diagnostics.Error($"Cycle detected: {entry.Key}"); return; }
 
             visiting.Add(entry.Key);
 
             if (!byKey.TryGetValue(entry.Inherits, out var parent))
             {
                 ctx.Diagnostics.Warn($"Entry '{entry.Key}' inherits from missing '{entry.Inherits}'");
-                visiting.Remove(entry.Key);
-                visited.Add(entry.Key);
-                return;
+                visiting.Remove(entry.Key); visited.Add(entry.Key); return;
             }
 
             Resolve(parent);
 
-            // CopyMissing: parent aspect → child if not present in _rawFields
-            foreach (var kv in parent._rawFields)
-            {
-                if (!entry._rawFields.ContainsKey(kv.Key))
+            foreach (var kv in parent.RawFields)
+                if (!entry.RawFields.ContainsKey(kv.Key))
                 {
-                    entry._rawFields[kv.Key] = kv.Value;
-                    if (!entry._fieldNames.Contains(kv.Key))
-                        entry._fieldNames.Add(kv.Key);
+                    entry.RawFields[kv.Key] = kv.Value;
+                    if (!entry.FieldNames.Contains(kv.Key)) entry.FieldNames.Add(kv.Key);
                 }
-            }
 
-            visiting.Remove(entry.Key);
-            visited.Add(entry.Key);
+            visiting.Remove(entry.Key); visited.Add(entry.Key);
         }
 
-        foreach (var entry in entries)
-            Resolve(entry);
+        foreach (var entry in entries) Resolve(entry);
     }
 }

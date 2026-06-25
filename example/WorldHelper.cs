@@ -1,7 +1,6 @@
 using DataCatalyst;
 using DataCatalyst.World;
-using DataCatalyst.Registry;
-using DataCatalyst.Stages;
+using DataCatalyst.Storage;
 
 namespace Example;
 
@@ -12,7 +11,11 @@ public static class WorldHelper
         where TEntry : struct, IEntry, IBelongTo<TConcept>
         where TAspect : struct
     {
-        var pool = (GenericPool)world.Pools[typeof(TConcept)];
-        return pool.Get<TAspect>(EntryIndex<TEntry>.Value);
+        if (world.Pools.TryGetValue(typeof(TConcept), out var pool))
+        {
+            var index = world.GetEntryIndex(typeof(TEntry));
+            return pool.Get<TAspect>(index);
+        }
+        return default;
     }
 }

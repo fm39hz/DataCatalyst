@@ -27,7 +27,7 @@ public sealed class StorageGenerator : IIncrementalGenerator
                 {
                     var content = text.GetText(ct)?.ToString();
                     if (content == null) return ImmutableArray<RawEntry>.Empty;
-                    return ParseEntries(content, text.Path);
+                    return GeneratorUtils.ParseEntries(content, text.Path);
                 }
                 catch
                 {
@@ -89,7 +89,7 @@ public sealed class StorageGenerator : IIncrementalGenerator
                     foreach (var conceptName in entry.Concepts)
                     {
                         var set = conceptAspects[conceptName];
-                        foreach (var compName in entry._fieldNames)
+                        foreach (var compName in entry.FieldNames)
                         {
                             if (aspectMap.TryGetValue(compName, out var a))
                             {
@@ -104,7 +104,7 @@ public sealed class StorageGenerator : IIncrementalGenerator
 
             foreach (var kv in conceptAspects)
             {
-                var conceptName = SanitizeName(kv.Key);
+                var conceptName = GeneratorUtils.SanitizeName(kv.Key);
                 var aspectsInConcept = kv.Value.OrderBy(a => a.ShortName).ToList();
 
                 var structName = $"{conceptName}Aspects";
@@ -307,15 +307,7 @@ public sealed class StorageGenerator : IIncrementalGenerator
         }
     }
 
-    private static string SanitizeName(string name)
-    {
-        if (string.IsNullOrEmpty(name)) return "Unknown";
-        var chars = name.Select(c => (char.IsLetterOrDigit(c) || c == '_') ? c : '_').ToArray();
-        var result = new string(chars);
-        if (result.Length == 0 || !char.IsLetter(result[0]))
-            result = "_" + result;
-        return result;
-    }
+
 
     private static string GetOrCreateHelperForType(
         ITypeSymbol type,

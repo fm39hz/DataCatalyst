@@ -3,7 +3,6 @@ using System.IO;
 using System.Linq;
 using Example;
 using DataCatalyst.World;
-using DataCatalyst.Registry;
 using DataCatalyst.Pipeline;
 using DataCatalyst.Loaders;
 using DataCatalyst.Generated;

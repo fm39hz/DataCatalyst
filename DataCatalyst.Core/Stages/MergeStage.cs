@@ -1,81 +1,82 @@
 using System;
 using System.Collections.Generic;
-using PipelineAbstractions = DataCatalyst.Pipeline;
-using StageContext = DataCatalyst.Pipeline.PipelineContext;
+using DataCatalyst.Pipeline;
 using DataCatalyst.Storage;
 
 namespace DataCatalyst.Stages;
 
-internal sealed class MergeStage : PipelineAbstractions.IPipelineStage
+internal sealed class MergeStage : IPipelineStage
 {
+    private const int PolicyPatch = 0, PolicyFieldPatch = 1, PolicyOverlay = 2, PolicyReplace = 3;
+
     public string Id => "Merge";
 
-    public void Execute(StageContext ctx)
+    public void Execute(PipelineContext ctx)
     {
-        var entries = ctx.Bag["RawEntries"] as List<RawEntry>;
-        if (entries == null || entries.Count == 0)
-            return;
+        var entries = ctx.RawEntries;
+        if (entries == null || entries.Count == 0) return;
 
-        // Group by key, apply priority-based merge
-        var merged = new Dictionary<string, RawEntry>();
+        var merged = new Dictionary<string, RawEntry>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var entry in entries)
         {
             if (!merged.TryGetValue(entry.Key, out var existing))
+            { merged[entry.Key] = entry; continue; }
+
+            switch (entry.MergePolicyValue)
             {
-                merged[entry.Key] = entry;
-                continue;
+                case PolicyReplace:  Replace(existing, entry);   break;
+                case PolicyOverlay:  Overlay(existing, entry);   break;
+                case PolicyFieldPatch: FieldPatch(existing, entry); break;
+                default:             Patch(existing, entry);     break;
             }
-
-            foreach (var kv in entry._rawFields)
-            {
-                existing._rawFields[kv.Key] = MergeField(existing._rawFields.GetValueOrDefault(kv.Key), kv.Value);
-                if (!existing._fieldNames.Contains(kv.Key))
-                    existing._fieldNames.Add(kv.Key);
-            }
-
-            if (entry.Inherits != null)
-                existing.Inherits = entry.Inherits;
-
             ctx.Diagnostics.Info($"Merged source into '{entry.Key}'");
         }
 
-        // Reassign indices
         var finalList = new List<RawEntry>(merged.Values);
-        for (int i = 0; i < finalList.Count; i++)
-            finalList[i].AssignedIndex = i;
-
-        ctx.Bag["RawEntries"] = finalList;
+        for (int i = 0; i < finalList.Count; i++) finalList[i].AssignedIndex = i;
+        ctx.RawEntries = finalList;
     }
 
-    private static object? MergeField(object? existing, object? incoming)
+    private static void Replace(RawEntry e, RawEntry n)
     {
-        if (existing == null || incoming == null)
-            return incoming ?? existing;
-
-        // Both are dictionaries → recursive deep merge
-        if (existing is Dictionary<string, object?> existDict &&
-            incoming is Dictionary<string, object?> incDict)
-        {
-            foreach (var kv in incDict)
-            {
-                if (existDict.TryGetValue(kv.Key, out var subVal))
-                    existDict[kv.Key] = MergeField(subVal, kv.Value);
-                else
-                    existDict[kv.Key] = kv.Value;
-            }
-            return existDict;
-        }
-
-        // Both are lists → append distinct
-        if (existing is List<object?> existList &&
-            incoming is List<object?> incList)
-        {
-            existList.AddRange(incList);
-            return existList;
-        }
-
-        // Primitives → incoming wins (shallow field replace)
-        return incoming;
+        e.RawFields.Clear(); e.FieldNames.Clear(); e.Components.Clear();
+        e.Concepts = n.Concepts; e.ConceptSet = n.ConceptSet; e.Inherits = n.Inherits;
+        foreach (var kv in n.RawFields) { e.RawFields[kv.Key] = kv.Value; e.FieldNames.Add(kv.Key); }
     }
+
+    private static void Overlay(RawEntry e, RawEntry n)
+    {
+        foreach (var kv in n.RawFields)
+        { e.RawFields[kv.Key] = kv.Value; if (!e.FieldNames.Contains(kv.Key)) e.FieldNames.Add(kv.Key); }
+        if (n.Inherits != null) e.Inherits = n.Inherits;
+    }
+
+    private static void Patch(RawEntry e, RawEntry n)
+    {
+        foreach (var kv in n.RawFields)
+        { e.RawFields[kv.Key] = DeepMerge(e.RawFields.GetValueOrDefault(kv.Key), kv.Value, false); if (!e.FieldNames.Contains(kv.Key)) e.FieldNames.Add(kv.Key); }
+        if (n.Inherits != null) e.Inherits = n.Inherits;
+    }
+
+    private static void FieldPatch(RawEntry e, RawEntry n)
+    {
+        foreach (var kv in n.RawFields)
+        { e.RawFields[kv.Key] = DeepMerge(e.RawFields.GetValueOrDefault(kv.Key), kv.Value, true); if (!e.FieldNames.Contains(kv.Key)) e.FieldNames.Add(kv.Key); }
+        if (n.Inherits != null) e.Inherits = n.Inherits;
+    }
+
+    private static object? DeepMerge(object? x, object? y, bool append)
+    {
+        if (x == null || y == null) return y ?? x;
+        if (x is Dictionary<string, object?> d1 && y is Dictionary<string, object?> d2)
+        {
+            foreach (var kv in d2) { d1.TryGetValue(kv.Key, out var s); d1[kv.Key] = DeepMerge(s, kv.Value, append); }
+            return d1;
+        }
+        if (x is List<object?> l1 && y is List<object?> l2) return append ? (object?)Append(l1, l2) : l2;
+        return y;
+    }
+
+    private static List<object?> Append(List<object?> t, List<object?> s) { t.AddRange(s); return t; }
 }

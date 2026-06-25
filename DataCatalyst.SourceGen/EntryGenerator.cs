@@ -30,7 +30,7 @@ public sealed class EntryGenerator : IIncrementalGenerator
                 {
                     var content = text.GetText(ct)?.ToString();
                     if (content == null) return ImmutableArray<RawEntry>.Empty;
-                    return ParseEntries(content, text.Path);
+                    return GeneratorUtils.ParseEntries(content, text.Path);
                 }
                 catch
                 {
@@ -66,9 +66,9 @@ public sealed class EntryGenerator : IIncrementalGenerator
 
             foreach (var entry in entries)
             {
-                var typeName = SanitizeName(entry.Key);
+                var typeName = GeneratorUtils.SanitizeName(entry.Key);
                 var conceptTypes = entry.Concepts
-                    .Select(c => ParseTypeName($"global::DataCatalyst.Generated.{SanitizeName(c)}"))
+                    .Select(c => ParseTypeName($"global::DataCatalyst.Generated.{GeneratorUtils.SanitizeName(c)}"))
                     .ToArray();
 
                 // Generate: public record struct Goblin : IEntry, IBelongTo<Creature>, IBelongTo<Enemy> { }
@@ -105,49 +105,12 @@ public sealed class EntryGenerator : IIncrementalGenerator
                         SeparatedList<ArgumentSyntax>(
                             entry.Concepts.Select(c =>
                                 Argument(TypeOfExpression(
-                                    ParseTypeName($"global::DataCatalyst.Generated.{SanitizeName(c)}")))))));
+                                    ParseTypeName($"global::DataCatalyst.Generated.{GeneratorUtils.SanitizeName(c)}")))))));
 
                 initStatements.Add(ExpressionStatement(registerCall));
             }
 
-            // Generate EntryIndexAssigner class
-            var assignStatements = new List<StatementSyntax>();
-            foreach (var entry in entries)
-            {
-                var typeName = SanitizeName(entry.Key);
-                var fullEntryType = $"global::DataCatalyst.Generated.Entries.{typeName}";
-                var ifStatement = ParseStatement(
-                    $"if (entryType == typeof({fullEntryType})) global::DataCatalyst.Registry.EntryIndex<{fullEntryType}>.Value = index;\n"
-                );
-                if (ifStatement != null) assignStatements.Add(ifStatement);
-            }
 
-            var assignClass = ClassDeclaration("EntryIndexAssigner")
-                .WithModifiers(TokenList(
-                    Token(SyntaxKind.PublicKeyword),
-                    Token(SyntaxKind.StaticKeyword)))
-                .AddMembers(
-                    MethodDeclaration(PredefinedType(Token(SyntaxKind.VoidKeyword)), "Assign")
-                        .WithModifiers(TokenList(
-                            Token(SyntaxKind.PublicKeyword),
-                            Token(SyntaxKind.StaticKeyword)))
-                        .WithParameterList(ParameterList(SeparatedList<ParameterSyntax>(new[] {
-                            Parameter(Identifier("entryType")).WithType(ParseTypeName("global::System.Type")),
-                            Parameter(Identifier("index")).WithType(PredefinedType(Token(SyntaxKind.IntKeyword)))
-                        })))
-                        .WithBody(Block(assignStatements)));
-
-            entryTypes.Add(assignClass);
-
-            // Register index assigner
-            initStatements.Insert(0, ExpressionStatement(
-                InvocationExpression(
-                    MemberAccessExpression(
-                        SyntaxKind.SimpleMemberAccessExpression,
-                        ParseTypeName("global::DataCatalyst.Registry.EntryRegistry"),
-                        IdentifierName("RegisterIndexAssigner")))
-                .WithArgumentList(ArgumentList(SingletonSeparatedList(
-                    Argument(ParseExpression("global::DataCatalyst.Generated.Entries.EntryIndexAssigner.Assign")))))));
 
             // Generate concept marker types
             var uniqueConcepts = new HashSet<string>();
@@ -158,7 +121,7 @@ public sealed class EntryGenerator : IIncrementalGenerator
             var conceptStructs = new List<MemberDeclarationSyntax>();
             foreach (var c in uniqueConcepts)
             {
-                var cs = StructDeclaration(SanitizeName(c))
+                var cs = StructDeclaration(GeneratorUtils.SanitizeName(c))
                     .WithModifiers(TokenList(
                         Token(SyntaxKind.PublicKeyword)))
                     .WithBaseList(BaseList(SingletonSeparatedList<BaseTypeSyntax>(
@@ -169,7 +132,7 @@ public sealed class EntryGenerator : IIncrementalGenerator
             // Register pool factories for each concept
             foreach (var c in uniqueConcepts)
             {
-                var conceptName = SanitizeName(c);
+                var conceptName = GeneratorUtils.SanitizeName(c);
                 var conceptType = $"global::DataCatalyst.Generated.{conceptName}";
                 var poolType = $"global::DataCatalyst.Generated.{conceptName}Pool";
                 
@@ -247,16 +210,7 @@ public sealed class EntryGenerator : IIncrementalGenerator
         }
     }
 
-    private static string SanitizeName(string name)
-    {
-        if (string.IsNullOrEmpty(name)) return "Unknown";
-        // Remove invalid chars, ensure starts with letter
-        var chars = name.Select(c => (char.IsLetterOrDigit(c) || c == '_') ? c : '_').ToArray();
-        var result = new string(chars);
-        if (result.Length == 0 || !char.IsLetter(result[0]))
-            result = "_" + result;
-        return result;
-    }
+
 
     private readonly record struct EntryData(string Key, ImmutableArray<string> Concepts);
 }
