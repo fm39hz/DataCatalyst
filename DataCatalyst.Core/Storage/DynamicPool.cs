@@ -20,17 +20,20 @@ internal sealed class DynamicPool : IStoragePool {
 		}
 	}
 
-	public void Set<T>(int index, T value) where T : struct { if (index >= 0 && index < _typedRow.Count) {
+	public void Set<T>(int index, T value) where T : struct {
+		if (index >= 0 && index < _typedRow.Count) {
 			_typedRow[index][typeof(T)] = value;
 		}
 	}
 
-	public void SetRaw(int index, Type type, object value) { if (index >= 0 && index < _typedRow.Count) {
+	public void SetRaw(int index, Type type, object value) {
+		if (index >= 0 && index < _typedRow.Count) {
 			_typedRow[index][type] = value;
 		}
 	}
 
-	public void SetRawValue(int index, int aspectId, object? value) { if (index >= 0 && index < _rawRow.Count) {
+	public void SetRawValue(int index, int aspectId, object? value) {
+		if (index >= 0 && index < _rawRow.Count) {
 			_rawRow[index][aspectId] = value;
 		}
 	}

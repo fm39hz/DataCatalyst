@@ -1,15 +1,13 @@
 namespace DataCatalyst.StateEngine.Core;
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using DataCatalyst.Compare;
 using DataCatalyst.Composition;
 using DataCatalyst.StateEngine.Models;
-using WorldAbstractions = DataCatalyst.World;
 
 public static class StateEngineBaker {
-	public static BakedStateGroup Bake(StateGroup group, WorldAbstractions.World? world) {
+	public static BakedStateGroup Bake(StateGroup group, DataCatalyst.World.World? world) {
 		if (group.States == null || group.States.Count == 0) {
 			return new BakedStateGroup { GroupId = group.GroupId };
 		}
@@ -120,7 +118,7 @@ public static class StateEngineBaker {
 		};
 	}
 
-	private static BakedSensorCondition BakeCondition(SensorConditionDef c) => new BakedSensorCondition {
+	private static BakedSensorCondition BakeCondition(SensorConditionDef c) => new() {
 		SignalId = c.Signal.GetHashCode(),
 		Op = OperatorParser.Parse(c.Op),
 		Value = c.Value,

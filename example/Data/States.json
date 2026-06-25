@@ -1,7 +1,77 @@
 {
     "BasicAI": {
         "$GameState": {
-            "StateGroup": { "GroupId": "BasicAI", "DefaultState": "Idle" }
+            "StateGroup": {
+                "GroupId": "BasicAI",
+                "DefaultState": "Idle",
+                "States": {
+                    "Idle": {
+                        "Transitions": [
+                            {
+                                "TargetState": "WalkNorth",
+                                "Priority": 10,
+                                "Conditions": {
+                                    "All": [
+                                        { "Signal": "Timer", "Op": ">", "Value": 1.0 }
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    "WalkNorth": {
+                        "Transitions": [
+                            {
+                                "TargetState": "WalkEast",
+                                "Priority": 10,
+                                "Conditions": {
+                                    "All": [
+                                        { "Signal": "Timer", "Op": ">", "Value": 2.0 }
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    "WalkEast": {
+                        "Transitions": [
+                            {
+                                "TargetState": "WalkSouth",
+                                "Priority": 10,
+                                "Conditions": {
+                                    "All": [
+                                        { "Signal": "Timer", "Op": ">", "Value": 3.0 }
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    "WalkSouth": {
+                        "Transitions": [
+                            {
+                                "TargetState": "WalkWest",
+                                "Priority": 10,
+                                "Conditions": {
+                                    "All": [
+                                        { "Signal": "Timer", "Op": ">", "Value": 4.0 }
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    "WalkWest": {
+                        "Transitions": [
+                            {
+                                "TargetState": "Idle",
+                                "Priority": 10,
+                                "Conditions": {
+                                    "All": [
+                                        { "Signal": "Timer", "Op": ">", "Value": 5.0 }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
         }
     }
 }

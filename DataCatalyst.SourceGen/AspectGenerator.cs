@@ -2,7 +2,6 @@ namespace DataCatalyst.V2;
 
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -237,6 +236,7 @@ public sealed class AspectGenerator : IIncrementalGenerator {
 			}
 
 			var aspectDict = aspects.ToDictionary(a => a!.Name, a => a!, StringComparer.OrdinalIgnoreCase);
+			var aspectNames = new HashSet<string>(aspects.Select(a => a!.Name), StringComparer.OrdinalIgnoreCase);
 			var conceptNames = new HashSet<string>(concepts.Select(c => c!.Name), StringComparer.OrdinalIgnoreCase);
 
 			var entryConcepts = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
@@ -334,7 +334,7 @@ public sealed class AspectGenerator : IIncrementalGenerator {
 									   pType.EndsWith("double") || pType.EndsWith("System.Double") ||
 									   pType.EndsWith("bool") || pType.EndsWith("System.Boolean");
 					var defVal = (isValueType || isNullable) ? $"default({pType})" : $"default({pType})!";
-					setters.Add($"    {pName} = __dict.TryGetValue(\"{pName}\", out var __v{deserIdx}_{pName}) && __v{deserIdx}_{pName} != null ? {Cast(pType, "__v" + deserIdx + "_" + pName)} : {defVal}");
+					setters.Add($"    {pName} = __dict.TryGetValue(\"{pName}\", out var __v{deserIdx}_{pName}) && __v{deserIdx}_{pName} != null ? {Cast(pType, "__v" + deserIdx + "_" + pName, aspectNames)} : {defVal}");
 				}
 
 				var helperName = $"__Deser_{nm}";
@@ -488,7 +488,31 @@ public sealed class {cn}Pool : global::DataCatalyst.Storage.IStoragePool {{
 		return new ConceptInfo(name, ns);
 	}
 
-	private static string Cast(string type, string varName) {
+	private static bool IsList(string type, out string innerType) {
+		innerType = "";
+		var idx = type.IndexOf("List<");
+		if (idx >= 0 && type.EndsWith(">")) {
+			var start = idx + 5;
+			innerType = type.Substring(start, type.Length - start - 1).Trim();
+			return true;
+		}
+		return false;
+	}
+
+	private static bool IsDictionary(string type, out string innerType) {
+		innerType = "";
+		var idx = type.IndexOf("Dictionary<");
+		if (idx >= 0 && type.EndsWith(">")) {
+			var comma = type.LastIndexOf(',');
+			if (comma >= 0) {
+				innerType = type.Substring(comma + 1, type.Length - comma - 2).Trim();
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static string Cast(string type, string varName, HashSet<string> aspectNames) {
 		if (type.EndsWith("int") || type.EndsWith("System.Int32")) {
 			return $"global::System.Convert.ToInt32({varName})";
 		}
@@ -512,6 +536,26 @@ public sealed class {cn}Pool : global::DataCatalyst.Storage.IStoragePool {{
 		if (type.EndsWith("string") || type.EndsWith("System.String")) {
 			return type.EndsWith("?") ? $"global::System.Convert.ToString({varName})" : $"global::System.Convert.ToString({varName})!";
 		}
+
+		var cleanType = type.TrimEnd('?');
+		var simpleName = cleanType.Substring(cleanType.LastIndexOf('.') + 1);
+
+		if (IsList(cleanType, out var innerType)) {
+			return type.EndsWith("?")
+				? $"({varName} is global::System.Collections.Generic.IList<object?> __en_{varName} ? global::System.Linq.Enumerable.ToList(global::System.Linq.Enumerable.Select(__en_{varName}, __x => {Cast(innerType, "__x", aspectNames)})) : null)"
+				: $"global::System.Linq.Enumerable.ToList(global::System.Linq.Enumerable.Select((global::System.Collections.Generic.IList<object?>){varName}, __x => {Cast(innerType, "__x", aspectNames)}))";
+		}
+
+		if (IsDictionary(cleanType, out var dictValueType)) {
+			return type.EndsWith("?")
+				? $"({varName} is global::System.Collections.Generic.IDictionary<string, object?> __dict_{varName} ? global::System.Linq.Enumerable.ToDictionary(__dict_{varName}, __de => __de.Key, __de => {Cast(dictValueType, "__de.Value", aspectNames)}, global::System.StringComparer.OrdinalIgnoreCase) : null)"
+				: $"global::System.Linq.Enumerable.ToDictionary((global::System.Collections.Generic.IDictionary<string, object?>){varName}, __de => __de.Key, __de => {Cast(dictValueType, "__de.Value", aspectNames)}, global::System.StringComparer.OrdinalIgnoreCase)";
+		}
+
+		if (aspectNames.Contains(simpleName)) {
+			return $"__Deser_{Sanitize(simpleName)}({varName})";
+		}
+
 		return type.EndsWith("?") ? $"({type}){varName}" : $"({type}){varName}!";
 	}
 

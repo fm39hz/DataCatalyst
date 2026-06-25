@@ -25,7 +25,6 @@
 
 
 	<ItemGroup>
-		<Compile Include="$(MSBuildThisFileDirectory)Polyfill.cs" Visible="false"/>
 		<PackageReference Include="MinVer" PrivateAssets="All"/>
 	</ItemGroup>
 </Project>

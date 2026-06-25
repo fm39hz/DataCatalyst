@@ -7,7 +7,7 @@ using DataCatalyst.Loader;
 using DataCatalyst.Registry;
 using DataCatalyst.Schema;
 using DataCatalyst.Storage;
-using WorldAbstractions = World;
+
 
 public sealed class Pipeline {
 	private readonly List<DataSource> _sources = [];
@@ -17,7 +17,7 @@ public sealed class Pipeline {
 	public Pipeline AddSource(string name, IDataLoader loader, string path,
 		Action<DataSource>? configure = null) { var s = new DataSource(name, loader, path); configure?.Invoke(s); _sources.Add(s); return this; }
 
-	public WorldAbstractions.World Build(out DiagnosticBag diagnostics) {
+	public DataCatalyst.World.World Build(out DiagnosticBag diagnostics) {
 		diagnostics = new DiagnosticBag();
 		var ctx = new PipelineContext();
 		ResolveSources(ctx);
@@ -193,7 +193,9 @@ public sealed class Pipeline {
 			if (!byKey.TryGetValue(e.Inherits, out var p)) { ctx.Diagnostics.Warn($"Missing parent '{e.Inherits}'"); visiting.Remove(e.Key); visited.Add(e.Key); return; }
 			Resolve(p);
 			foreach (var kv in p.RawFields) {
-				if (!e.RawFields.ContainsKey(kv.Key)) { e.RawFields[kv.Key] = kv.Value; if (!e.FieldNames.Contains(kv.Key)) {
+				if (!e.RawFields.ContainsKey(kv.Key)) {
+					e.RawFields[kv.Key] = kv.Value;
+					if (!e.FieldNames.Contains(kv.Key)) {
 						e.FieldNames.Add(kv.Key);
 					}
 				}
@@ -263,7 +265,9 @@ public sealed class Pipeline {
 				}
 
 				if (AspectTypeRegistry.TryGetType(aname, out var t) && t != null) {
-					try { var d = AspectTypeRegistry.Deserialize(t, raw); if (d != null) {
+					try {
+						var d = AspectTypeRegistry.Deserialize(t, raw);
+						if (d != null) {
 							entry.Components[t] = d;
 						}
 					}
@@ -337,7 +341,7 @@ public sealed class Pipeline {
 				}
 			}
 		}
-		ctx.World = WorldAbstractions.WorldFactory.Create(pools, entryIndices, Schema);
+		ctx.World = DataCatalyst.World.WorldFactory.Create(pools, entryIndices, Schema);
 		ctx.Diagnostics.Info($"Built {pools.Count} concept pools");
 	}
 
@@ -383,24 +387,36 @@ public sealed class Pipeline {
 	}
 
 	private static void DoReplace(RawEntry e, RawEntry n) { e.RawFields.Clear(); e.FieldNames.Clear(); e.Components.Clear(); e.Concepts = n.Concepts; e.ConceptSet = n.ConceptSet; e.Inherits = n.Inherits; foreach (var kv in n.RawFields) { e.RawFields[kv.Key] = kv.Value; e.FieldNames.Add(kv.Key); } }
-	private static void DoOverlay(RawEntry e, RawEntry n) { foreach (var kv in n.RawFields) { e.RawFields[kv.Key] = kv.Value; if (!e.FieldNames.Contains(kv.Key)) {
+	private static void DoOverlay(RawEntry e, RawEntry n) {
+		foreach (var kv in n.RawFields) {
+			e.RawFields[kv.Key] = kv.Value;
+			if (!e.FieldNames.Contains(kv.Key)) {
 				e.FieldNames.Add(kv.Key);
 			}
-		} if (n.Inherits != null) {
+		}
+		if (n.Inherits != null) {
 			e.Inherits = n.Inherits;
 		}
 	}
-	private static void DoPatch(RawEntry e, RawEntry n) { foreach (var kv in n.RawFields) { e.RawFields[kv.Key] = DeepMerge(e.RawFields.GetValueOrDefault(kv.Key), kv.Value, false); if (!e.FieldNames.Contains(kv.Key)) {
+	private static void DoPatch(RawEntry e, RawEntry n) {
+		foreach (var kv in n.RawFields) {
+			e.RawFields[kv.Key] = DeepMerge(e.RawFields.GetValueOrDefault(kv.Key), kv.Value, false);
+			if (!e.FieldNames.Contains(kv.Key)) {
 				e.FieldNames.Add(kv.Key);
 			}
-		} if (n.Inherits != null) {
+		}
+		if (n.Inherits != null) {
 			e.Inherits = n.Inherits;
 		}
 	}
-	private static void DoFieldPatch(RawEntry e, RawEntry n) { foreach (var kv in n.RawFields) { e.RawFields[kv.Key] = DeepMerge(e.RawFields.GetValueOrDefault(kv.Key), kv.Value, true); if (!e.FieldNames.Contains(kv.Key)) {
+	private static void DoFieldPatch(RawEntry e, RawEntry n) {
+		foreach (var kv in n.RawFields) {
+			e.RawFields[kv.Key] = DeepMerge(e.RawFields.GetValueOrDefault(kv.Key), kv.Value, true);
+			if (!e.FieldNames.Contains(kv.Key)) {
 				e.FieldNames.Add(kv.Key);
 			}
-		} if (n.Inherits != null) {
+		}
+		if (n.Inherits != null) {
 			e.Inherits = n.Inherits;
 		}
 	}

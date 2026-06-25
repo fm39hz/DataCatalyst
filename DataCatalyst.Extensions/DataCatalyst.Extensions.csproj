@@ -9,5 +9,6 @@
 	<ItemGroup>
 		<ProjectReference Include="..\DataCatalyst.Abstractions\DataCatalyst.Abstractions.csproj"/>
 		<ProjectReference Include="..\DataCatalyst.Core\DataCatalyst.Core.csproj"/>
+		<ProjectReference Include="..\DataCatalyst.SourceGen\DataCatalyst.SourceGen.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 	</ItemGroup>
 </Project>

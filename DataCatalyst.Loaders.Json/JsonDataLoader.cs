@@ -6,23 +6,23 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using DataCatalyst.Storage;
-using LoaderAbstractions = DataCatalyst.Loader;
+using DataCatalyst.Loader;
 
-public sealed class JsonDataLoader : LoaderAbstractions.IDataLoader {
-	public LoaderAbstractions.LoadResult Load(string content, string fallbackKey) {
-		var result = new LoaderAbstractions.LoadResult();
+public sealed class JsonDataLoader : IDataLoader {
+	public LoadResult Load(string content, string fallbackKey) {
+		var result = new LoadResult();
 		try { ParseJson(content, fallbackKey, result); }
 		catch (Exception ex) { result._diagnostics.Add($"Error parsing JSON for '{fallbackKey}': {ex.Message}"); }
 		return result;
 	}
 
-	public LoaderAbstractions.LoadResult LoadFile(string path) {
+	public LoadResult LoadFile(string path) {
 		try { return Load(File.ReadAllText(path), Path.GetFileNameWithoutExtension(path)); }
-		catch (Exception ex) { var r = new LoaderAbstractions.LoadResult(); r._diagnostics.Add($"Error loading '{path}': {ex.Message}"); return r; }
+		catch (Exception ex) { var r = new LoadResult(); r._diagnostics.Add($"Error loading '{path}': {ex.Message}"); return r; }
 	}
 
-	public LoaderAbstractions.LoadResult LoadDirectory(string path) {
-		var result = new LoaderAbstractions.LoadResult();
+	public LoadResult LoadDirectory(string path) {
+		var result = new LoadResult();
 		if (!Directory.Exists(path)) { result._diagnostics.Add($"Directory not found: {path}"); return result; }
 		foreach (var file in Directory.EnumerateFiles(path, "*.json")) {
 			var fr = LoadFile(file);
@@ -43,7 +43,7 @@ public sealed class JsonDataLoader : LoaderAbstractions.IDataLoader {
 		return result;
 	}
 
-	private static void ParseJson(string json, string fallbackKey, LoaderAbstractions.LoadResult result) {
+	private static void ParseJson(string json, string fallbackKey, LoadResult result) {
 		using var doc = JsonDocument.Parse(json);
 		var root = doc.RootElement;
 		var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -59,7 +59,7 @@ public sealed class JsonDataLoader : LoaderAbstractions.IDataLoader {
 		}
 	}
 
-	private static bool TryExtractEntry(JsonElement obj, string? parentKey, string? fn, LoaderAbstractions.LoadResult result,
+	private static bool TryExtractEntry(JsonElement obj, string? parentKey, string? fn, LoadResult result,
 		HashSet<string> visited) {
 		if (obj.ValueKind != JsonValueKind.Object) {
 			return false;

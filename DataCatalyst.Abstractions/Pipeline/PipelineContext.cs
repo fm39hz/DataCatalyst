@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using DataCatalyst.Loader;
 using DataCatalyst.Storage;
-using WorldType = DataCatalyst.World.World;
+using WorldType = World.World;
 
 public sealed class PipelineContext {
 	public DiagnosticBag Diagnostics { get; } = new();

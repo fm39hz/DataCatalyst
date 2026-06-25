@@ -28,8 +28,7 @@ public struct PatrolRadius { public int Meters { get; set; } }
 [GameAspect]
 public struct Durability { public int Points { get; set; } }
 
-[GameAspect]
-public struct StateGroup { public string GroupId { get; set; } public string DefaultState { get; set; } }
+
 
 [GameAspect]
 public struct Stamina { public int Current { get; set; } public int Max { get; set; } }
