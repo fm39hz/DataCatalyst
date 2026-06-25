@@ -23,6 +23,15 @@
 		<IsAotCompatible>true</IsAotCompatible>
 	</PropertyGroup>
 
+	<PropertyGroup Condition="'$(IsPackable)' != 'false'">
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+	</PropertyGroup>
+
+	<ItemGroup Condition="'$(IsPackable)' != 'false'">
+		<None Include="README.md" Pack="true" PackagePath="\" Condition="Exists('README.md')" />
+		<None Include="..\README.md" Pack="true" PackagePath="\" Condition="!Exists('README.md') And Exists('..\README.md')" />
+	</ItemGroup>
+
 
 	<ItemGroup>
 		<PackageReference Include="MinVer" PrivateAssets="All"/>
