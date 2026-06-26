@@ -67,7 +67,7 @@ var baked = knowledge.GetBaked<BakedStateGroup, global::DataCatalyst.Generated.B
 Ref<State> currentState = baked.DefaultState;
 Console.WriteLine($"Initial State: {currentState}");
 
-var viableStates = new HashSet<Ref<State>>();
+var viableStatesList = new List<Ref<State>>();
 foreach (var name in stateGroupDef.States) {
     Type? stateType = null;
     foreach (var r in BeingRegistry.All) {
@@ -77,9 +77,10 @@ foreach (var name in stateGroupDef.States) {
         }
     }
     if (stateType != null) {
-        viableStates.Add(new Ref<State>(stateType));
+        viableStatesList.Add(new Ref<State>(stateType));
     }
 }
+var viableStates = viableStatesList.ToArray();
 
 float timer = 0.0f;
 
@@ -91,17 +92,12 @@ for (int step = 1; step <= 10; step++)
         timer = 0.0f; // reset timer loop
     }
 
+    var reader = new SimulationSensorReader { Timer = timer };
     var evalResult = StateEngineEvaluator.Evaluate(
         currentState,
         baked,
         viableStates,
-        sensor => {
-            if (sensor == typeof(global::DataCatalyst.Generated.Timer))
-            {
-                return timer;
-            }
-            return 0f;
-        }
+        ref reader
     );
 
     if (evalResult.HasValue && !evalResult.TargetState.Equals(currentState))
@@ -118,3 +114,15 @@ for (int step = 1; step <= 10; step++)
 }
 
 Console.WriteLine($"\nDone.");
+
+struct SimulationSensorReader : ISensorReader {
+    public float Timer;
+
+    public float ReadSensor(Ref<Sensor> sensor) {
+        if (sensor == typeof(global::DataCatalyst.Generated.Timer))
+        {
+            return Timer;
+        }
+        return 0f;
+    }
+}

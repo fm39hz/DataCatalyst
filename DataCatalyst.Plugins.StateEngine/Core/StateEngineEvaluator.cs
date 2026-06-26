@@ -1,25 +1,27 @@
 namespace DataCatalyst.StateEngine.Core;
 
 using System;
-using System.Collections.Generic;
 using DataCatalyst;
 using DataCatalyst.Generated;
 using DataCatalyst.StateEngine.Models;
 
+public interface ISensorReader {
+	float ReadSensor(Ref<Sensor> sensor);
+}
+
 public static class StateEngineEvaluator {
-	public readonly ref struct Result(Ref<State> targetState, bool hasValue) {
+	public readonly struct Result(Ref<State> targetState, bool hasValue) {
 		public Ref<State> TargetState { get; } = targetState;
 		public bool HasValue { get; } = hasValue;
 	}
 
-	public static Result Evaluate(
+	// High-Performance Struct-Reader overload
+	public static Result Evaluate<TReader>(
 		Ref<State> currentState,
 		BakedStateGroup group,
-		IReadOnlyCollection<Ref<State>> viableStates,
-		Func<Ref<Sensor>, float> readSensor) {
+		ReadOnlySpan<Ref<State>> viableStates,
+		ref TReader reader) where TReader : struct, ISensorReader {
 		ArgumentNullException.ThrowIfNull(group);
-		ArgumentNullException.ThrowIfNull(viableStates);
-		ArgumentNullException.ThrowIfNull(readSensor);
 
 		if (!group.States.TryGetValue(currentState, out var currentBakedState)) {
 			return new Result(default, false);
@@ -35,14 +37,14 @@ public static class StateEngineEvaluator {
 				continue;
 			}
 
-			if (!PassConditions(t, currentState, t.TargetState, readSensor)) {
+			if (!PassConditions(t, currentState, t.TargetState, ref reader)) {
 				continue;
 			}
 
 			var priority = t.BasePriority;
 			var influences = t.Influences;
 			for (var j = 0; j < influences.Length; j++) {
-				priority += readSensor(influences[j].Sensor) * influences[j].Weight;
+				priority += reader.ReadSensor(influences[j].Sensor) * influences[j].Weight;
 			}
 
 			if (priority > bestPriority) {
@@ -56,18 +58,35 @@ public static class StateEngineEvaluator {
 			: new Result(default, false);
 	}
 
-	private static bool Contains(IReadOnlyCollection<Ref<State>> collection, Ref<State> item) {
-		if (collection is HashSet<Ref<State>> hs) {
-			return hs.Contains(item);
+	// Delegate-based wrapper struct
+	private struct DelegateSensorReader(Func<Ref<Sensor>, float> readSensor) : ISensorReader {
+		private readonly Func<Ref<Sensor>, float> _readSensor = readSensor;
+
+		public readonly float ReadSensor(Ref<Sensor> sensor) {
+			return _readSensor(sensor);
 		}
-		foreach (var x in collection) {
-			if (x.Equals(item)) return true;
+	}
+
+	// Delegate-based overload (wraps the delegate and delegates to the struct-based Evaluate)
+	public static Result Evaluate(
+		Ref<State> currentState,
+		BakedStateGroup group,
+		ReadOnlySpan<Ref<State>> viableStates,
+		Func<Ref<Sensor>, float> readSensor) {
+		ArgumentNullException.ThrowIfNull(readSensor);
+		var reader = new DelegateSensorReader(readSensor);
+		return Evaluate(currentState, group, viableStates, ref reader);
+	}
+
+	private static bool Contains(ReadOnlySpan<Ref<State>> span, Ref<State> item) {
+		for (var i = 0; i < span.Length; i++) {
+			if (span[i].Equals(item)) return true;
 		}
 		return false;
 	}
 
-	private static bool PassConditions(BakedTransition t, Ref<State> currentId, Ref<State> targetId,
-		Func<Ref<Sensor>, float> readSensor) {
+	private static bool PassConditions<TReader>(BakedTransition t, Ref<State> currentId, Ref<State> targetId,
+		ref TReader reader) where TReader : struct, ISensorReader {
 		if (t.Conditions == null) {
 			return true;
 		}
@@ -77,7 +96,7 @@ public static class StateEngineEvaluator {
 
 		var all = conds.All;
 		for (var i = 0; i < all.Length; i++) {
-			if (!EvalSensor(all[i], readSensor, atTarget)) {
+			if (!EvalSensor(all[i], ref reader, atTarget)) {
 				return false;
 			}
 		}
@@ -86,7 +105,7 @@ public static class StateEngineEvaluator {
 		if (any.Length > 0) {
 			var anyOk = false;
 			for (var i = 0; i < any.Length; i++) {
-				if (EvalSensor(any[i], readSensor, atTarget)) { anyOk = true; break; }
+				if (EvalSensor(any[i], ref reader, atTarget)) { anyOk = true; break; }
 			}
 
 			if (!anyOk) {
@@ -96,7 +115,7 @@ public static class StateEngineEvaluator {
 
 		var none = conds.None;
 		for (var i = 0; i < none.Length; i++) {
-			if (EvalSensor(none[i], readSensor, atTarget)) {
+			if (EvalSensor(none[i], ref reader, atTarget)) {
 				return false;
 			}
 		}
@@ -104,8 +123,9 @@ public static class StateEngineEvaluator {
 		return true;
 	}
 
-	private static bool EvalSensor(BakedSensorCondition c, Func<Ref<Sensor>, float> readSensor, bool atTarget) {
-		var value = readSensor(c.Sensor);
+	private static bool EvalSensor<TReader>(BakedSensorCondition c, ref TReader reader, bool atTarget) 
+		where TReader : struct, ISensorReader {
+		var value = reader.ReadSensor(c.Sensor);
 		var threshold = atTarget && c.ExitValue.HasValue ? c.ExitValue.Value : c.Value;
 		return Compare.OperatorParser.Evaluate(value, c.Op, threshold);
 	}

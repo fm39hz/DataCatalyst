@@ -1,6 +1,6 @@
 namespace DataCatalyst.StateEngine.Models;
 
-using System.Collections.Generic;
+using System.Collections.Frozen;
 using DataCatalyst;
 using DataCatalyst.Compare;
 using DataCatalyst.Generated;
@@ -8,8 +8,7 @@ using DataCatalyst.Generated;
 public sealed class BakedStateGroup {
 	public string GroupId { get; init; } = string.Empty;
 	public Ref<State> DefaultState { get; set; }
-	public IReadOnlyDictionary<Ref<State>, BakedState> States => MutableStates;
-	internal Dictionary<Ref<State>, BakedState> MutableStates { get; } = [];
+	public FrozenDictionary<Ref<State>, BakedState> States { get; init; } = FrozenDictionary<Ref<State>, BakedState>.Empty;
 }
 
 public sealed class BakedState {

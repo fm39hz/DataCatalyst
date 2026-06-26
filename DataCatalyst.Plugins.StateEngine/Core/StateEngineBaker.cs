@@ -1,6 +1,7 @@
 namespace DataCatalyst.StateEngine.Core;
 
 using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Linq;
 using DataCatalyst;
@@ -32,12 +33,11 @@ public class StateEngineBaker : global::DataCatalyst.Pipeline.IBaker<StateGroup,
 		ArgumentNullException.ThrowIfNull(beingKey);
 		ArgumentNullException.ThrowIfNull(knowledge);
 
-		var bakedGroup = new BakedStateGroup {
-			GroupId = beingKey,
-		};
-
 		if (source.States == null || source.States.Count == 0) {
-			return bakedGroup;
+			return new BakedStateGroup {
+				GroupId = beingKey,
+				States = FrozenDictionary<Ref<State>, BakedState>.Empty
+			};
 		}
 
 		// Collect all state types
@@ -54,20 +54,14 @@ public class StateEngineBaker : global::DataCatalyst.Pipeline.IBaker<StateGroup,
 			stateTypes.Add(stateType);
 		}
 
-		if (!string.IsNullOrEmpty(source.DefaultState)) {
-			var defType = FindBeingType(source.DefaultState);
-			if (defType != null && stateTypes.Contains(defType)) {
-				bakedGroup.DefaultState = new Ref<State>(defType);
-			}
-			else {
-				diagnostics.Warn($"Default state '{source.DefaultState}' in group '{beingKey}' not found or not in group states list");
-			}
-		}
-
+		var statesMap = new Dictionary<Ref<State>, BakedState>();
 		var statePool = knowledge.GetPool(typeof(global::DataCatalyst.Generated.State));
 		if (statePool == null) {
 			diagnostics.Error("State concept pool not found in world");
-			return bakedGroup;
+			return new BakedStateGroup {
+				GroupId = beingKey,
+				States = FrozenDictionary<Ref<State>, BakedState>.Empty
+			};
 		}
 
 		foreach (var stateName in source.States) {
@@ -117,10 +111,25 @@ public class StateEngineBaker : global::DataCatalyst.Pipeline.IBaker<StateGroup,
 			bakedTransitions.Sort(static (a, b) => b.BasePriority.CompareTo(a.BasePriority));
 
 			var refState = new Ref<State>(stateType);
-			bakedGroup.MutableStates[refState] = new BakedState {
+			statesMap[refState] = new BakedState {
 				State = refState,
 				Transitions = [.. bakedTransitions],
 			};
+		}
+
+		var bakedGroup = new BakedStateGroup {
+			GroupId = beingKey,
+			States = statesMap.ToFrozenDictionary()
+		};
+
+		if (!string.IsNullOrEmpty(source.DefaultState)) {
+			var defType = FindBeingType(source.DefaultState);
+			if (defType != null && stateTypes.Contains(defType)) {
+				bakedGroup.DefaultState = new Ref<State>(defType);
+			}
+			else {
+				diagnostics.Warn($"Default state '{source.DefaultState}' in group '{beingKey}' not found or not in group states list");
+			}
 		}
 
 		return bakedGroup;
