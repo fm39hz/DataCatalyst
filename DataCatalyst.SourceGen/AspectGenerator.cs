@@ -225,12 +225,14 @@ public sealed class AspectGenerator : IIncrementalGenerator {
 
 		var combined = aspectDeclarations.Collect()
 			.Combine(conceptDeclarations.Collect())
-			.Combine(jsonData);
+			.Combine(jsonData)
+			.Combine(context.CompilationProvider);
 
 		context.RegisterSourceOutput(combined, (spc, input) => {
-			var aspects = input.Left.Left;
-			var concepts = input.Left.Right;
-			var jsonData = input.Right;
+			var aspects = input.Left.Left.Left;
+			var concepts = input.Left.Left.Right;
+			var jsonData = input.Left.Right;
+			var compilation = input.Right;
 
 			if (aspects.Length == 0 && concepts.Length == 0) {
 				return;
@@ -239,6 +241,17 @@ public sealed class AspectGenerator : IIncrementalGenerator {
 			var aspectDict = aspects.ToDictionary(a => a!.Name, a => a!, StringComparer.OrdinalIgnoreCase);
 			var aspectNames = new HashSet<string>(aspects.Select(a => a!.Name), StringComparer.OrdinalIgnoreCase);
 			var conceptNames = new HashSet<string>(concepts.Select(c => c!.Name), StringComparer.OrdinalIgnoreCase);
+
+			var conceptAttr = compilation.GetTypeByMetadataName("DataCatalyst.Attributes.GameConceptAttribute");
+			var conceptInterface = compilation.GetTypeByMetadataName("DataCatalyst.IConcept");
+
+			foreach (var assembly in compilation.SourceModule.ReferencedAssemblySymbols) {
+				var name = assembly.Name;
+				var isSystem = name.StartsWith("System") || name.StartsWith("Microsoft") || name == "mscorlib" || name == "netstandard" || name.StartsWith("Windows") || name.StartsWith("Mono");
+				if (!isSystem) {
+					FindConceptsInNamespace(assembly.GlobalNamespace, conceptAttr, conceptInterface, conceptNames);
+				}
+			}
 
 			var beingConcepts = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
 			var conceptAspects = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
@@ -538,6 +551,19 @@ public sealed class {cn}Pool : global::DataCatalyst.Storage.IStoragePool {{
 			return type.EndsWith("?") ? $"global::System.Convert.ToString({varName})" : $"global::System.Convert.ToString({varName})!";
 		}
 
+		if (type.EndsWith("System.Type") || type.EndsWith("Type") || type.EndsWith("System.Type?") || type.EndsWith("Type?")) {
+			var isNullable = type.EndsWith("?");
+			var fallback = isNullable ? "null" : "default(global::System.Type)!";
+			return $"(global::System.Convert.ToString({varName}) is string __s_{varName} ? (global::System.Linq.Enumerable.FirstOrDefault(global::DataCatalyst.Registry.BeingRegistry.All, r => r.BeingType.Name.Equals(__s_{varName}, global::System.StringComparison.OrdinalIgnoreCase)).BeingType ?? {fallback}) : {fallback})";
+		}
+
+		if (type.Contains("DataCatalyst.Ref<") || type.Contains("Ref<")) {
+			var refCleanType = type.TrimEnd('?');
+			var isNullable = type.EndsWith("?");
+			var fallback = isNullable ? "null" : $"default({refCleanType})";
+			return $"(global::System.Convert.ToString({varName}) is string __s_{varName} && global::System.Linq.Enumerable.FirstOrDefault(global::DataCatalyst.Registry.BeingRegistry.All, r => r.BeingType.Name.Equals(__s_{varName}, global::System.StringComparison.OrdinalIgnoreCase)).BeingType is global::System.Type __t_{varName} ? new {refCleanType}(__t_{varName}) : {fallback})";
+		}
+
 		var cleanType = type.TrimEnd('?');
 		var simpleName = cleanType.Substring(cleanType.LastIndexOf('.') + 1);
 
@@ -567,5 +593,27 @@ public sealed class {cn}Pool : global::DataCatalyst.Storage.IStoragePool {{
 
 		var c = n.Select(ch => char.IsLetterOrDigit(ch) || ch == '_' ? ch : '_').ToArray();
 		return new string(c).Length > 0 ? new string(c) : "_";
+	}
+
+	private static void FindConceptsInNamespace(INamespaceSymbol ns, INamedTypeSymbol? conceptAttr, INamedTypeSymbol? conceptInterface, HashSet<string> conceptNames) {
+		foreach (var member in ns.GetMembers()) {
+			if (member is INamespaceSymbol nestedNs) {
+				FindConceptsInNamespace(nestedNs, conceptAttr, conceptInterface, conceptNames);
+			} else if (member is INamedTypeSymbol typeSymbol) {
+				if (IsConcept(typeSymbol, conceptAttr, conceptInterface)) {
+					conceptNames.Add(typeSymbol.Name);
+				}
+			}
+		}
+	}
+
+	private static bool IsConcept(INamedTypeSymbol typeSymbol, INamedTypeSymbol? conceptAttr, INamedTypeSymbol? conceptInterface) {
+		if (conceptAttr != null && typeSymbol.GetAttributes().Any(ad => SymbolEqualityComparer.Default.Equals(ad.AttributeClass, conceptAttr))) {
+			return true;
+		}
+		if (conceptInterface != null && typeSymbol.AllInterfaces.Any(it => SymbolEqualityComparer.Default.Equals(it, conceptInterface))) {
+			return true;
+		}
+		return false;
 	}
 }

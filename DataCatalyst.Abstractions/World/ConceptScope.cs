@@ -9,7 +9,7 @@ public readonly ref struct ConceptScope<TConcept> where TConcept : struct, IConc
 
 	public BeingScope<TConcept, TBeing> At<TBeing>()
 		where TBeing : struct, IBeing, IBelongTo<TConcept>
-		=> new(Knowledge.Pools[typeof(TConcept)], Knowledge.GetBeingIndex(typeof(TBeing)));
+		=> new(Knowledge.Pools[typeof(TConcept)], Knowledge.GetBeingIndex<TBeing>());
 
 	public ConceptHandle<TConcept> At(int index)
 		=> new(index);

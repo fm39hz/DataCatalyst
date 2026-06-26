@@ -2,65 +2,77 @@ namespace DataCatalyst.StateEngine.Core;
 
 using System;
 using System.Collections.Generic;
+using DataCatalyst;
+using DataCatalyst.Generated;
 using DataCatalyst.StateEngine.Models;
 
 public static class StateEngineEvaluator {
-	public readonly ref struct Result(int targetStateId, bool hasValue) {
-		public int TargetStateId { get; } = targetStateId;
+	public readonly ref struct Result(Ref<State> targetState, bool hasValue) {
+		public Ref<State> TargetState { get; } = targetState;
 		public bool HasValue { get; } = hasValue;
 	}
 
 	public static Result Evaluate(
-		int currentStateId,
+		Ref<State> currentState,
 		BakedStateGroup group,
-		HashSet<int> viableStates,
-		Func<int, float> readSensor) {
+		IReadOnlyCollection<Ref<State>> viableStates,
+		Func<Ref<Sensor>, float> readSensor) {
 		ArgumentNullException.ThrowIfNull(group);
 		ArgumentNullException.ThrowIfNull(viableStates);
 		ArgumentNullException.ThrowIfNull(readSensor);
 
-		if (!group.States.TryGetValue(currentStateId, out var currentState)) {
-			return new Result(0, false);
+		if (!group.States.TryGetValue(currentState, out var currentBakedState)) {
+			return new Result(default, false);
 		}
 
-		var bestTarget = 0;
+		Ref<State> bestTarget = default;
 		var bestPriority = float.MinValue;
-		var transitions = currentState.Transitions;
+		var transitions = currentBakedState.Transitions;
 
 		for (var i = 0; i < transitions.Length; i++) {
 			var t = transitions[i];
-			if (!viableStates.Contains(t.TargetStateId)) {
+			if (!Contains(viableStates, t.TargetState)) {
 				continue;
 			}
 
-			if (!PassConditions(t, currentStateId, t.TargetStateId, readSensor)) {
+			if (!PassConditions(t, currentState, t.TargetState, readSensor)) {
 				continue;
 			}
 
 			var priority = t.BasePriority;
 			var influences = t.Influences;
 			for (var j = 0; j < influences.Length; j++) {
-				priority += readSensor(influences[j].SignalId) * influences[j].Weight;
+				priority += readSensor(influences[j].Sensor) * influences[j].Weight;
 			}
 
 			if (priority > bestPriority) {
 				bestPriority = priority;
-				bestTarget = t.TargetStateId;
+				bestTarget = t.TargetState;
 			}
 		}
 
-		return bestTarget != 0
+		return bestTarget.BeingType != null
 			? new Result(bestTarget, true)
-			: new Result(0, false);
+			: new Result(default, false);
 	}
 
-	private static bool PassConditions(BakedTransition t, int currentId, int targetId,
-		Func<int, float> readSensor) {
+	private static bool Contains(IReadOnlyCollection<Ref<State>> collection, Ref<State> item) {
+		if (collection is HashSet<Ref<State>> hs) {
+			return hs.Contains(item);
+		}
+		foreach (var x in collection) {
+			if (x.Equals(item)) return true;
+		}
+		return false;
+	}
+
+	private static bool PassConditions(BakedTransition t, Ref<State> currentId, Ref<State> targetId,
+		Func<Ref<Sensor>, float> readSensor) {
 		if (t.Conditions == null) {
 			return true;
 		}
 
-		var atTarget = currentId == targetId;
+		var atTarget = currentId.Equals(targetId);
 		var conds = t.Conditions;
 
 		var all = conds.All;
@@ -92,8 +104,8 @@ public static class StateEngineEvaluator {
 		return true;
 	}
 
-	private static bool EvalSensor(BakedSensorCondition c, Func<int, float> readSensor, bool atTarget) {
-		var value = readSensor(c.SignalId);
+	private static bool EvalSensor(BakedSensorCondition c, Func<Ref<Sensor>, float> readSensor, bool atTarget) {
+		var value = readSensor(c.Sensor);
 		var threshold = atTarget && c.ExitValue.HasValue ? c.ExitValue.Value : c.Value;
 		return Compare.OperatorParser.Evaluate(value, c.Op, threshold);
 	}

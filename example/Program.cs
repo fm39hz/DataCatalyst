@@ -2,12 +2,14 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Collections.Generic;
+using DataCatalyst;
 using Example;
 using DataCatalyst.Knowledge;
 using DataCatalyst.Pipeline;
 using DataCatalyst.Loaders;
 using DataCatalyst.Generated;
 using DataCatalyst.Composition;
+using DataCatalyst.Registry;
 using DataCatalyst.StateEngine.Core;
 using DataCatalyst.StateEngine.Models;
 
@@ -24,6 +26,7 @@ var knowledge = new Pipeline()
         { s.Priority = 1; s.MergePolicy = MergePolicy.Patch; })
     .AddSource("Mods", new JsonDataLoader(), Path.Combine(root, "Mods"), s =>
         { s.Priority = 2; s.MergePolicy = MergePolicy.FieldPatch; })
+    .AddBaker(new StateEngineBaker())
     .Build(out var diagnostics);
 
 if (knowledge == null)
@@ -59,19 +62,25 @@ Console.WriteLine($"Goblin XP:   {knowledge.Of<Enemy>().At<Goblin>().Take<Experi
 // === StateEngine Simulation ===
 Console.WriteLine($"\n=== StateEngine Simulation ===");
 var stateGroupDef = knowledge.Of<GameState>().At<BasicAI>().Take<StateGroup>();
-var baked = StateEngineBaker.Bake(stateGroupDef, knowledge);
+var baked = knowledge.GetBaked<BakedStateGroup, global::DataCatalyst.Generated.BasicAI>();
 
-var sortedStateNames = stateGroupDef.States.Keys.OrderBy(s => s).ToList();
-var idToName = new Dictionary<int, string>();
-for (int i = 0; i < sortedStateNames.Count; i++)
-{
-    idToName[i + 1] = sortedStateNames[i];
+Ref<State> currentState = baked.DefaultState;
+Console.WriteLine($"Initial State: {currentState}");
+
+var viableStates = new HashSet<Ref<State>>();
+foreach (var name in stateGroupDef.States) {
+    Type? stateType = null;
+    foreach (var r in BeingRegistry.All) {
+        if (r.BeingType.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) {
+            stateType = r.BeingType;
+            break;
+        }
+    }
+    if (stateType != null) {
+        viableStates.Add(new Ref<State>(stateType));
+    }
 }
 
-int currentStateId = baked.DefaultStateId;
-Console.WriteLine($"Initial State: {idToName[currentStateId]} (ID: {currentStateId})");
-
-var viableStates = new HashSet<int>(idToName.Keys);
 float timer = 0.0f;
 
 for (int step = 1; step <= 10; step++)
@@ -83,11 +92,11 @@ for (int step = 1; step <= 10; step++)
     }
 
     var evalResult = StateEngineEvaluator.Evaluate(
-        currentStateId,
+        currentState,
         baked,
         viableStates,
-        signalId => {
-            if (signalId == "Timer".GetHashCode())
+        sensor => {
+            if (sensor == typeof(global::DataCatalyst.Generated.Timer))
             {
                 return timer;
             }
@@ -95,16 +104,16 @@ for (int step = 1; step <= 10; step++)
         }
     );
 
-    if (evalResult.HasValue && evalResult.TargetStateId != currentStateId)
+    if (evalResult.HasValue && !evalResult.TargetState.Equals(currentState))
     {
-        var oldState = idToName[currentStateId];
-        currentStateId = evalResult.TargetStateId;
-        var newState = idToName[currentStateId];
+        var oldState = currentState.ToString();
+        currentState = evalResult.TargetState;
+        var newState = currentState.ToString();
         Console.WriteLine($"Step {step:D2}: Timer = {timer:F1} -> State changed from {oldState} to {newState}");
     }
     else
     {
-        Console.WriteLine($"Step {step:D2}: Timer = {timer:F1} -> State remains {idToName[currentStateId]}");
+        Console.WriteLine($"Step {step:D2}: Timer = {timer:F1} -> State remains {currentState}");
     }
 }
 

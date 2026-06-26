@@ -1,84 +1,124 @@
 namespace DataCatalyst.StateEngine.Core;
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using DataCatalyst;
 using DataCatalyst.Compare;
 using DataCatalyst.Composition;
 using DataCatalyst.StateEngine.Models;
+using DataCatalyst.Registry;
+using DataCatalyst.Knowledge;
+using DataCatalyst.Storage;
+using DataCatalyst.Generated;
 
-public static class StateEngineBaker {
-	public static BakedStateGroup Bake(StateGroup group, Knowledge.Knowledge? world) {
-		if (group.States == null || group.States.Count == 0) {
-			return new BakedStateGroup { GroupId = group.GroupId };
+public class StateEngineBaker : global::DataCatalyst.Pipeline.IBaker<StateGroup, BakedStateGroup> {
+	/// <summary>
+	/// Static helper for direct/backward-compatible baking.
+	/// </summary>
+	public static BakedStateGroup Bake(string groupBeingName, StateGroup group, Knowledge world) {
+		var diagnostics = new DiagnosticBag();
+		var result = new StateEngineBaker().Bake(groupBeingName, group, world, diagnostics);
+		if (diagnostics.HasErrors) {
+			throw new InvalidOperationException(string.Join("\n", diagnostics.Items));
 		}
+		return result;
+	}
 
-		// Collect all state names
-		var stateNames = new HashSet<string>(group.States.Keys);
-		foreach (var def in group.States.Values) {
-			if (!string.IsNullOrEmpty(def.Parent)) {
-				stateNames.Add(def.Parent);
-			}
-
-			if (def.Transitions != null) {
-				foreach (var t in def.Transitions) {
-					stateNames.Add(t.TargetState);
-				}
-			}
-		}
-
-		var stateNameList = stateNames.Where(s => !string.IsNullOrEmpty(s))
-			.OrderBy(s => s).ToList();
-
-		var stateIdMap = new Dictionary<string, int>();
-		for (var i = 0; i < stateNameList.Count; i++) {
-			stateIdMap[stateNameList[i]] = i + 1;
-		}
-
-		var defaultStateId = 0;
-		if (!string.IsNullOrEmpty(group.DefaultState) && stateIdMap.TryGetValue(group.DefaultState, out var defId)) {
-			defaultStateId = defId;
-		}
+	/// <summary>
+	/// IBaker interface implementation.
+	/// </summary>
+	public BakedStateGroup Bake(string beingKey, StateGroup source, Knowledge knowledge, DiagnosticBag diagnostics) {
+		ArgumentNullException.ThrowIfNull(beingKey);
+		ArgumentNullException.ThrowIfNull(knowledge);
 
 		var bakedGroup = new BakedStateGroup {
-			GroupId = group.GroupId,
-			DefaultStateId = defaultStateId,
+			GroupId = beingKey,
 		};
 
-		foreach (var (stateKey, stateDef) in group.States) {
-			if (!stateIdMap.TryGetValue(stateKey, out var sId)) {
+		if (source.States == null || source.States.Count == 0) {
+			return bakedGroup;
+		}
+
+		// Collect all state types
+		var stateTypes = new HashSet<Type>();
+		var stateBeingTypes = new Dictionary<string, Type>();
+
+		foreach (var stateName in source.States) {
+			var stateType = FindBeingType(stateName);
+			if (stateType == null) {
+				diagnostics.Warn($"State being '{stateName}' in group '{beingKey}' not found in registry");
+				continue;
+			}
+			stateBeingTypes[stateName] = stateType;
+			stateTypes.Add(stateType);
+		}
+
+		if (!string.IsNullOrEmpty(source.DefaultState)) {
+			var defType = FindBeingType(source.DefaultState);
+			if (defType != null && stateTypes.Contains(defType)) {
+				bakedGroup.DefaultState = new Ref<State>(defType);
+			}
+			else {
+				diagnostics.Warn($"Default state '{source.DefaultState}' in group '{beingKey}' not found or not in group states list");
+			}
+		}
+
+		var statePool = knowledge.GetPool(typeof(global::DataCatalyst.Generated.State));
+		if (statePool == null) {
+			diagnostics.Error("State concept pool not found in world");
+			return bakedGroup;
+		}
+
+		foreach (var stateName in source.States) {
+			if (!stateBeingTypes.TryGetValue(stateName, out var stateType) || stateType == null) {
 				continue;
 			}
 
-			var chain = CollectHierarchy(stateKey, group.States);
+			var stateIdx = knowledge.GetBeingIndex(stateType);
+			if (stateIdx < 0) {
+				continue;
+			}
+			
+			// Check if this being has StateTransitions aspect
+			StateTransitions stateTransitions;
+			try {
+				stateTransitions = statePool.Get<StateTransitions>(stateIdx);
+			}
+			catch {
+				stateTransitions = new StateTransitions { Transitions = [] };
+			}
+
 			var bakedTransitions = new List<BakedTransition>();
 
-			for (var depth = 0; depth < chain.Count; depth++) {
-				var srcDef = chain[depth];
-				if (srcDef.Transitions == null) {
-					continue;
-				}
-
-				foreach (var t in srcDef.Transitions) {
-					if (!stateIdMap.TryGetValue(t.TargetState, out var targetId)) {
+			if (stateTransitions.Transitions != null) {
+				foreach (var t in stateTransitions.Transitions) {
+					if (t.TargetState.BeingType == null) {
+						diagnostics.Warn($"Transition in state '{stateName}' has null or unresolved TargetState");
 						continue;
 					}
 
-					var basePriority = (group.PriorityTier * group.TierScale)
-						+ t.Priority - (depth * group.DepthPenalty);
+					var targetType = t.TargetState.BeingType;
+					if (!stateTypes.Contains(targetType)) {
+						diagnostics.Warn($"Transition target state '{targetType.Name}' in state '{stateName}' is not defined in the StateGroup");
+					}
+
+					var basePriority = (source.PriorityTier * source.TierScale) + t.Priority;
 
 					bakedTransitions.Add(new BakedTransition {
-						TargetStateId = targetId,
+						TargetState = new Ref<State>(targetType),
 						BasePriority = basePriority,
-						Conditions = BakeConditions(t.Conditions),
-						Influences = BakeInfluences(t.Influences),
+						Conditions = BakeConditions(t.Conditions, diagnostics),
+						Influences = BakeInfluences(t.Influences, diagnostics),
 					});
 				}
 			}
 
 			bakedTransitions.Sort(static (a, b) => b.BasePriority.CompareTo(a.BasePriority));
 
-			bakedGroup.MutableStates[sId] = new BakedState {
-				StateId = sId,
+			var refState = new Ref<State>(stateType);
+			bakedGroup.MutableStates[refState] = new BakedState {
+				State = refState,
 				Transitions = [.. bakedTransitions],
 			};
 		}
@@ -86,22 +126,16 @@ public static class StateEngineBaker {
 		return bakedGroup;
 	}
 
-	private static List<StateDefinition> CollectHierarchy(string name,
-		Dictionary<string, StateDefinition> allStates) {
-		var result = new List<StateDefinition>();
-		var visited = new HashSet<string>();
-		var current = (string?)name;
-
-		while (current != null && allStates.TryGetValue(current, out var def) && visited.Add(current)) {
-			result.Add(def);
-			current = def.Parent;
+	private static Type? FindBeingType(string key) {
+		foreach (var r in BeingRegistry.All) {
+			if (r.BeingType.Name.Equals(key, StringComparison.OrdinalIgnoreCase)) {
+				return r.BeingType;
+			}
 		}
-
-		result.Reverse();
-		return result;
+		return null;
 	}
 
-	private static BakedConditionGroup? BakeConditions(ConditionGroupDef? conditions) {
+	private static BakedConditionGroup? BakeConditions(ConditionGroupDef? conditions, DiagnosticBag diagnostics) {
 		if (conditions == null) {
 			return null;
 		}
@@ -112,27 +146,44 @@ public static class StateEngineBaker {
 
 		var c = conditions.Value;
 		return new BakedConditionGroup {
-			All = c.All?.Select(BakeCondition).ToArray() ?? [],
-			Any = c.Any?.Select(BakeCondition).ToArray() ?? [],
-			None = c.None?.Select(BakeCondition).ToArray() ?? [],
+			All = c.All?.Select(cond => BakeCondition(cond, diagnostics)).Where(x => x != null).Select(x => x!).ToArray() ?? [],
+			Any = c.Any?.Select(cond => BakeCondition(cond, diagnostics)).Where(x => x != null).Select(x => x!).ToArray() ?? [],
+			None = c.None?.Select(cond => BakeCondition(cond, diagnostics)).Where(x => x != null).Select(x => x!).ToArray() ?? [],
 		};
 	}
 
-	private static BakedSensorCondition BakeCondition(SensorConditionDef c) => new() {
-		SignalId = c.Signal.GetHashCode(),
-		Op = OperatorParser.Parse(c.Op),
-		Value = c.Value,
-		ExitValue = c.ExitValue,
-	};
+	private static BakedSensorCondition? BakeCondition(SensorConditionDef c, DiagnosticBag diagnostics) {
+		if (c.Sensor.BeingType == null) {
+			diagnostics.Warn("Sensor condition has null or unresolved Sensor reference");
+			return null;
+		}
 
-	private static BakedSensorInfluence[] BakeInfluences(List<SensorInfluenceDef>? influences) {
+		return new BakedSensorCondition {
+			Sensor = c.Sensor,
+			Op = OperatorParser.Parse(c.Op),
+			Value = c.Value,
+			ExitValue = c.ExitValue,
+		};
+	}
+
+	private static BakedSensorInfluence[] BakeInfluences(List<SensorInfluenceDef>? influences, DiagnosticBag diagnostics) {
 		if (influences == null) {
 			return [];
 		}
 
-		return [.. influences.Select(i => new BakedSensorInfluence {
-			SignalId = i.Signal.GetHashCode(),
-			Weight = i.Weight,
-		})];
+		var result = new List<BakedSensorInfluence>();
+		foreach (var i in influences) {
+			if (i.Sensor.BeingType == null) {
+				diagnostics.Warn("Sensor influence has null or unresolved Sensor reference");
+				continue;
+			}
+
+			result.Add(new BakedSensorInfluence {
+				Sensor = i.Sensor,
+				Weight = i.Weight,
+			});
+		}
+
+		return [.. result];
 	}
 }

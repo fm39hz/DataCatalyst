@@ -10,11 +10,17 @@ using DataCatalyst.Storage;
 
 public sealed class Pipeline {
 	private readonly List<DataSource> _sources = [];
+	private readonly List<IBaker> _bakers = [];
 
 	public SchemaRegistry Schema { get; } = new();
 
 	public Pipeline AddSource(string name, IDataLoader loader, string path,
 		Action<DataSource>? configure = null) { var s = new DataSource(name, loader, path); configure?.Invoke(s); _sources.Add(s); return this; }
+
+	public Pipeline AddBaker(IBaker baker) {
+		_bakers.Add(baker);
+		return this;
+	}
 
 	public Knowledge.Knowledge Build(out DiagnosticBag diagnostics) {
 		diagnostics = new DiagnosticBag();
@@ -33,6 +39,8 @@ public sealed class Pipeline {
 		ResolveCrossRefs(ctx);
 		if (ctx.Diagnostics.HasErrors) { PipeDiag(ctx, diagnostics); return null!; }
 		BuildKnowledge(ctx);
+		if (ctx.Diagnostics.HasErrors) { PipeDiag(ctx, diagnostics); return null!; }
+		ExecuteBakers(ctx);
 		if (ctx.Diagnostics.HasErrors) { PipeDiag(ctx, diagnostics); return null!; }
 		PipeDiag(ctx, diagnostics);
 		BeingRegistry.Freeze();
@@ -340,8 +348,46 @@ public sealed class Pipeline {
 				}
 			}
 		}
-		ctx.Knowledge = Knowledge.KnowledgeFactory.Create(pools, beingIndices, Schema);
+		ctx.Knowledge = Knowledge.KnowledgeFactory.Create(pools, beingIndices, Schema, new Dictionary<Type, Dictionary<string, object>>());
 		ctx.Diagnostics.Info($"Built {pools.Count} concept pools");
+	}
+
+	private void ExecuteBakers(PipelineContext ctx) {
+		if (ctx.Knowledge == null) {
+			return;
+		}
+
+		var cache = new Dictionary<Type, Dictionary<string, object>>();
+
+		foreach (var baker in _bakers) {
+			var sourceAspectType = baker.SourceAspectType;
+			var bakedType = baker.BakedType;
+
+			if (!cache.TryGetValue(bakedType, out var inner)) {
+				cache[bakedType] = inner = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+			}
+
+			foreach (var being in ctx.Beings) {
+				if (being.Components.TryGetValue(sourceAspectType, out var sourceAspect)) {
+					try {
+						var bakedObj = baker.Bake(being.Key, sourceAspect, ctx.Knowledge, ctx.Diagnostics);
+						if (bakedObj != null) {
+							inner[being.Key] = bakedObj;
+						}
+					}
+					catch (Exception ex) {
+						ctx.Diagnostics.Error($"Baker '{baker.GetType().Name}' failed for being '{being.Key}': {ex.Message}");
+					}
+				}
+			}
+		}
+
+		ctx.Knowledge = Knowledge.KnowledgeFactory.Create(
+			ctx.Knowledge.Pools.ToDictionary(k => k.Key, v => v.Value),
+			ctx.Knowledge.BeingIndices.ToDictionary(k => k.Key, v => v.Value),
+			ctx.Knowledge.Schema,
+			cache
+		);
 	}
 
 	private Type? FindType(int conceptId) {

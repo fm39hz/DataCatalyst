@@ -296,43 +296,56 @@ mat.Apply(entity, knowledge.Of<Creature>().At<Goblin>());
 
 ### StateEngine
 
-StateEngine is a data-driven hierarchical FSM. States, signals, and transitions are defined as data, allowing you to modify behaviors without editing code.
+StateEngine is a data-driven hierarchical FSM. FSM components (States, Sensors, and Transitions) are completely normalized into core ABC primitives, allowing you to modify complex behaviors and condition graphs purely via data declarations. Baking is integrated directly into the Core Pipeline, executing FSM compilation during database build.
 
 ```mermaid
 graph TD
-    KNOWLEDGE[Knowledge Base] -->|1. Extract StateGroup| BAKE[StateEngineBaker]
-    BAKE -->|2. Compile FSM| EVALUATOR[StateEngineEvaluator]
-    EVALUATOR -->|3. Input Signals| RUNTIME[Evaluate Current State]
+    JSON[Raw JSON Files] -->|1. Register StateEngineBaker| PIPELINE[Pipeline]
+    PIPELINE -->|2. Build & Bake FSM| KNOWLEDGE[Knowledge Base]
+    KNOWLEDGE -->|3. GetBaked BakedStateGroup| EVALUATOR[StateEngineEvaluator]
+    EVALUATOR -->|4. Resolve Sensor Values| RUNTIME[Evaluate Current State]
 ```
 
 #### Write State Data
 
+Define states, sensors, and state groups as standard `Being` entities:
+
 ```json
 {
-	"goblinAI": {
-		"$LocomotionStates": {
-			"stateGroup": {
-				"groupId": "GoblinAI",
-				"defaultState": "Patrol",
-				"states": {
-					"patrol": {
-						"transitions": [
+	"PlayerDistance": {
+		"$Sensor": {}
+	},
+	"Chase": {
+		"$State": {}
+	},
+	"Patrol": {
+		"$State": {},
+		"StateTransitions": {
+			"Transitions": [
+				{
+					"TargetState": { "$ref": "Chase" },
+					"Priority": 100,
+					"Conditions": {
+						"All": [
 							{
-								"targetState": "Chase",
-								"priority": 100,
-								"conditions": {
-									"all": [
-										{
-											"signal": "PlayerDistance",
-											"op": "<",
-											"value": 8
-										}
-									]
-								}
+								"Sensor": { "$ref": "PlayerDistance" },
+								"Op": "<",
+								"Value": 8.0
 							}
 						]
 					}
 				}
+			]
+		}
+	},
+	"GoblinAI": {
+		"$GameState": {
+			"StateGroup": {
+				"DefaultState": { "$ref": "Patrol" },
+				"States": [{ "$ref": "Patrol" }, { "$ref": "Chase" }],
+				"PriorityTier": 0,
+				"TierScale": 10000,
+				"DepthPenalty": 1000
 			}
 		}
 	}
@@ -341,20 +354,28 @@ graph TD
 
 #### Bake & Evaluate FSM
 
-```csharp
-// Bake - resolve string names to int IDs
-var baked = StateEngineBaker.Bake(
-    knowledge.Of<LocomotionStates>().At<GoblinAI>().Take<StateGroup>(),
-    knowledge
-);
+Register the baker in the pipeline and fetch the compiled graph directly from the knowledge base at runtime:
 
-// Evaluate - ONE engine for ALL entities
+```csharp
+// 1. Build - Baker executes automatically during compilation
+var knowledge = new Pipeline()
+    .AddSource("Base", new JsonDataLoader(), "Data/")
+    .AddBaker(new StateEngineBaker()) // Register the baker in the pipeline!
+    .Build(out var diagnostics);
+
+// 2. Retrieve - Get the pre-compiled FSM directly from Knowledge using Being type
+var baked = knowledge.GetBaked<BakedStateGroup, GoblinAI>();
+
+// 3. Evaluate - ONE evaluator engine for ALL entities
 var result = StateEngineEvaluator.Evaluate(
-    baked.DefaultStateId, baked, viableStates,
-    signalId => signalId switch {
-        PlayerDistance => entity.DistanceToPlayer,
-        _ => 0f
-    });
+    currentState, baked, viableStates,
+    sensor => {
+        if (sensor == typeof(PlayerDistance)) {
+            return entity.DistanceToPlayer;
+        }
+        return 0f;
+    }
+);
 ```
 
 ---

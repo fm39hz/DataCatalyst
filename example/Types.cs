@@ -50,3 +50,4 @@ public struct Weapon : IConcept { }
 
 [GameConcept]
 public struct GameState : IConcept { }
+
