@@ -10,17 +10,17 @@ public interface IBaker {
 	/// <summary>
 	/// The source aspect type that this baker compiles (e.g. StateGroup).
 	/// </summary>
-	Type SourceAspectType { get; }
+	public Type SourceAspectType { get; }
 
 	/// <summary>
 	/// The final compiled type produced by this baker (e.g. BakedStateGroup).
 	/// </summary>
-	Type BakedType { get; }
+	public Type BakedType { get; }
 
 	/// <summary>
 	/// Bakes/compiles a single aspect instance into its optimized runtime representation.
 	/// </summary>
-	object Bake(string beingKey, object sourceAspect, Knowledge knowledge, DiagnosticBag diagnostics);
+	public object Bake(string beingKey, object sourceAspect, Knowledge knowledge, DiagnosticBag diagnostics);
 }
 
 /// <summary>
@@ -38,5 +38,5 @@ public interface IBaker<TSource, TBaked> : IBaker where TSource : struct {
 	/// <summary>
 	/// Bakes/compiles a single aspect instance into its optimized runtime representation.
 	/// </summary>
-	TBaked Bake(string beingKey, TSource source, Knowledge knowledge, DiagnosticBag diagnostics);
+	public TBaked Bake(string beingKey, TSource source, Knowledge knowledge, DiagnosticBag diagnostics);
 }

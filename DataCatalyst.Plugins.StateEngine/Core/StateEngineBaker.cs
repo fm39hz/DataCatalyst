@@ -7,13 +7,12 @@ using System.Linq;
 using DataCatalyst;
 using DataCatalyst.Compare;
 using DataCatalyst.Composition;
-using DataCatalyst.StateEngine.Models;
-using DataCatalyst.Registry;
-using DataCatalyst.Knowledge;
-using DataCatalyst.Storage;
 using DataCatalyst.Generated;
+using DataCatalyst.Knowledge;
+using DataCatalyst.Registry;
+using DataCatalyst.StateEngine.Models;
 
-public class StateEngineBaker : global::DataCatalyst.Pipeline.IBaker<StateGroup, BakedStateGroup> {
+public class StateEngineBaker : Pipeline.IBaker<StateGroup, BakedStateGroup> {
 	/// <summary>
 	/// Static helper for direct/backward-compatible baking.
 	/// </summary>
@@ -55,7 +54,7 @@ public class StateEngineBaker : global::DataCatalyst.Pipeline.IBaker<StateGroup,
 		}
 
 		var statesMap = new Dictionary<Ref<State>, BakedState>();
-		var statePool = knowledge.GetPool(typeof(global::DataCatalyst.Generated.State));
+		var statePool = knowledge.GetPool(typeof(State));
 		if (statePool == null) {
 			diagnostics.Error("State concept pool not found in world");
 			return new BakedStateGroup {
@@ -73,7 +72,7 @@ public class StateEngineBaker : global::DataCatalyst.Pipeline.IBaker<StateGroup,
 			if (stateIdx < 0) {
 				continue;
 			}
-			
+
 			// Check if this being has StateTransitions aspect
 			StateTransitions stateTransitions;
 			try {

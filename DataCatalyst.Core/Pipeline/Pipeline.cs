@@ -348,7 +348,7 @@ public sealed class Pipeline {
 				}
 			}
 		}
-		ctx.Knowledge = Knowledge.KnowledgeFactory.Create(pools, beingIndices, Schema, new Dictionary<Type, Dictionary<string, object>>());
+		ctx.Knowledge = Knowledge.KnowledgeFactory.Create(pools, beingIndices, Schema, []);
 		ctx.Diagnostics.Info($"Built {pools.Count} concept pools");
 	}
 

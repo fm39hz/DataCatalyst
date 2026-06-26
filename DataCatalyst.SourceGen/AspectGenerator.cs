@@ -599,7 +599,8 @@ public sealed class {cn}Pool : global::DataCatalyst.Storage.IStoragePool {{
 		foreach (var member in ns.GetMembers()) {
 			if (member is INamespaceSymbol nestedNs) {
 				FindConceptsInNamespace(nestedNs, conceptAttr, conceptInterface, conceptNames);
-			} else if (member is INamedTypeSymbol typeSymbol) {
+			}
+			else if (member is INamedTypeSymbol typeSymbol) {
 				if (IsConcept(typeSymbol, conceptAttr, conceptInterface)) {
 					conceptNames.Add(typeSymbol.Name);
 				}

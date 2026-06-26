@@ -19,7 +19,7 @@ public readonly record struct StateTransitions {
 
 [GameAspect]
 public readonly record struct TransitionDef {
-	public global::DataCatalyst.Ref<global::DataCatalyst.Generated.State> TargetState { get; init; }
+	public Ref<Generated.State> TargetState { get; init; }
 	public int Priority { get; init; }
 	public ConditionGroupDef? Conditions { get; init; }
 	public List<SensorInfluenceDef>? Influences { get; init; }
@@ -34,7 +34,7 @@ public readonly record struct ConditionGroupDef {
 
 [GameAspect]
 public readonly record struct SensorConditionDef {
-	public global::DataCatalyst.Ref<global::DataCatalyst.Generated.Sensor> Sensor { get; init; }
+	public Ref<Generated.Sensor> Sensor { get; init; }
 	public string Op { get; init; }
 	public float Value { get; init; }
 	public float? ExitValue { get; init; }
@@ -42,6 +42,6 @@ public readonly record struct SensorConditionDef {
 
 [GameAspect]
 public readonly record struct SensorInfluenceDef {
-	public global::DataCatalyst.Ref<global::DataCatalyst.Generated.Sensor> Sensor { get; init; }
+	public Ref<Generated.Sensor> Sensor { get; init; }
 	public float Weight { get; init; }
 }

@@ -93,5 +93,5 @@ public sealed class Knowledge {
 	/// Tries to get a baked data structure of type TBaked for a specific Being type.
 	/// </summary>
 	public bool TryGetBaked<TBaked, TBeing>(out TBaked result) where TBeing : struct, IBeing
-		=> TryGetBaked<TBaked>(typeof(TBeing).Name, out result);
+		=> TryGetBaked(typeof(TBeing).Name, out result);
 }

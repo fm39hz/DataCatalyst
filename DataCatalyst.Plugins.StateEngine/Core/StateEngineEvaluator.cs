@@ -6,7 +6,7 @@ using DataCatalyst.Generated;
 using DataCatalyst.StateEngine.Models;
 
 public interface ISensorReader {
-	float ReadSensor(Ref<Sensor> sensor);
+	public float ReadSensor(Ref<Sensor> sensor);
 }
 
 public static class StateEngineEvaluator {
@@ -59,12 +59,10 @@ public static class StateEngineEvaluator {
 	}
 
 	// Delegate-based wrapper struct
-	private struct DelegateSensorReader(Func<Ref<Sensor>, float> readSensor) : ISensorReader {
+	private readonly struct DelegateSensorReader(Func<Ref<Sensor>, float> readSensor) : ISensorReader {
 		private readonly Func<Ref<Sensor>, float> _readSensor = readSensor;
 
-		public readonly float ReadSensor(Ref<Sensor> sensor) {
-			return _readSensor(sensor);
-		}
+		public readonly float ReadSensor(Ref<Sensor> sensor) => _readSensor(sensor);
 	}
 
 	// Delegate-based overload (wraps the delegate and delegates to the struct-based Evaluate)
@@ -80,7 +78,9 @@ public static class StateEngineEvaluator {
 
 	private static bool Contains(ReadOnlySpan<Ref<State>> span, Ref<State> item) {
 		for (var i = 0; i < span.Length; i++) {
-			if (span[i].Equals(item)) return true;
+			if (span[i].Equals(item)) {
+				return true;
+			}
 		}
 		return false;
 	}
@@ -123,7 +123,7 @@ public static class StateEngineEvaluator {
 		return true;
 	}
 
-	private static bool EvalSensor<TReader>(BakedSensorCondition c, ref TReader reader, bool atTarget) 
+	private static bool EvalSensor<TReader>(BakedSensorCondition c, ref TReader reader, bool atTarget)
 		where TReader : struct, ISensorReader {
 		var value = reader.ReadSensor(c.Sensor);
 		var threshold = atTarget && c.ExitValue.HasValue ? c.ExitValue.Value : c.Value;
