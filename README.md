@@ -4,7 +4,7 @@
 [![CI Status](https://img.shields.io/github/actions/workflow/status/fm39hz/DataCatalyst/ci.yml?branch=master&style=flat-square)](https://github.com/fm39hz/DataCatalyst/actions)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
 
-**DataCatalyst** is an ontological concept composer framework for C#/.NET
+**DataCatalyst** is an Game modeling framework for C#/.NET
 
 ---
 
@@ -91,6 +91,72 @@ SourceGen packages as analyzers:
 
 ---
 
+## 🧬 Core Philosophy & Architecture
+
+DataCatalyst is designed around a **multi-dimensional orthogonal structure**, avoiding the vertical limitations of Object-Oriented Programming (OOP) and the unstructured horizontal bag of components in Entity-Component Systems (ECS).
+
+A **Being** is a point of intersection (orthogonality) between multiple **Concepts** (defining its identity) and **Aspects** (containing its data payloads).
+
+### Geometric Representation
+
+Mathematically, the game design database is a space defined by two orthogonal axes:
+
+- **Concept Axis ($C$)**: The identity space. A Being $B$ must map to at least one Concept ($|Concepts(B)| \ge 1$).
+- **Aspect Axis ($A$)**: The data payload space. Aspects are free-floating and can belong to a Being directly or connect to a Concept.
+
+A Being $B_i$ is a coordinate point in the Cartesian product of the Concept power set and Aspect power set:
+
+```math
+B_i = (C_{B_i}, A_{B_i}) \quad \text{where} \quad C_{B_i} \subseteq C, \ A_{B_i} \subseteq A
+```
+
+For example, we can map Beings in this multi-dimensional space.
+
+```mermaid
+quadrantChart
+    title "Being Space (Concept vs Aspect)"
+    x-axis "Low Concept Association" --> "High Concept Association"
+    y-axis "Low Aspect Payload" --> "High Aspect Payload"
+    quadrant-1 "High Aspect / Low Concept"
+    quadrant-2 "Rich Beings (High Aspect and High Concept)"
+    quadrant-3 "Low Aspect / Low Concept"
+    quadrant-4 "Marker Beings (Low Aspect and High Concept)"
+    "Goblin (Creature, Enemy)": [0.8, 0.7]
+    "Arthur (Creature, Hero)": [0.8, 0.9]
+    "Orc (Creature, Enemy)": [0.6, 0.4]
+    "SimpleMarker": [0.9, 0.1]
+```
+
+### Orthogonal Relationship Diagram
+
+The following Mermaid diagram shows how `Being` sits orthogonally between the `Concept` and `Aspect` dimensions:
+
+```mermaid
+erDiagram
+    Being_Goblin }|--|| Concept_Creature : belongs_to
+    Being_Goblin }|--|| Concept_Enemy : belongs_to
+    Being_Goblin ||--|| Aspect_Health : possesses
+    Being_Goblin ||--|| Aspect_Stamina : possesses
+    Being_Goblin ||--|| Aspect_PatrolRadius : possesses
+
+    Concept_Creature ||--o| Aspect_Health : "default aspect"
+    Concept_Enemy ||--o| Aspect_PatrolRadius : "default aspect"
+
+    Aspect_Health {
+        int Current
+        int Max
+    }
+    Aspect_Stamina {
+        int Current
+        int Max
+    }
+    Aspect_PatrolRadius {
+        int Meters
+    }
+```
+
+---
+
 ## 🧩 Usage
 
 ### Knowledge - immutable catalog
@@ -122,6 +188,46 @@ An aspect is a data unit attached to beings of a concept. Multiple concepts bein
 [GameAspect]
 public record struct Health { public int Initial; public int Max; }
 ```
+
+### Inheritance & Reference
+
+#### Aspect Inheritance
+
+A being can inherit aspect values from another being. Unspecified fields in the child being will fall back to the parent being's values.
+
+```json
+{
+	"BaseMonster": {
+		"$Creature": {
+			"Health": { "Initial": 100, "Max": 100 }
+		}
+	},
+	"Goblin": {
+		"$inherits": "BaseMonster",
+		"$Creature": {
+			"Health": { "Initial": 40 }
+		}
+	}
+}
+```
+
+In this example, `Goblin` overrides `Health.Initial` to `40`, while `Health.Max` is inherited from `BaseMonster` as `100`.
+
+#### Cross-Reference
+
+You can reference other beings using the `"$ref"` key. The pipeline automatically resolves these references at build time, replacing the reference object with the target being's key string.
+
+```json
+{
+	"Arthur": {
+		"$Creature": {
+			"Weapon": { "InitialWeapon": { "$ref": "IronSword" } }
+		}
+	}
+}
+```
+
+At runtime, `InitialWeapon` will be resolved to `"IronSword"`.
 
 ### Loader
 
@@ -237,6 +343,12 @@ var result = StateEngineEvaluator.Evaluate(
 ```
 
 StateEngine is originally designed for ECS: ONE system evaluates ALL entities, but is compatible with normal use-cases.
+
+---
+
+## 🛠️ Editor
+
+A node graph editor is currently under development but will not be finished anytime soon.
 
 ---
 
