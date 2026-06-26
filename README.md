@@ -54,31 +54,9 @@ graph TD
 
 ### Orthogonality
 
-DataCatalyst decouples **Semantic Identity** from **Data Shape**. A `Being` can belong to multiple `Concepts` and contain multiple `Aspects` orthogonally.
+For example, the being `Goblin` belongs to 2 Concepts (`Creature`, `Enemy`) and has 5 Aspects (`Health`, `CombatStats`, `PatrolRadius`, `Stamina`, `Mana`). Since `Stamina` and `Mana` are being-level aspects, they do not belong to the concept definitions but are still possessed by the being. Connecting these coordinate points on the XY axes reveals the closed geometric shape of the `Goblin` being:
 
-```mermaid
-erDiagram
-    Being_Goblin }|--|| Concept_Creature : belongs_to
-    Being_Goblin }|--|| Concept_Enemy : belongs_to
-    Being_Goblin ||--|| Aspect_Health : possesses
-    Being_Goblin ||--|| Aspect_Stamina : possesses
-    Being_Goblin ||--|| Aspect_PatrolRadius : possesses
-
-    Concept_Creature ||--o| Aspect_Health : "default aspect"
-    Concept_Enemy ||--o| Aspect_PatrolRadius : "default aspect"
-
-    Aspect_Health {
-        int Current
-        int Max
-    }
-    Aspect_Stamina {
-        int Current
-        int Max
-    }
-    Aspect_PatrolRadius {
-        int Meters
-    }
-```
+![Being Orthogonality](docs/being_orthogonal_space.png)
 
 ### Mathematical Model
 
@@ -110,13 +88,12 @@ dotnet add package DataCatalyst.Loaders.Json
 
 ```json
 {
-	"Hero": {
+	"Goblin": {
 		"$Creature": {
-			"Health": { "Initial": 50, "Max": 50 },
-			"CombatStats": { "BaseDamage": 8, "BaseDefense": 5 }
+			"Health": { "Initial": 40, "Max": 40 },
+			"CombatStats": { "BaseDamage": 6, "BaseDefense": 3 }
 		},
-		"$Player": {},
-		"$Protagonist": {}
+		"$Enemy": {}
 	}
 }
 ```
@@ -128,10 +105,7 @@ dotnet add package DataCatalyst.Loaders.Json
 public record struct Creature : IConcept;
 
 [GameConcept]
-public record struct Player : IConcept;
-
-[GameConcept]
-public record struct Protagonist : IConcept;
+public record struct Enemy : IConcept;
 
 [GameAspect]
 public record struct Health { public int Initial; public int Max; }
@@ -140,22 +114,20 @@ public record struct Health { public int Initial; public int Max; }
 public record struct CombatStats { public int BaseDamage; public int BaseDefense; }
 ```
 
-### 4. Load, Build & Access
+### 4. Load, Build & Query
 
 ```csharp
 // Simple fluent API, mix & match your source
 Knowledge knowledge = new Pipeline()
     .AddSource("Base", new JsonDataLoader(), "Data/")
-    .AddSource("Dlc", new JsonDataLoader(), "Dlc/")
-    .AddSource("Mods", new JsonDataLoader(), "Mods/")
     .Build(out var diagnostics);
 
 // Access - type-safe and compile-time checked
-int hp  = knowledge.Of<Creature>().At<Hero>().Take<Health>().Initial;
-int atk = knowledge.Of<Player>().At<Hero>().Take<CombatStats>().BaseDamage;
+int hp  = knowledge.Of<Creature>().At<Goblin>().Take<Health>().Initial;
+int atk = knowledge.Of<Enemy>().At<Goblin>().Take<CombatStats>().BaseDamage;
 ```
 
-`Hero` is a generated `being` marker type implementing `IBelongTo<Creature>`, `IBelongTo<Player>`, `IBelongTo<Protagonist>`.
+`Goblin` is a generated `being` marker type implementing `IBelongTo<Creature>`, `IBelongTo<Enemy>`.
 
 ---
 
@@ -240,15 +212,15 @@ You can reference other beings using the `"$ref"` key. The pipeline resolves the
 
 ```json
 {
-	"Arthur": {
+	"Goblin": {
 		"$Creature": {
-			"Weapon": { "InitialWeapon": { "$ref": "IronSword" } }
+			"InitialWeapon": { "WeaponId": { "$ref": "WoodenClub" } }
 		}
 	}
 }
 ```
 
-_At runtime, `InitialWeapon` will be resolved to `"IronSword"`._
+_At runtime, `InitialWeapon` will be resolved to `"WoodenClub"`._
 
 ---
 
@@ -262,8 +234,8 @@ The final result of the pipeline is a `Knowledge` instance containing fast, flat
 
 ```csharp
 // Direct lookup
-var arthur = knowledge.Of<Creature>().At<Arthur>();
-int maxHp = arthur.Take<Health>().Max;
+var goblin = knowledge.Of<Creature>().At<Goblin>();
+int maxHp = goblin.Take<Health>().Max;
 
 // Concept-scoped view
 var creatures = knowledge.Of<Creature>();
@@ -315,7 +287,7 @@ partial class EcsMaterializer : IMaterializer<Entity> {
 
 // Usage in Game Loop (Unity, Godot, ECS, etc.)
 var mat = new EcsMaterializer(knowledge);
-mat.Apply(entity, knowledge.Of<Creature>().At<Hero>());
+mat.Apply(entity, knowledge.Of<Creature>().At<Goblin>());
 ```
 
 ---
@@ -416,3 +388,5 @@ A node graph editor is currently under development but will not be finished anyt
 ## ⚖️ License
 
 Distributed under the MIT License. See [LICENSE](LICENSE)
+
+[![Star History Chart](https://app.repohistory.com/api/svg?repo=FM39hz/DataCatalyst&type=Date&background=0D1117&color=f86262)](https://app.repohistory.com/star-history)
