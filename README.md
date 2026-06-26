@@ -4,132 +4,57 @@
 [![CI Status](https://img.shields.io/github/actions/workflow/status/fm39hz/DataCatalyst/ci.yml?branch=master&style=flat-square)](https://github.com/fm39hz/DataCatalyst/actions)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
 
-**DataCatalyst** is an Game modeling framework for C#/.NET
+Game modeling framework for C#/.NET.
 
 ---
 
-> **Code itself has no content.** Game logic, behaviors, values, etc... should never be hardcoded. Designers parameterize everything to model the world.
+> **Code itself has no game specific content.** Game logic, behaviors, values, etc... should never be hardcoded. Designers parameterize everything to model the world.
 
 ---
 
-## 🚀 Quick Start
-
-```bash
-dotnet add package DataCatalyst
-dotnet add package DataCatalyst.Loaders.Json
-```
-
-### 1. Write Data
-
-`Data/Creatures.json`:
-
-```json
-{
-	"Hero": {
-		"$Creature": {
-			"Health": { "Initial": 50, "Max": 50 },
-			"CombatStats": { "BaseDamage": 8, "BaseDefense": 5 }
-		},
-		"$Player": {},
-		"$Protagonist": {}
-	}
-}
-```
-
-### 2. With Concept & Aspect
-
-```csharp
-[GameConcept]
-public record struct Creature : IConcept;
-
-[GameConcept]
-public record struct Player : IConcept;
-
-[GameConcept]
-public record struct Protagonist : IConcept;
-
-[GameAspect]
-public record struct Health { public int Initial; public int Max; }
-
-[GameAspect]
-public record struct CombatStats { public int BaseDamage; public int BaseDefense; }
-```
-
-### 3. Load, Build & Access
-
-```csharp
-// Simple fluent API
-Knowledge knowledge = new Pipeline()
-    .AddSource("Base", new JsonDataLoader(), "Data/")
-    .AddSource("Mods", new JsonDataLoader(), "Mods/")
-    .Build(out var diagnostics);
-
-// Access - typed
-int hp  = knowledge.Of<Creature>().At<Hero>().Take<Health>().Initial;
-int atk = knowledge.Of<Player>().At<Hero>().Take<CombatStats>().BaseDamage;
-```
-
-`Hero` is a generated `being` marker type implementing `IBelongTo<Creature>`, `IBelongTo<Player>`, `IBelongTo<Protagonist>` - compile-time safe.
-
----
-
-## 📦 Packages
-
-```bash
-dotnet add package DataCatalyst                               # SourceGen + Core
-dotnet add package DataCatalyst.Loaders.Json                  # JSON loader
-dotnet add package DataCatalyst.Extensions                    # Compare, Composition, Materialization
-dotnet add package DataCatalyst.Plugins.StateEngine
-dotnet add package DataCatalyst.Plugins.StateEngine.SourceGen
-```
-
-SourceGen packages as analyzers:
-
-```xml
-<PackageReference Include="..." OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-```
-
----
-
-## 🧬 Core Philosophy & Architecture
-
-DataCatalyst is designed around a **multi-dimensional orthogonal structure**, avoiding the vertical limitations of Object-Oriented Programming (OOP) and the unstructured horizontal bag of components in Entity-Component Systems (ECS).
-
-A **Being** is a point of intersection (orthogonality) between multiple **Concepts** (defining its identity) and **Aspects** (containing its data payloads).
-
-### Geometric Representation
-
-Mathematically, the game design database is a space defined by two orthogonal axes:
-
-- **Concept Axis ($C$)**: The identity space. A Being $B$ must map to at least one Concept ($|Concepts(B)| \ge 1$).
-- **Aspect Axis ($A$)**: The data payload space. Aspects are free-floating and can belong to a Being directly or connect to a Concept.
-
-A Being $B_i$ is a coordinate point in the Cartesian product of the Concept power set and Aspect power set:
-
-```math
-B_i = (C_{B_i}, A_{B_i}) \quad \text{where} \quad C_{B_i} \subseteq C, \ A_{B_i} \subseteq A
-```
-
-For example, we can map Beings in this multi-dimensional space.
+### High-Level Overview
 
 ```mermaid
-quadrantChart
-    title "Being Space (Concept vs Aspect)"
-    x-axis "Low Concept Association" --> "High Concept Association"
-    y-axis "Low Aspect Payload" --> "High Aspect Payload"
-    quadrant-1 "High Aspect / Low Concept"
-    quadrant-2 "Rich Beings (High Aspect and High Concept)"
-    quadrant-3 "Low Aspect / Low Concept"
-    quadrant-4 "Marker Beings (Low Aspect and High Concept)"
-    "Goblin (Creature, Enemy)": [0.8, 0.7]
-    "Arthur (Creature, Hero)": [0.8, 0.9]
-    "Orc (Creature, Enemy)": [0.6, 0.4]
-    "SimpleMarker": [0.9, 0.1]
+graph TD
+    WORLD[Game World]
+
+    WORLD --> CONCEPTS[Concepts]
+    WORLD --> ASPECTS[Aspects]
+
+    CONCEPTS --> BEINGS[Beings]
+    ASPECTS --> BEINGS
+
+    BEINGS --> KNOWLEDGE[Knowledge Base]
+
+    KNOWLEDGE --> CONSUMER[Materializers / Plugins]
+
+    CONSUMER --> RUNTIME[Unity / Godot / ECS / Simulation]
 ```
 
-### Orthogonal Relationship Diagram
+---
 
-The following Mermaid diagram shows how `Being` sits orthogonally between the `Concept` and `Aspect` dimensions:
+## 🧬 Core Idea
+
+Everything in DataCatalyst is built from three primitives: **Aspect**, **Being**, and **Concept** (the ABC model).
+
+### The ABC Model
+
+```mermaid
+graph TD
+    Concept1[Concept A] --> Being((Being))
+    Concept2[Concept B] --> Being
+    Being --> Aspect1[Aspect X]
+    Being --> Aspect2[Aspect Y]
+    Being --> Aspect3[Aspect Z]
+```
+
+- **Aspect**: An aspect of a being (e.g., `Health`, `CombatStats`). It defines a specific facet of data.
+- **Being**: A being that exists in the game world (e.g., `Goblin`, `Arthur`).
+- **Concept**: A concept that defines the nature or identity of a being (e.g., `Creature`, `Enemy`, `Hero`).
+
+### Orthogonality
+
+DataCatalyst decouples **Semantic Identity** from **Data Shape**. A `Being` can belong to multiple `Concepts` and contain multiple `Aspects` orthogonally.
 
 ```mermaid
 erDiagram
@@ -155,45 +80,141 @@ erDiagram
     }
 ```
 
+### Mathematical Model
+
+Mathematically, the game design database is a space defined by two orthogonal axes:
+
+- **Concept Axis ($C$)**: The space of Concepts. A Being $B$ must map to at least one Concept ($|Concepts(B)| \ge 1$).
+- **Aspect Axis ($A$)**: The space of Aspects. Aspects are free-floating and can belong to a Being directly or connect to a Concept.
+
+A Being $B_i$ is a coordinate point in the Cartesian product of the Concept power set and Aspect power set:
+
+```math
+B_i = (C_{B_i}, A_{B_i}) \quad \text{where} \quad C_{B_i} \subseteq C, \ A_{B_i} \subseteq A
+```
+
+---
+
+## 🚀 Quick Start
+
+### 1. Install
+
+```bash
+dotnet add package DataCatalyst
+dotnet add package DataCatalyst.Loaders.Json
+```
+
+### 2. Write Data
+
+`Data/Creatures.json`:
+
+```json
+{
+	"Hero": {
+		"$Creature": {
+			"Health": { "Initial": 50, "Max": 50 },
+			"CombatStats": { "BaseDamage": 8, "BaseDefense": 5 }
+		},
+		"$Player": {},
+		"$Protagonist": {}
+	}
+}
+```
+
+### 3. Declare Concepts & Aspects
+
+```csharp
+[GameConcept]
+public record struct Creature : IConcept;
+
+[GameConcept]
+public record struct Player : IConcept;
+
+[GameConcept]
+public record struct Protagonist : IConcept;
+
+[GameAspect]
+public record struct Health { public int Initial; public int Max; }
+
+[GameAspect]
+public record struct CombatStats { public int BaseDamage; public int BaseDefense; }
+```
+
+### 4. Load, Build & Access
+
+```csharp
+// Simple fluent API, mix & match your source
+Knowledge knowledge = new Pipeline()
+    .AddSource("Base", new JsonDataLoader(), "Data/")
+    .AddSource("Dlc", new JsonDataLoader(), "Dlc/")
+    .AddSource("Mods", new JsonDataLoader(), "Mods/")
+    .Build(out var diagnostics);
+
+// Access - type-safe and compile-time checked
+int hp  = knowledge.Of<Creature>().At<Hero>().Take<Health>().Initial;
+int atk = knowledge.Of<Player>().At<Hero>().Take<CombatStats>().BaseDamage;
+```
+
+`Hero` is a generated `being` marker type implementing `IBelongTo<Creature>`, `IBelongTo<Player>`, `IBelongTo<Protagonist>`.
+
+---
+
+## 🏗️ Architecture
+
+DataCatalyst processes your design GDD database through a statically resolved compilation pipeline, converting raw files into highly optimized flat memory layouts.
+
+```mermaid
+graph TD
+    JSON[Raw JSON Files] --> LOADER[IDataLoader]
+    LOADER --> PIPELINE[Pipeline]
+    PIPELINE -->|1. Merge & Override| MERGE[Resolved Beings]
+    MERGE -->|2. Inherit Prototypes| INHERIT[Inherited Aspects]
+    INHERIT -->|3. Cross-Refs $ref| REFS[Linked Graph]
+    REFS -->|4. Build Pools| KNOWLEDGE[Knowledge Base]
+    KNOWLEDGE --> VIEW[Type-Safe Views]
+    KNOWLEDGE --> MATERIALIZER[IMaterializer]
+    MATERIALIZER --> RUNTIME[Unity / Godot / ECS / Custom Engine]
+```
+
 ---
 
 ## 🧩 Usage
 
-### Knowledge - immutable catalog
+The framework workflow is divided into four main phases: **Model**, **Compose**, **Access**, and **Integrate**.
 
-Pipeline final result
+---
 
-```csharp
-knowledge.Of<Creature>().At<Hero>().Take<Health>().Initial;
+### 1. Model
 
-// Concept-scoped view
-var creatures = knowledge.Of<Creature>();
-creatures.At<Hero>().Take<Health>().Initial;
-```
+Define your concepts, aspects, and beings to map out the structure of your game.
 
-### Concept
+#### Concept
 
-A concept, as its name implies, stands for a concept about something in your game.
+A Concept represents semantic classification. It is a marker type defined as a C# struct.
 
 ```csharp
 [GameConcept]
 public record struct Creature : IConcept;
 ```
 
-### Aspect
+#### Aspect
 
-An aspect is a data unit attached to beings of a concept. Multiple concepts beings can share aspect types.
+An Aspect is a modular data struct attached to concepts or beings.
 
 ```csharp
 [GameAspect]
 public record struct Health { public int Initial; public int Max; }
 ```
 
-### Inheritance & Reference
+---
 
-#### Aspect Inheritance
+### 2. Compose
 
-A being can inherit aspect values from another being. Unspecified fields in the child being will fall back to the parent being's values.
+Leverage prototype inheritance and cross-references to assemble complex data profiles with minimal repetition.
+
+#### Prototype Inheritance (`$inherits` / `inherits`)
+
+Beings can inherit aspect values from another being. Unspecified fields in the child being fall back to the parent being's values.
 
 ```json
 {
@@ -211,11 +232,11 @@ A being can inherit aspect values from another being. Unspecified fields in the 
 }
 ```
 
-In this example, `Goblin` overrides `Health.Initial` to `40`, while `Health.Max` is inherited from `BaseMonster` as `100`.
+_Result: `Goblin` overrides `Health.Initial` to `40`, inheriting `Health.Max` as `100`._
 
-#### Cross-Reference
+#### Cross-Reference (`$ref`)
 
-You can reference other beings using the `"$ref"` key. The pipeline automatically resolves these references at build time, replacing the reference object with the target being's key string.
+You can reference other beings using the `"$ref"` key. The pipeline resolves these references at build time, replacing the reference object with the target being's key string.
 
 ```json
 {
@@ -227,11 +248,41 @@ You can reference other beings using the `"$ref"` key. The pipeline automaticall
 }
 ```
 
-At runtime, `InitialWeapon` will be resolved to `"IronSword"`.
+_At runtime, `InitialWeapon` will be resolved to `"IronSword"`._
 
-### Loader
+---
 
-Implement `IDataLoader` to use any format (CSV, YAML, MsgPack, ...).
+### 3. Access
+
+Query and traverse the compiled database using highly optimized, type-safe APIs.
+
+#### Knowledge & Views
+
+The final result of the pipeline is a `Knowledge` instance containing fast, flat-array storage pools.
+
+```csharp
+// Direct lookup
+var arthur = knowledge.Of<Creature>().At<Arthur>();
+int maxHp = arthur.Take<Health>().Max;
+
+// Concept-scoped view
+var creatures = knowledge.Of<Creature>();
+foreach (var record in BeingRegistry.All) {
+    if (creatures.Has(record.BeingType)) {
+        // Process creature beings
+    }
+}
+```
+
+---
+
+### 4. Integrate
+
+Bridge the engine-agnostic database to your specific game loader and engine objects.
+
+#### Loader
+
+Implement `IDataLoader` to support formats like CSV, YAML, MsgPack, etc.
 
 ```csharp
 public class CsvDataLoader : IDataLoader {
@@ -240,25 +291,20 @@ public class CsvDataLoader : IDataLoader {
         // Parse CSV string content -> RawBeing
         return result;
     }
-
-    public LoadResult LoadFile(string path) {
-        return Load(File.ReadAllText(path), Path.GetFileNameWithoutExtension(path));
-    }
-
+    public LoadResult LoadFile(string path) => Load(File.ReadAllText(path), Path.GetFileNameWithoutExtension(path));
     public LoadResult LoadDirectory(string path) {
         var result = new LoadResult();
         foreach (var file in Directory.EnumerateFiles(path, "*.csv")) {
-            var fileResult = LoadFile(file);
-            // Combine fileResult beings, diagnostics, and mappings into result
+            result._beings.AddRange(LoadFile(file)._beings);
         }
         return result;
     }
 }
 ```
 
-### Materializer
+#### Materializer
 
-Bridge from DataCatalyst's Knowledge to engine-specific objects. Define a pattern once, SourceGen dispatches all aspects.
+Bridge DataCatalyst's `Knowledge` to engine-specific game objects or entities. Define a pattern once, and SourceGen dispatches all aspects automatically.
 
 ```csharp
 [Materializer]
@@ -267,24 +313,10 @@ partial class EcsMaterializer : IMaterializer<Entity> {
     void Apply<T>(Entity e, T c) where T : struct => _k.Add(e, c);
 }
 
-// Usage - ECS
+// Usage in Game Loop (Unity, Godot, ECS, etc.)
 var mat = new EcsMaterializer(knowledge);
 mat.Apply(entity, knowledge.Of<Creature>().At<Hero>());
-
-// Usage - Godot/Unity with [Materialize]
-[Materialize]
-partial class Player : CharacterBody2D {
-    public override void _Ready() => this.Materialize();
-}
 ```
-
-### Extensions
-
-| Namespace                                 | Types                                                                            |
-| ----------------------------------------- | -------------------------------------------------------------------------------- |
-| `DataCatalyst.Extensions.Compare`         | `CompareOp`, `OperatorParser`                                                    |
-| `DataCatalyst.Extensions.Composition`     | `TransitionDef`, `ConditionGroupDef`, `SensorConditionDef`, `SensorInfluenceDef` |
-| `DataCatalyst.Extensions.Materialization` | `IMaterializer<T>`, `MaterializerAttribute`, `MaterializeAttribute`              |
 
 ---
 
@@ -292,7 +324,16 @@ partial class Player : CharacterBody2D {
 
 ### StateEngine
 
-Data-driven hierarchical FSM. States, signals, and transitions are data - behavior is never hardcoded.
+StateEngine is a data-driven hierarchical FSM. States, signals, and transitions are defined as data, allowing you to modify behaviors without editing code.
+
+```mermaid
+graph TD
+    KNOWLEDGE[Knowledge Base] -->|1. Extract StateGroup| BAKE[StateEngineBaker]
+    BAKE -->|2. Compile FSM| EVALUATOR[StateEngineEvaluator]
+    EVALUATOR -->|3. Input Signals| RUNTIME[Evaluate Current State]
+```
+
+#### Write State Data
 
 ```json
 {
@@ -326,6 +367,8 @@ Data-driven hierarchical FSM. States, signals, and transitions are data - behavi
 }
 ```
 
+#### Bake & Evaluate FSM
+
 ```csharp
 // Bake - resolve string names to int IDs
 var baked = StateEngineBaker.Bake(
@@ -342,7 +385,25 @@ var result = StateEngineEvaluator.Evaluate(
     });
 ```
 
-StateEngine is originally designed for ECS: ONE system evaluates ALL entities, but is compatible with normal use-cases.
+---
+
+## 📦 Packages
+
+DataCatalyst is modular, letting you install only the components your project needs.
+
+```bash
+dotnet add package DataCatalyst                               # SourceGen + Core
+dotnet add package DataCatalyst.Loaders.Json                  # JSON loader
+dotnet add package DataCatalyst.Extensions                    # Compare, Composition, Materialization
+dotnet add package DataCatalyst.Plugins.StateEngine
+dotnet add package DataCatalyst.Plugins.StateEngine.SourceGen
+```
+
+SourceGen packages can be registered as analyzers in C# project files:
+
+```xml
+<PackageReference Include="DataCatalyst.SourceGen" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+```
 
 ---
 
