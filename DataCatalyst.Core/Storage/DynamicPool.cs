@@ -2,7 +2,6 @@ namespace DataCatalyst.Storage;
 
 using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 
 internal sealed class DynamicPool : IStoragePool {
 	private readonly List<Dictionary<Type, object>> _typedRow = [];
@@ -44,10 +43,10 @@ internal sealed class DynamicPool : IStoragePool {
 		}
 
 		if (_typedRow[index].TryGetValue(typeof(T), out var val)) {
-			return ref Unsafe.Unbox<T>(val);
+			return ref System.Runtime.CompilerServices.Unsafe.Unbox<T>(val);
 		}
 
-		return ref Unsafe.NullRef<T>(); // fallback; caller should check
+		throw new KeyNotFoundException($"Aspect '{typeof(T).Name}' not found at index {index}");
 	}
 
 	public object? GetRaw(int index, int aspectId) {

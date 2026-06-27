@@ -5,30 +5,28 @@ using DataCatalyst.Attributes;
 namespace DataCatalyst.Generated;
 
 [GameAspect]
-public struct Health { public int Current { get; set; } public int Max { get; set; } }
+public struct Health : IRevealedBy<Creature> { public int Current { get; set; } public int Max { get; set; } }
 
 [GameAspect]
-public struct Mana { public int Current { get; set; } public int Max { get; set; } }
+public struct Mana : IRevealedBy<Creature>, IRevealedBy<Enemy> { public int Current { get; set; } public int Max { get; set; } }
 
 [GameAspect]
-public struct CombatStats { public int BaseDamage { get; set; } public int BaseDefense { get; set; } public float AttackSpeed { get; set; } }
+public struct CombatStats : IRevealedBy<Creature> { public int BaseDamage { get; set; } public int BaseDefense { get; set; } public float AttackSpeed { get; set; } }
 
 [GameAspect]
-public struct Label { public string Name { get; set; } }
+public struct Label : IRevealedBy<Creature> { public string Name { get; set; } }
 
 [GameAspect]
 public struct InitialWeapon { public string WeaponId { get; set; } }
 
 [GameAspect]
-public struct ExperienceReward { public int Amount { get; set; } }
+public struct ExperienceReward : IRevealedBy<Enemy> { public int Amount { get; set; } }
 
 [GameAspect]
-public struct PatrolRadius { public int Meters { get; set; } }
+public struct PatrolRadius : IRevealedBy<Enemy> { public int Meters { get; set; } }
 
 [GameAspect]
 public struct Durability { public int Points { get; set; } }
-
-
 
 [GameAspect]
 public struct Stamina { public int Current { get; set; } public int Max { get; set; } }
@@ -50,4 +48,3 @@ public struct Weapon : IConcept { }
 
 [GameConcept]
 public struct GameState : IConcept { }
-

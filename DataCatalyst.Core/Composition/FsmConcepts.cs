@@ -1,4 +1,4 @@
-namespace DataCatalyst.Generated;
+namespace DataCatalyst.Composition;
 
 using DataCatalyst;
 using DataCatalyst.Attributes;

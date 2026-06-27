@@ -5,35 +5,31 @@ using System.Collections.Frozen;
 using System.Collections.Generic;
 using DataCatalyst.Storage;
 
-/// <summary>Global registry of being types and their pool factories.
-/// Populated by SourceGen-generated ModuleInitializer code at assembly load.
-/// Frozen after pipeline build to prevent mutation.</summary>
-public static class BeingRegistry {
-	public readonly record struct Record(Type BeingType, Type[] Concepts);
+	public sealed class BeingRegistry : IBeingRegistry {
+		private readonly List<IBeingRegistry.Record> _beings = [];
+		private readonly Dictionary<Type, Func<ITypedStoragePool>> _poolFactories = [];
+		private FrozenDictionary<Type, Func<ITypedStoragePool>>? _frozenPoolFactories;
 
-	private static readonly List<Record> _beings = [];
-	private static readonly Dictionary<Type, Func<IStoragePool>> _poolFactories = [];
-	private static FrozenDictionary<Type, Func<IStoragePool>>? _frozenPoolFactories;
-	private static bool _frozen;
+		public bool Frozen { get; private set; }
 
-	public static void Register<TBeing>(params ReadOnlySpan<Type> concepts)
-		where TBeing : struct, IBeing {
-		if (_frozen) {
-			throw new InvalidOperationException("Registry frozen after pipeline build");
+		public void Register<TBeing>(params ReadOnlySpan<Type> concepts)
+			where TBeing : struct, IBeing {
+			if (Frozen) {
+				throw new InvalidOperationException("Registry frozen after pipeline build");
+			}
+
+			_beings.Add(new IBeingRegistry.Record(typeof(TBeing), concepts.ToArray()));
 		}
 
-		_beings.Add(new(typeof(TBeing), concepts.ToArray()));
-	}
+		public void RegisterPool(Type conceptType, Func<ITypedStoragePool> factory) {
+			if (Frozen) {
+				throw new InvalidOperationException("Registry frozen after pipeline build");
+			}
 
-	public static void RegisterPool(Type conceptType, Func<IStoragePool> factory) {
-		if (_frozen) {
-			throw new InvalidOperationException("Registry frozen after pipeline build");
+			_poolFactories[conceptType] = factory;
 		}
 
-		_poolFactories[conceptType] = factory;
-	}
-
-	public static IStoragePool? CreatePool(Type conceptType) {
+		public ITypedStoragePool? CreatePool(Type conceptType) {
 		if (_frozenPoolFactories != null) {
 			return _frozenPoolFactories.TryGetValue(conceptType, out var f) ? f() : null;
 		}
@@ -41,10 +37,10 @@ public static class BeingRegistry {
 		return _poolFactories.TryGetValue(conceptType, out var factory) ? factory() : null;
 	}
 
-	public static IReadOnlyList<Record> All => _beings;
+	public IReadOnlyList<IBeingRegistry.Record> All => _beings;
 
-	internal static void Freeze() {
-		_frozen = true;
+	public void Freeze() {
+		Frozen = true;
 		_frozenPoolFactories = _poolFactories.ToFrozenDictionary();
 	}
 }

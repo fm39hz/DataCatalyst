@@ -2,13 +2,15 @@ namespace DataCatalyst.Modding;
 
 using System;
 using DataCatalyst.Storage;
+using DataCatalyst.Schema;
+using System.Collections.Generic;
 
 public readonly ref struct DynamicConcept {
 	private readonly Knowledge.Knowledge _knowledge;
-	private readonly IStoragePool? _pool;
+	private readonly IRawStoragePool? _pool;
 	private readonly string _conceptName;
 
-	internal DynamicConcept(Knowledge.Knowledge knowledge, string conceptName, IStoragePool? pool) {
+	internal DynamicConcept(Knowledge.Knowledge knowledge, string conceptName, IRawStoragePool? pool) {
 		_knowledge = knowledge;
 		_conceptName = conceptName;
 		_pool = pool;
@@ -18,7 +20,7 @@ public readonly ref struct DynamicConcept {
 		if (_pool != null) {
 			var idx = _knowledge.GetDynamicBeingIndex(beingKey);
 			if (idx >= 0) {
-				return new DynamicBeing(_pool, idx, beingKey);
+				return new DynamicBeing(_knowledge, _pool, idx, beingKey, _conceptName);
 			}
 		}
 		return DynamicBeing.Empty;
@@ -27,13 +29,17 @@ public readonly ref struct DynamicConcept {
 	public bool Has(string beingKey) => _knowledge.GetDynamicBeingIndex(beingKey) >= 0;
 }
 
-public readonly ref struct DynamicBeing {
-	private readonly IStoragePool? _pool;
+	public readonly ref struct DynamicBeing {
+		private readonly IRawStoragePool? _pool;
+		private readonly Knowledge.Knowledge? _knowledge;
+		private readonly string _conceptName;
 
-	public static DynamicBeing Empty => default;
+		public static DynamicBeing Empty => default;
 
-	internal DynamicBeing(IStoragePool pool, int index, string beingKey) {
+		internal DynamicBeing(Knowledge.Knowledge knowledge, IRawStoragePool pool, int index, string beingKey, string conceptName) {
+		_knowledge = knowledge;
 		_pool = pool;
+		_conceptName = conceptName;
 		Index = index;
 		Key = beingKey;
 		IsValid = true;
@@ -44,28 +50,45 @@ public readonly ref struct DynamicBeing {
 	public int Index { get; }
 
 	public T GetField<T>(string aspectName, string fieldName) where T : struct {
-		if (_pool == null || !IsValid) {
-			throw new InvalidOperationException("Being not found");
+		if (TryGetField<T>(aspectName, fieldName, out var value)) {
+			return value;
 		}
-
-		return default;
+		throw new KeyNotFoundException(
+			$"Field '{fieldName}' not found in aspect '{aspectName}' for being '{Key}'");
 	}
 
 	public bool TryGetField<T>(string aspectName, string fieldName, out T value) where T : struct {
 		value = default;
-		if (_pool == null || !IsValid) {
+		if (_pool == null || _knowledge?.Schema == null) {
 			return false;
 		}
 
+		var aspectId = _knowledge.Schema.GetAspectId(aspectName);
+		if (!aspectId.HasValue) {
+			return false;
+		}
+
+		var raw = _pool.GetRaw(Index, aspectId.Value);
+			if (raw is System.Collections.Generic.Dictionary<string, object?> dict
+				&& dict.TryGetValue(fieldName, out var val)
+				&& val is T tVal) {
+				value = tVal;
+				return true;
+			}
 		return false;
 	}
 
 	public object? GetRaw(string aspectName) {
-		if (_pool == null || !IsValid) {
+		if (_pool == null || _knowledge?.Schema == null) {
 			return null;
 		}
 
-		return null;
+		var aspectId = _knowledge.Schema.GetAspectId(aspectName);
+		if (!aspectId.HasValue) {
+			return null;
+		}
+
+		return _pool.GetRaw(Index, aspectId.Value);
 	}
 }
 

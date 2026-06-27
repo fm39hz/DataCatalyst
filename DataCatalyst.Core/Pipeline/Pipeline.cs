@@ -2,689 +2,94 @@ namespace DataCatalyst.Pipeline;
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Text.Json;
+using DataCatalyst.Knowledge;
 using DataCatalyst.Loader;
+using DataCatalyst.Pipeline.Stages;
 using DataCatalyst.Registry;
 using DataCatalyst.Schema;
-using DataCatalyst.Storage;
 
-public sealed class Pipeline {
-	private readonly List<DataSource> _sources = [];
-	private readonly List<IBaker> _bakers = [];
-	private readonly List<string> _ontologyPaths = [];
+public sealed class Pipeline : IPipeline {
+	internal List<DataSource> _sources = [];
+	internal List<string> _ontology = [];
+	internal List<IBaker> _bakers = [];
+	internal List<IPipelineStage> _stages = [];
 
 	public SchemaRegistry Schema { get; } = new();
+	public RegistrySet Registries { get; }
 
-	public Pipeline AddSource(string name, IDataLoader loader, string path,
-		Action<DataSource>? configure = null) { var s = new DataSource(name, loader, path); configure?.Invoke(s); _sources.Add(s); return this; }
-
-	public Pipeline AddBaker(IBaker baker) {
-		_bakers.Add(baker);
-		return this;
+	public Pipeline(RegistrySet registries, bool noDefaults = false) {
+		Registries = registries;
+		if (!noDefaults) {
+			_stages.AddRange(DefaultStages());
+		}
 	}
 
-	public Pipeline AddOntology(string path) {
-		_ontologyPaths.Add(path);
-		return this;
-	}
+	private static List<IPipelineStage> DefaultStages() => [
+		new OntologyStage(), new LoadStage(), new SchemaStage(),
+		new MergeStage(), new InheritStage(), new ResolveStage(),
+		new ValidateStage(), new CrossRefStage(), new KnowledgeStage(),
+		new BakeStage()
+	];
 
-	public Pipeline Load(string rootPath, IDataLoader loader) {
-		if (!Directory.Exists(rootPath) || loader == null) {
-			return this;
-		}
-
-		// 1. Root ontology files
-		foreach (var ontFile in new[] { "concepts.json", "aspects.json", "relations.json" }) {
-			var p = Path.Combine(rootPath, ontFile);
-			if (File.Exists(p)) {
-				AddOntology(p);
-			}
-		}
-
-		// 2. Root Data/
-		var dataPath = Path.Combine(rootPath, "Data");
-		if (Directory.Exists(dataPath) && Directory.EnumerateFiles(dataPath, "*.json").Any()) {
-			AddSource("Base", loader, dataPath);
-		}
-
-		// 3. Scan Mods/ and DLC/ subdirectories for mods.json
-		foreach (var modDir in new[] { "Mods", "DLC" }) {
-			var dir = Path.Combine(rootPath, modDir);
-			if (!Directory.Exists(dir)) {
-				continue;
-			}
-
-			foreach (var subDir in Directory.EnumerateDirectories(dir)) {
-				var modJson = Path.Combine(subDir, "mods.json");
-				if (!File.Exists(modJson)) {
-					continue;
-				}
-
-				try {
-					var json = File.ReadAllText(modJson);
-					using var doc = JsonDocument.Parse(json);
-					var mRoot = doc.RootElement;
-					var name = Path.GetFileName(subDir);
-					var priority = 5;
-					if (mRoot.TryGetProperty("priority", out var pri) && pri.ValueKind == JsonValueKind.Number) {
-						priority = pri.GetInt32();
-					}
-
-					if (mRoot.TryGetProperty("ontology", out var ont) && ont.ValueKind == JsonValueKind.Object) {
-						foreach (var ontEntry in ont.EnumerateObject()) {
-							var fileProp = ontEntry.Value;
-							if (fileProp.ValueKind != JsonValueKind.Object) {
-								continue;
-							}
-
-							if (!fileProp.TryGetProperty("file", out var fp) || fp.ValueKind != JsonValueKind.String) {
-								continue;
-							}
-
-							var fpVal = fp.GetString();
-							if (string.IsNullOrEmpty(fpVal)) {
-								continue;
-							}
-
-							var fullPath = Path.Combine(subDir, fpVal);
-							if (File.Exists(fullPath)) {
-								AddOntology(fullPath);
-							}
-						}
-					}
-
-					foreach (var ontFile in new[] { "concepts.json", "aspects.json", "relations.json" }) {
-						var p = Path.Combine(subDir, ontFile);
-						if (File.Exists(p)) {
-							AddOntology(p);
-						}
-					}
-
-					var modData = Path.Combine(subDir, "Data");
-					if (Directory.Exists(modData) && Directory.EnumerateFiles(modData, "*.json").Any()) {
-						AddSource(name, loader, modData, s => {
-							s.Priority = priority;
-							s.MergePolicy = MergePolicy.FieldPatch;
-						});
-					}
-				}
-				catch { }
-			}
-		}
-
-		return this;
-	}
-
-	public Knowledge.Knowledge Build(out DiagnosticBag diagnostics) {
-		diagnostics = new DiagnosticBag();
-		var ctx = new PipelineContext { Schema = Schema };
-		ResolveSources(ctx);
-		if (ctx.Diagnostics.HasErrors) { PipeDiag(ctx, diagnostics); return null!; }
-		Load(ctx);
-		if (ctx.Diagnostics.HasErrors) { PipeDiag(ctx, diagnostics); return null!; }
-		LoadOntologies(ctx);
-		if (ctx.Diagnostics.HasErrors) { PipeDiag(ctx, diagnostics); return null!; }
-		PopulateSchemaFromRegistries(ctx);
-		Merge(ctx);
-		if (ctx.Diagnostics.HasErrors) { PipeDiag(ctx, diagnostics); return null!; }
-		Inherit(ctx);
-		if (ctx.Diagnostics.HasErrors) { PipeDiag(ctx, diagnostics); return null!; }
-		ResolveIDs(ctx);
-		if (ctx.Diagnostics.HasErrors) { PipeDiag(ctx, diagnostics); return null!; }
-		ValidateRequires(ctx);
-		if (ctx.Diagnostics.HasErrors) { PipeDiag(ctx, diagnostics); return null!; }
-		ResolveCrossRefs(ctx);
-		if (ctx.Diagnostics.HasErrors) { PipeDiag(ctx, diagnostics); return null!; }
-		BuildKnowledge(ctx);
-		if (ctx.Diagnostics.HasErrors) { PipeDiag(ctx, diagnostics); return null!; }
-		ExecuteBakers(ctx);
-		if (ctx.Diagnostics.HasErrors) { PipeDiag(ctx, diagnostics); return null!; }
-		PipeDiag(ctx, diagnostics);
-		BeingRegistry.Freeze();
-		RequiresRegistry.Freeze();
-		AspectFieldRegistry.Freeze();
-		return ctx.Knowledge ?? throw new InvalidOperationException("Build produced no Knowledge");
-	}
-
-	private void ResolveSources(PipelineContext ctx) {
-		var map = new Dictionary<string, DataSource>();
-		var inDeg = new Dictionary<string, int>();
-		var edges = new Dictionary<string, List<string>>();
-		foreach (var s in _sources) { map[s.Name] = s; inDeg[s.Name] = 0; edges[s.Name] = []; }
-		foreach (var s in _sources) {
+	public static List<DataSource> TopoSort(IReadOnlyList<DataSource> sources) {
+		var map = new Dictionary<string, DataSource>(StringComparer.OrdinalIgnoreCase);
+		var deg = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+		var edges = new Dictionary<string, List<DataSource>>(StringComparer.OrdinalIgnoreCase);
+		foreach (var s in sources) { map[s.Name] = s; deg.TryAdd(s.Name, 0); }
+		foreach (var s in sources) {
 			foreach (var d in s.DependsOn) {
-				if (map.ContainsKey(d)) { edges[d].Add(s.Name); inDeg[s.Name]++; }
-				else {
-					ctx.Diagnostics.Warn($"'{s.Name}' depends on '{d}' not found");
-				}
-			}
-		}
-
-		var ready = new List<string>(inDeg.Where(kv => kv.Value == 0)
-			.OrderBy(kv => map[kv.Key].Priority).ThenBy(kv => kv.Key).Select(kv => kv.Key));
-		ctx.SortedSources = [];
-		while (ready.Count > 0) {
-			var n = ready[0];
-			ready.RemoveAt(0);
-			ctx.SortedSources.Add(map[n]);
-			foreach (var next in edges[n]) {
-				if (--inDeg[next] == 0) {
-					ready.Add(next);
-				}
-			}
-
-			ready = [.. ready.OrderBy(x => map[x].Priority).ThenBy(x => x)];
-		}
-		ctx.Diagnostics.Info($"Resolved {ctx.SortedSources.Count} sources");
-	}
-
-	private void Load(PipelineContext ctx) {
-		var sorted = ctx.SortedSources ?? _sources;
-		var all = new List<RawBeing>();
-		var keys = new HashSet<string>();
-		foreach (var src in sorted) {
-			var result = src.Loader.LoadDirectory(src.Path);
-			foreach (var d in result.Diagnostics) {
-				ctx.Diagnostics.Warn($"[{src.Name}] {d}");
-			}
-
-			var pv = (int)src.MergePolicy;
-			foreach (var e in result.Beings) {
-				if (e is RawBeing re) { re.MergePolicyValue = pv; re.AssignedIndex = all.Count; all.Add(re); keys.Add(re.Key); }
-			}
-
-			foreach (var kv in result.Mappings) {
-				if (!ctx.Mappings.TryGetValue(kv.Key, out var list)) {
-					ctx.Mappings[kv.Key] = list = [];
-				}
-
-				foreach (var v in kv.Value) {
-					if (!list.Contains(v)) {
-						list.Add(v);
-					}
-				}
-			}
-			ctx.Diagnostics.Info($"Loaded {result.Beings.Count} from '{src.Name}'");
-		}
-		ctx.RawBeings = all;
-		ctx.AllKeys = keys;
-	}
-
-	private void LoadOntologies(PipelineContext ctx) {
-		foreach (var path in _ontologyPaths) {
-			if (!File.Exists(path)) {
-				ctx.Diagnostics.Warn($"Ontology file not found: {path}");
-				continue;
-			}
-
-			try {
-				var json = File.ReadAllText(path);
-				using var doc = JsonDocument.Parse(json);
-				var root = doc.RootElement;
-				if (!root.TryGetProperty("concepts", out var concepts) || concepts.ValueKind != JsonValueKind.Object) {
-					continue;
-				}
-
-				foreach (var conceptEntry in concepts.EnumerateObject()) {
-					var cName = conceptEntry.Name;
-					var entry = conceptEntry.Value;
-
-					var requires = new List<string>();
-					var suggests = new List<string>();
-					if (entry.ValueKind == JsonValueKind.Object) {
-						if (entry.TryGetProperty("$requires", out var req) && req.ValueKind == JsonValueKind.Array) {
-							foreach (var item in req.EnumerateArray()) {
-								if (item.ValueKind == JsonValueKind.String) {
-									requires.Add(item.GetString()!);
-								}
-							}
-						}
-
-						if (entry.TryGetProperty("$suggests", out var sug) && sug.ValueKind == JsonValueKind.Array) {
-							foreach (var item in sug.EnumerateArray()) {
-								if (item.ValueKind == JsonValueKind.String) {
-									suggests.Add(item.GetString()!);
-								}
-							}
-						}
+				if (map.ContainsKey(d)) {
+					if (!edges.TryGetValue(d, out var l)) {
+						edges[d] = l = [];
 					}
 
-					RequiresRegistry.Register(cName, [.. requires], [.. suggests]);
-
-					if (Schema.GetConceptId(cName) < 0) {
-						Schema.DefineConcept(cName, [.. requires]);
-					}
-				}
-
-				ctx.Diagnostics.Info($"Loaded ontology: {path}");
-			}
-			catch (Exception ex) {
-				ctx.Diagnostics.Error($"Failed to load ontology '{path}': {ex.Message}");
-			}
-		}
-	}
-
-	private void PopulateSchemaFromRegistries(PipelineContext ctx) {
-		foreach (var aspectType in AspectTypeRegistry.RegisteredTypes) {
-			var fields = AspectFieldRegistry.GetFields(aspectType.Name);
-			if (fields != null) {
-				Schema.DefineAspect(aspectType.Name, fields);
-			}
-		}
-
-		var conceptTypes = new HashSet<Type>();
-		foreach (var record in BeingRegistry.All) {
-			foreach (var conceptType in record.Concepts) {
-				conceptTypes.Add(conceptType);
-			}
-		}
-
-		foreach (var conceptType in conceptTypes) {
-			var aspectNames = ctx.Mappings.TryGetValue(conceptType.Name, out var fields)
-				? [.. fields]
-				: Array.Empty<string>();
-
-			foreach (var name in aspectNames) {
-				if (Schema.GetAspectId(name) < 0) {
-					Schema.DefineAspect(name, new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase));
+					l.Add(s);
+					deg[s.Name] = deg.GetValueOrDefault(s.Name) + 1;
 				}
 			}
-
-			Schema.DefineConcept(conceptType.Name, aspectNames);
-		}
-	}
-
-	private static void Merge(PipelineContext ctx) {
-		var entries = ctx.RawBeings;
-		if (entries == null || entries.Count == 0) {
-			return;
 		}
 
-		const int FP = 1, OV = 2, RP = 3;
-		var merged = new Dictionary<string, RawBeing>(StringComparer.OrdinalIgnoreCase);
-		foreach (var e in entries) {
-			if (!merged.TryGetValue(e.Key, out var ex)) { merged[e.Key] = e; continue; }
-			switch (e.MergePolicyValue) {
-				case RP:
-					DoReplace(ex, e);
-					break;
-				case OV:
-					DoOverlay(ex, e);
-					break;
-				case FP:
-					DoFieldPatch(ex, e);
-					break;
-				default:
-					DoPatch(ex, e);
-					break;
+		var q = new Queue<DataSource>();
+		foreach (var s in sources) {
+			if (deg.GetValueOrDefault(s.Name) == 0) {
+				q.Enqueue(s);
 			}
 		}
-		var final = new List<RawBeing>(merged.Values);
-		for (var i = 0; i < final.Count; i++) {
-			final[i].AssignedIndex = i;
-		}
 
-		ctx.RawBeings = final;
-	}
-
-	private static void Inherit(PipelineContext ctx) {
-		var entries = ctx.RawBeings;
-		if (entries == null) {
-			return;
-		}
-
-		var byKey = entries.ToDictionary(e => e.Key);
-		var visited = new HashSet<string>();
-		var visiting = new HashSet<string>();
-		void Resolve(RawBeing e) {
-			if (e.Inherits == null || visited.Contains(e.Key)) {
-				return;
-			}
-
-			if (visiting.Contains(e.Key)) { ctx.Diagnostics.Error($"Cycle: {e.Key}"); return; }
-			visiting.Add(e.Key);
-			if (!byKey.TryGetValue(e.Inherits, out var p)) { ctx.Diagnostics.Warn($"Missing parent '{e.Inherits}'"); visiting.Remove(e.Key); visited.Add(e.Key); return; }
-			Resolve(p);
-			foreach (var kv in p.RawFields) {
-				if (!e.RawFields.ContainsKey(kv.Key)) {
-					e.RawFields[kv.Key] = kv.Value;
-					if (!e.FieldNames.Contains(kv.Key)) {
-						e.FieldNames.Add(kv.Key);
-					}
-				}
-			}
-
-			visiting.Remove(e.Key);
-			visited.Add(e.Key);
-		}
-		foreach (var e in entries) {
-			Resolve(e);
-		}
-	}
-
-	private void ResolveIDs(PipelineContext ctx) {
-		var raw = ctx.RawBeings;
-		if (raw == null || raw.Count == 0) {
-			return;
-		}
-
-		ctx.Beings.Clear();
-		foreach (var re in raw) {
-			var concepts = new List<int>();
-			var conceptSet = new HashSet<int>();
-			foreach (var c in re.Concepts) {
-				var id = Schema.GetConceptId(c);
-				if (id < 0) { ctx.Diagnostics.Warn($"Unknown concept '{c}' in '{re.Key}'"); continue; }
-				concepts.Add(id);
-				conceptSet.Add(id);
-			}
-			var aspects = new Dictionary<int, object?>();
-			foreach (var kv in re.RawFields) {
-				var id = Schema.GetAspectId(kv.Key);
-				if (id >= 0) {
-					aspects[id] = kv.Value;
-				}
-			}
-			ctx.Beings.Add(new ResolvedBeing {
-				Key = re.Key,
-				AssignedIndex = re.AssignedIndex,
-				Inherits = re.Inherits,
-				Concepts = concepts,
-				ConceptSet = conceptSet,
-				AspectFields = aspects,
-			});
-		}
-		ctx.RawBeings.Clear();
-	}
-
-	private void ValidateRequires(PipelineContext ctx) {
-		var entries = ctx.Beings;
-		if (entries == null || entries.Count == 0) {
-			return;
-		}
-
-		foreach (var entry in entries) {
-			foreach (var conceptId in entry.Concepts) {
-				if (!Schema.TryGetConceptName(conceptId, out var cName) || cName == null) {
-					continue;
-				}
-
-				var required = RequiresRegistry.GetRequired(cName);
-				if (required.Length == 0) {
-					continue;
-				}
-
-				foreach (var reqAspectName in required) {
-					var reqAspectId = Schema.GetAspectId(reqAspectName);
-					if (reqAspectId < 0 || !entry.AspectFields.ContainsKey(reqAspectId)) {
-						ctx.Diagnostics.Error(
-							$"Being '{entry.Key}' of concept '{cName}' missing required aspect '{reqAspectName}'");
+		var r = new List<DataSource>(sources.Count);
+		while (q.Count > 0) {
+			var s = q.Dequeue();
+			r.Add(s);
+			if (edges.TryGetValue(s.Name, out var deps)) {
+				foreach (var d in deps) {
+					if (--deg[d.Name] == 0) {
+						q.Enqueue(d);
 					}
 				}
 			}
 		}
+		if (r.Count != sources.Count) {
+			var cycled = sources.Where(s => !r.Contains(s)).Select(s => $"'{s.Name}'");
+			throw new InvalidOperationException(
+				$"Circular dependency detected between sources: {string.Join(", ", cycled)}");
+		}
+
+		return r;
 	}
 
-	private void ResolveCrossRefs(PipelineContext ctx) {
-		var entries = ctx.Beings;
-		if (entries == null || entries.Count == 0) {
-			return;
-		}
+	public Knowledge? Run(out DiagnosticBag diagnostics) {
+		_stages = [.. _stages.OrderBy(s => s.Order)];
+		var ctx = new PipelineContext(Schema, _sources, _ontology, _bakers, Registries);
+		diagnostics = ctx.Diagnostics;
 
-		foreach (var entry in entries) {
-			foreach (var kv in entry.AspectFields) {
-				// Resolve $ref in values
-				var mod = false;
-				var resolved = WalkNode(kv.Value, ctx.AllKeys, ref mod, entry.Key, kv.Key.ToString(), ctx);
-				entry.AspectFields[kv.Key] = resolved;
-			}
-			foreach (var kv in entry.AspectFields) {
-				var raw = kv.Value;
-				var aname = Schema.TryGetAspectName(kv.Key, out var n) ? n : null;
-				if (aname == null) {
-					continue;
-				}
-
-				if (AspectTypeRegistry.TryGetType(aname, out var t) && t != null) {
-					try {
-						var d = AspectTypeRegistry.Deserialize(t, raw);
-						if (d != null) {
-							entry.Components[t] = d;
-						}
-					}
-					catch (Exception ex) { ctx.Diagnostics.Error($"Deserialize '{aname}': {ex.Message}"); }
-				}
-				else {
-					ctx.Diagnostics.Warn($"Unknown aspect '{aname}' (ID {kv.Key}) for '{entry.Key}' — runtime dynamic");
-				}
-			}
-		}
-	}
-
-	private void BuildKnowledge(PipelineContext ctx) {
-		var entries = ctx.Beings;
-		if (entries == null || entries.Count == 0) { ctx.Diagnostics.Error("No beings"); return; }
-		var byConcept = new Dictionary<int, List<ResolvedBeing>>();
-		var nameIndex = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-		foreach (var e in entries) {
-			nameIndex[e.Key] = e.AssignedIndex;
-			foreach (var c in e.Concepts) {
-				(byConcept.TryGetValue(c, out var l) ? l : (byConcept[c] = [])).Add(e);
-			}
-		}
-		var pools = new Dictionary<Type, IStoragePool>();
-		var beingIndices = new Dictionary<Type, int>();
-		var dynamicPools = new Dictionary<string, IStoragePool>(StringComparer.OrdinalIgnoreCase);
-		var dynamicIndices = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-		foreach (var kv in byConcept) {
-			var ct = FindType(kv.Key);
-			var ce = kv.Value;
-			var maxIdx = ce.Max(e => e.AssignedIndex);
-			if (maxIdx < 0) {
-				continue;
-			}
-
-			var conceptName = Schema.TryGetConceptName(kv.Key, out var cn) ? cn : null;
-			var allowed = Schema.GetConceptAspects(kv.Key);
-
-			if (ct != null) {
-				// Known concept type — use typed pool or dynamic pool with typed components
-				var hasDynamic = allowed != null && allowed.Any(a => Schema.TryGetAspectName(a, out var _an) && _an != null && !AspectTypeRegistry.HasType(_an));
-				IStoragePool pool;
-				if (hasDynamic) {
-					var dp = new DynamicPool();
-					dp.Resize(maxIdx + 1);
-					foreach (var e in ce) {
-						foreach (var comp in e.Components) {
-							if (allowed == null || allowed.Contains(Schema.GetAspectId(comp.Key.Name))) {
-								dp.SetRaw(e.AssignedIndex, comp.Key, comp.Value);
-							}
-						}
-					}
-					pool = dp;
-				}
-				else {
-					pool = BeingRegistry.CreatePool(ct) ?? new GenericPool();
-					pool.Resize(maxIdx + 1);
-					foreach (var e in ce) {
-						foreach (var comp in e.Components) {
-							if (allowed == null || allowed.Contains(Schema.GetAspectId(comp.Key.Name))) {
-								pool.SetRaw(e.AssignedIndex, comp.Key, comp.Value);
-							}
-						}
-					}
-				}
-				pools[ct] = pool;
-
-				foreach (var rec in BeingRegistry.All) {
-					if (!rec.Concepts.Contains(ct)) {
-						continue;
-					}
-
-					var found = entries.FirstOrDefault(e => e.Key == rec.BeingType.Name);
-					if (found != null) {
-						beingIndices[rec.BeingType] = found.AssignedIndex;
-					}
-				}
-			}
-			else if (conceptName != null) {
-				// Unknown concept type (runtime/mod) — DynamicPool with raw aspect data
-				var dp = new DynamicPool();
-				dp.Resize(maxIdx + 1);
-				foreach (var e in ce) {
-					foreach (var kv2 in e.AspectFields) {
-						dp.SetRawValue(e.AssignedIndex, kv2.Key, kv2.Value);
-					}
-					if (!string.IsNullOrEmpty(e.Key) && !dynamicIndices.ContainsKey(e.Key)) {
-						dynamicIndices[e.Key] = e.AssignedIndex;
-					}
-				}
-				dynamicPools[conceptName] = dp;
-			}
-		}
-		ctx.DynamicBeingIndices = dynamicIndices;
-		ctx.Knowledge = Knowledge.KnowledgeFactory.Create(pools, beingIndices, Schema, []);
-		ctx.Knowledge.SetDynamicPools(dynamicPools, dynamicIndices);
-		ctx.Diagnostics.Info($"Built {pools.Count} typed pools + {dynamicPools.Count} dynamic pools");
-	}
-
-	private void ExecuteBakers(PipelineContext ctx) {
-		if (ctx.Knowledge == null) {
-			return;
-		}
-
-		var cache = new Dictionary<Type, Dictionary<string, object>>();
-
-		foreach (var baker in _bakers) {
-			var sourceAspectType = baker.SourceAspectType;
-			var bakedType = baker.BakedType;
-
-			if (!cache.TryGetValue(bakedType, out var inner)) {
-				cache[bakedType] = inner = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
-			}
-
-			foreach (var being in ctx.Beings) {
-				if (being.Components.TryGetValue(sourceAspectType, out var sourceAspect)) {
-					try {
-						var bakedObj = baker.Bake(being.Key, sourceAspect, ctx.Knowledge, ctx.Diagnostics);
-						if (bakedObj != null) {
-							inner[being.Key] = bakedObj;
-						}
-					}
-					catch (Exception ex) {
-						ctx.Diagnostics.Error($"Baker '{baker.GetType().Name}' failed for being '{being.Key}': {ex.Message}");
-					}
-				}
+		foreach (var s in _stages) {
+			if (!s.Execute(ctx)) {
+				break;
 			}
 		}
 
-		ctx.Knowledge = Knowledge.KnowledgeFactory.Create(
-			ctx.Knowledge.Pools.ToDictionary(k => k.Key, v => v.Value),
-			ctx.Knowledge.BeingIndices.ToDictionary(k => k.Key, v => v.Value),
-			ctx.Knowledge.Schema,
-			cache
-		);
-	}
-
-	private Type? FindType(int conceptId) {
-		if (Schema.TryGetConceptName(conceptId, out var name) && name != null) {
-			foreach (var r in BeingRegistry.All) {
-				foreach (var c in r.Concepts) {
-					if (string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase)) {
-						return c;
-					}
-				}
-			}
-		}
-
-		return null;
-	}
-
-	private static object? WalkNode(object? n, HashSet<string> keys, ref bool mod, string ek, string an, PipelineContext ctx) {
-		if (n == null) {
-			return null;
-		}
-
-		if (n is Dictionary<string, object?> d) {
-			if (d.TryGetValue("$ref", out var rv) && rv is string tk) {
-				if (keys.Contains(tk)) {
-					ctx.Diagnostics.Info($"Resolved '{ek}.{an}' → '{tk}'");
-				}
-				else {
-					ctx.Diagnostics.Warn($"Unresolved '{ek}.{an}' → '{tk}'");
-				}
-
-				mod = true;
-				return tk;
-			}
-			foreach (var k in d.Keys.ToList()) { var v = d[k]; var r = WalkNode(v, keys, ref mod, ek, an + "." + k, ctx); if (r != v) { d[k] = r; mod = true; } }
-			return d;
-		}
-		if (n is List<object?> list) {
-			for (var i = 0; i < list.Count; i++) { var v = list[i]; var r = WalkNode(v, keys, ref mod, ek, an + $"[{i}]", ctx); if (r != v) { list[i] = r; mod = true; } }
-		}
-
-		return n;
-	}
-
-	private static void DoReplace(RawBeing e, RawBeing n) { e.RawFields.Clear(); e.FieldNames.Clear(); e.Components.Clear(); e.Concepts = n.Concepts; e.ConceptSet = n.ConceptSet; e.Inherits = n.Inherits; foreach (var kv in n.RawFields) { e.RawFields[kv.Key] = kv.Value; e.FieldNames.Add(kv.Key); } }
-	private static void DoOverlay(RawBeing e, RawBeing n) {
-		foreach (var kv in n.RawFields) {
-			e.RawFields[kv.Key] = kv.Value;
-			if (!e.FieldNames.Contains(kv.Key)) {
-				e.FieldNames.Add(kv.Key);
-			}
-		}
-		if (n.Inherits != null) {
-			e.Inherits = n.Inherits;
-		}
-	}
-	private static void DoPatch(RawBeing e, RawBeing n) {
-		foreach (var kv in n.RawFields) {
-			e.RawFields[kv.Key] = DeepMerge(e.RawFields.GetValueOrDefault(kv.Key), kv.Value, false);
-			if (!e.FieldNames.Contains(kv.Key)) {
-				e.FieldNames.Add(kv.Key);
-			}
-		}
-		if (n.Inherits != null) {
-			e.Inherits = n.Inherits;
-		}
-	}
-	private static void DoFieldPatch(RawBeing e, RawBeing n) {
-		foreach (var kv in n.RawFields) {
-			e.RawFields[kv.Key] = DeepMerge(e.RawFields.GetValueOrDefault(kv.Key), kv.Value, true);
-			if (!e.FieldNames.Contains(kv.Key)) {
-				e.FieldNames.Add(kv.Key);
-			}
-		}
-		if (n.Inherits != null) {
-			e.Inherits = n.Inherits;
-		}
-	}
-
-	private static object? DeepMerge(object? x, object? y, bool append) {
-		if (x == null || y == null) {
-			return y ?? x;
-		}
-
-		if (x is Dictionary<string, object?> d1 && y is Dictionary<string, object?> d2) { foreach (var kv in d2) { d1.TryGetValue(kv.Key, out var s); d1[kv.Key] = DeepMerge(s, kv.Value, append); } return d1; }
-		if (x is List<object?> l1 && y is List<object?> l2) { if (append) { l1.AddRange(l2); return l1; } return l2; }
-		return y;
-	}
-
-	private static void PipeDiag(PipelineContext ctx, DiagnosticBag d) {
-		foreach (var msg in ctx.Diagnostics.Items) {
-			if (msg.StartsWith("[Error]")) {
-				d.Error(msg[7..]);
-			}
-			else if (msg.StartsWith("[Warn]")) {
-				d.Warn(msg[7..]);
-			}
-			else {
-				d.Info(msg[6..]);
-			}
-		}
+		Registries.Freeze();
+		return ctx.Diagnostics.HasErrors ? null : ctx.Knowledge;
 	}
 }

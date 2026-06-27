@@ -6,38 +6,71 @@ using DataCatalyst.Schema;
 using DataCatalyst.Storage;
 
 public sealed class Knowledge {
-	internal readonly IReadOnlyDictionary<Type, IStoragePool> Pools;
+	internal readonly IReadOnlyDictionary<Type, ITypedStoragePool> Pools;
 	internal readonly IReadOnlyDictionary<Type, int> BeingIndices;
 	internal readonly SchemaRegistry? Schema;
-	private readonly IReadOnlyDictionary<Type, IReadOnlyDictionary<string, object>> _bakedCache;
-	private IReadOnlyDictionary<string, IStoragePool> _dynamicPools = new Dictionary<string, IStoragePool>();
-	private IReadOnlyDictionary<string, int> _dynamicIndices = new Dictionary<string, int>();
+	private readonly BakedCache _bakedCache;
+	private readonly DynamicAccess _dynamicAccess = new();
+	internal IReadOnlyDictionary<Type, ITypedStoragePool> BeingPools { get; private set; } = new Dictionary<Type, ITypedStoragePool>();
 
-	internal Knowledge(Dictionary<Type, IStoragePool> pools, Dictionary<Type, int> beingIndices,
+	internal Knowledge(Dictionary<Type, ITypedStoragePool> pools, Dictionary<Type, int> beingIndices,
 		SchemaRegistry? schema, Dictionary<Type, Dictionary<string, object>> bakedCache) {
-		Pools = pools;
-		BeingIndices = beingIndices;
+		Pools = new Dictionary<Type, ITypedStoragePool>(pools);
+		BeingIndices = new Dictionary<Type, int>(beingIndices);
 		Schema = schema;
-
-		var cache = new Dictionary<Type, IReadOnlyDictionary<string, object>>();
-		foreach (var kv in bakedCache) {
-			cache[kv.Key] = kv.Value;
-		}
-		_bakedCache = cache;
+		_bakedCache = new BakedCache(bakedCache);
 	}
 
-	internal void SetDynamicPools(Dictionary<string, IStoragePool> pools, Dictionary<string, int> indices) {
-		_dynamicPools = pools;
-		_dynamicIndices = indices;
+	internal void SetDynamicPools(Dictionary<string, IStoragePool> pools, Dictionary<string, int> indices)
+		=> _dynamicAccess.SetPools(pools, indices);
+
+	internal void SetBeingPools(Dictionary<Type, ITypedStoragePool> pools) => BeingPools = pools;
+
+	private int RequireBeingIndex(Type beingType) {
+		var idx = GetBeingIndex(beingType);
+		if (idx < 0) throw new InvalidOperationException($"Being '{beingType.Name}' not found");
+		return idx;
 	}
 
-	public ConceptScope<TConcept> Of<TConcept>()
-		where TConcept : struct, IConcept {
-		if (!Pools.TryGetValue(typeof(TConcept), out var pool)) {
-			throw new InvalidOperationException(
-				$"Concept '{typeof(TConcept).Name}' has no data in this world");
+	public TAspect Of<TConcept, TAspect>(Type beingType)
+		where TConcept : struct, IConcept
+		where TAspect : struct, IRevealedBy<TConcept> {
+		return Get<TAspect>(typeof(TConcept), beingType);
+	}
+
+	public TAspect Get<TAspect>(Type conceptType, Type beingType)
+		where TAspect : struct {
+		if (!Pools.TryGetValue(conceptType, out var pool))
+			throw new InvalidOperationException($"No data for concept '{conceptType.Name}'");
+		return pool.Get<TAspect>(RequireBeingIndex(beingType));
+	}
+
+	public TAspect About<TAspect>(Type beingType)
+		where TAspect : struct {
+		var idx = RequireBeingIndex(beingType);
+
+		if (BeingPools.TryGetValue(beingType, out var pool)) {
+			return pool.Get<TAspect>(idx);
 		}
-		return new ConceptScope<TConcept>(this);
+
+		foreach (var p in Pools.Values) {
+			if (TryGetFromPool<TAspect>(p, idx, out var result)) {
+				return result;
+			}
+		}
+		throw new InvalidOperationException($"Aspect '{typeof(TAspect).Name}' not found for '{beingType.Name}'");
+	}
+
+	private static bool TryGetFromPool<TAspect>(ITypedStoragePool pool, int index, out TAspect result) where TAspect : struct {
+		if (index < 0 || index >= pool.Count) {
+			result = default;
+			return false;
+		}
+		// Get<T> throws KeyNotFoundException when the aspect type is not in this pool.
+		// This is expected during cross-pool scan in About<T>. Guard with try-catch
+		// instead of requiring every consumer to check HasAspect first.
+		try { result = pool.Get<TAspect>(index); return true; }
+		catch (KeyNotFoundException) { result = default; return false; }
 	}
 
 	public int GetBeingIndex(Type beingType)
@@ -46,49 +79,18 @@ public sealed class Knowledge {
 	public int GetBeingIndex<TBeing>() where TBeing : struct, IBeing
 		=> GetBeingIndex(typeof(TBeing));
 
-	public IStoragePool? GetPool(Type conceptType)
+	public ITypedStoragePool? GetPool(Type conceptType)
 		=> Pools.TryGetValue(conceptType, out var pool) ? pool : null;
 
-	public IStoragePool? GetDynamicPool(string conceptName)
-		=> _dynamicPools.TryGetValue(conceptName, out var pool) ? pool : null;
+	public IRawStoragePool? GetDynamicPool(string conceptName) => _dynamicAccess.GetPool(conceptName);
+	public int GetDynamicBeingIndex(string beingKey) => _dynamicAccess.GetIndex(beingKey);
+	public IEnumerable<string> GetDynamicConceptNames() => _dynamicAccess.GetConceptNames();
 
-	public int GetDynamicBeingIndex(string beingKey)
-		=> _dynamicIndices.TryGetValue(beingKey, out var idx) ? idx : -1;
-
-	public IEnumerable<string> GetDynamicConceptNames() => _dynamicPools.Keys;
-
-	public TBaked GetBaked<TBaked>(string beingKey) {
-		if (_bakedCache.TryGetValue(typeof(TBaked), out var inner) && inner.TryGetValue(beingKey, out var obj)) {
-			return (TBaked)obj;
-		}
-
-		throw new KeyNotFoundException($"No baked data of type '{typeof(TBaked).Name}' found for being '{beingKey}'");
-	}
-
+	public TBaked GetBaked<TBaked>(string beingKey) => _bakedCache.Get<TBaked>(beingKey);
 	public TBaked GetBaked<TBaked, TBeing>() where TBeing : struct, IBeing
 		=> GetBaked<TBaked>(typeof(TBeing).Name);
-
-	public IReadOnlyDictionary<string, TBaked> GetBaked<TBaked>() {
-		if (_bakedCache.TryGetValue(typeof(TBaked), out var inner)) {
-			var result = new Dictionary<string, TBaked>(StringComparer.OrdinalIgnoreCase);
-			foreach (var kv in inner) {
-				result[kv.Key] = (TBaked)kv.Value;
-			}
-
-			return result;
-		}
-		return new Dictionary<string, TBaked>();
-	}
-
-	public bool TryGetBaked<TBaked>(string beingKey, out TBaked result) {
-		if (_bakedCache.TryGetValue(typeof(TBaked), out var inner) && inner.TryGetValue(beingKey, out var obj)) {
-			result = (TBaked)obj;
-			return true;
-		}
-		result = default!;
-		return false;
-	}
-
+	public IReadOnlyDictionary<string, TBaked> GetBaked<TBaked>() => _bakedCache.GetAll<TBaked>();
+	public bool TryGetBaked<TBaked>(string beingKey, out TBaked result) => _bakedCache.TryGet(beingKey, out result);
 	public bool TryGetBaked<TBaked, TBeing>(out TBaked result) where TBeing : struct, IBeing
 		=> TryGetBaked(typeof(TBeing).Name, out result);
 }

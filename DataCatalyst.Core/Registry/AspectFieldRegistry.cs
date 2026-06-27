@@ -3,22 +3,23 @@ namespace DataCatalyst.Registry;
 using System;
 using System.Collections.Generic;
 
-public static class AspectFieldRegistry {
-	private static readonly Dictionary<string, Dictionary<string, Type>> _fields = new(StringComparer.OrdinalIgnoreCase);
-	private static bool _frozen;
+public sealed class AspectFieldRegistry : IAspectFieldRegistry {
+	private readonly Dictionary<string, Dictionary<string, Type>> _fields = new(StringComparer.OrdinalIgnoreCase);
 
-	public static void Register(string aspectName, Dictionary<string, Type> fields) {
-		if (_frozen) {
+	public bool Frozen { get; private set; }
+
+	public void Register(string aspectName, Dictionary<string, Type> fields) {
+		if (Frozen) {
 			throw new InvalidOperationException("Registry frozen");
 		}
 
 		_fields[aspectName] = fields;
 	}
 
-	public static Dictionary<string, Type>? GetFields(string aspectName)
-		=> _fields.TryGetValue(aspectName, out var f) ? f : null;
+	public Dictionary<string, Type>? GetFields(string aspectName)
+		=> _fields.TryGetValue(aspectName, out var f) ? new Dictionary<string, Type>(f) : null;
 
-	public static bool HasFields(string aspectName) => _fields.ContainsKey(aspectName);
+	public bool HasFields(string aspectName) => _fields.ContainsKey(aspectName);
 
-	internal static void Freeze() => _frozen = true;
+	public void Freeze() => Frozen = true;
 }

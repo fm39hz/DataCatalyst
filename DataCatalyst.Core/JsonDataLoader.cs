@@ -1,49 +1,89 @@
 namespace DataCatalyst.Loaders;
+
 #pragma warning disable RS1035
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading.Tasks;
 using DataCatalyst.Loader;
+using DataCatalyst.Registry;
 using DataCatalyst.Storage;
 
-public sealed class JsonDataLoader : IDataLoader {
+public sealed class JsonDataLoader(IBeingRegistry? registry = null) : IDataLoader {
+	private readonly IBeingRegistry? _registry = registry;
+
 	public LoadResult Load(string content, string fallbackKey) {
 		var result = new LoadResult();
 		try { ParseJson(content, fallbackKey, result); }
-		catch (Exception ex) { result._diagnostics.Add($"Error parsing JSON for '{fallbackKey}': {ex.Message}"); }
+		catch (JsonException ex) { result.AddDiagnostic($"Error parsing JSON for '{fallbackKey}': {ex.Message}"); }
+		catch (IOException ex) { result.AddDiagnostic($"IO error for '{fallbackKey}': {ex.Message}"); }
 		return result;
 	}
 
 	public LoadResult LoadFile(string path) {
 		try { return Load(File.ReadAllText(path), Path.GetFileNameWithoutExtension(path)); }
-		catch (Exception ex) { var r = new LoadResult(); r._diagnostics.Add($"Error loading '{path}': {ex.Message}"); return r; }
+		catch (JsonException ex) { var r = new LoadResult(); r.AddDiagnostic($"Error parsing '{path}': {ex.Message}"); return r; }
+		catch (IOException ex) { var r = new LoadResult(); r.AddDiagnostic($"Error loading '{path}': {ex.Message}"); return r; }
 	}
 
 	public LoadResult LoadDirectory(string path) {
 		var result = new LoadResult();
-		if (!Directory.Exists(path)) { result._diagnostics.Add($"Directory not found: {path}"); return result; }
-		foreach (var file in Directory.EnumerateFiles(path, "*.json")) {
-			var fr = LoadFile(file);
-			result._beings.AddRange(fr._beings);
-			result._diagnostics.AddRange(fr._diagnostics);
-			foreach (var kv in fr.Mappings) {
-				if (!result._mappings.TryGetValue(kv.Key, out var list)) {
-					result._mappings[kv.Key] = list = [];
-				}
-
-				foreach (var val in kv.Value) {
-					if (!list.Contains(val)) {
-						list.Add(val);
-					}
-				}
-			}
-		}
+		if (!Directory.Exists(path)) { result.AddDiagnostic($"Directory not found: {path}"); return result; }
+		LoadDirRecursive(path, result);
 		return result;
 	}
 
-	private static void ParseJson(string json, string fallbackKey, LoadResult result) {
+	private void LoadDirRecursive(string dir, LoadResult result) {
+		foreach (var f in Directory.EnumerateFiles(dir, "*.json")) {
+			var fr = LoadFile(f);
+			result.AddBeings(fr);
+			result.AddDiagnostics(fr);
+			result.AddMappings(fr);
+		}
+		foreach (var sub in Directory.EnumerateDirectories(dir)) {
+			LoadDirRecursive(sub, result);
+		}
+	}
+
+	public async Task<LoadResult> LoadAsync(string content, string fallbackKey) {
+		var result = new LoadResult();
+		try { await Task.Run(() => ParseJson(content, fallbackKey, result)); }
+		catch (JsonException ex) { result.AddDiagnostic($"Error parsing JSON for '{fallbackKey}': {ex.Message}"); }
+		catch (IOException ex) { result.AddDiagnostic($"IO error for '{fallbackKey}': {ex.Message}"); }
+		return result;
+	}
+
+	public async Task<LoadResult> LoadFileAsync(string path) {
+		try {
+			var content = await File.ReadAllTextAsync(path);
+			return await LoadAsync(content, Path.GetFileNameWithoutExtension(path));
+		}
+		catch (JsonException ex) { var r = new LoadResult(); r.AddDiagnostic($"Error parsing '{path}': {ex.Message}"); return r; }
+		catch (IOException ex) { var r = new LoadResult(); r.AddDiagnostic($"Error loading '{path}': {ex.Message}"); return r; }
+	}
+
+	public async Task<LoadResult> LoadDirectoryAsync(string path) {
+		var result = new LoadResult();
+		if (!Directory.Exists(path)) { result.AddDiagnostic($"Directory not found: {path}"); return result; }
+		await LoadDirRecursiveAsync(path, result);
+		return result;
+	}
+
+	private async Task LoadDirRecursiveAsync(string dir, LoadResult result) {
+		foreach (var f in Directory.EnumerateFiles(dir, "*.json")) {
+			var fr = await LoadFileAsync(f);
+			result.AddBeings(fr);
+			result.AddDiagnostics(fr);
+			result.AddMappings(fr);
+		}
+		foreach (var sub in Directory.EnumerateDirectories(dir)) {
+			await LoadDirRecursiveAsync(sub, result);
+		}
+	}
+
+	private void ParseJson(string json, string fallbackKey, LoadResult result) {
 		using var doc = JsonDocument.Parse(json);
 		var root = doc.RootElement;
 		var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -59,19 +99,23 @@ public sealed class JsonDataLoader : IDataLoader {
 		}
 	}
 
-	private static bool TryExtractBeing(JsonElement obj, string? parentKey, string? fn, LoadResult result,
+	private static readonly HashSet<string> ReservedNames = new(StringComparer.OrdinalIgnoreCase) {
+		"$inherits", "inherits", "$key", "key"
+	};
+
+	private void TryExtractBeing(JsonElement obj, string? parentKey, string? fn, LoadResult result,
 		HashSet<string> visited) {
 		if (obj.ValueKind != JsonValueKind.Object) {
-			return false;
+			return;
 		}
 
 		var key = ExtractKey(obj, parentKey, fn);
 		if (key == null || !visited.Add(key)) {
-			result._diagnostics.Add(key == null ? "Being has no key" : $"Duplicate being key '{key}' skipped");
-			return true;
+			result.AddDiagnostic(key == null ? "Being has no key" : $"Duplicate being key '{key}' skipped");
+			return;
 		}
 
-		var being = new RawBeing { Key = key };
+		var being = new RawBeing(key);
 
 		if (obj.TryGetProperty("$inherits", out var inh) && inh.ValueKind == JsonValueKind.String) {
 			being.Inherits = inh.GetString();
@@ -80,23 +124,20 @@ public sealed class JsonDataLoader : IDataLoader {
 			being.Inherits = inh2.GetString();
 		}
 
-		var conceptNames = new HashSet<string>(
-			Registry.BeingRegistry.All.SelectMany(r => r.Concepts).Select(t => t.Name),
-			StringComparer.OrdinalIgnoreCase
-		);
+		var conceptNames = _registry != null
+			? new HashSet<string>(
+				_registry.All.SelectMany(r => r.Concepts).Select(t => t.Name),
+				StringComparer.OrdinalIgnoreCase)
+			: null;
 
 		foreach (var p in obj.EnumerateObject()) {
-			if (p.Name.Equals("$inherits", StringComparison.OrdinalIgnoreCase) ||
-				p.Name.Equals("inherits", StringComparison.OrdinalIgnoreCase) ||
-				p.Name.Equals("$key", StringComparison.OrdinalIgnoreCase) ||
-				p.Name.Equals("key", StringComparison.OrdinalIgnoreCase)) {
+			if (ReservedNames.Contains(p.Name)) {
 				continue;
 			}
 
-			// Check if it starts with '$' (Concepts)
 			if (p.Name.StartsWith('$')) {
 				var conceptName = p.Name[1..];
-				if (conceptNames.Contains(conceptName)) {
+				if (conceptNames == null || conceptNames.Contains(conceptName)) {
 					being.Concepts.Add(conceptName);
 					being.ConceptSet.Add(conceptName);
 
@@ -106,30 +147,22 @@ public sealed class JsonDataLoader : IDataLoader {
 							being.FieldNames.Add(aspectName);
 							being.RawFields[aspectName] = ToObject(asp.Value);
 
-							if (!result._mappings.TryGetValue(conceptName, out var list)) {
-								result._mappings[conceptName] = list = [];
-							}
-
-							if (!list.Contains(aspectName)) {
-								list.Add(aspectName);
-							}
+							result.AddMapping(conceptName, aspectName);
 						}
 					}
 				}
 				else {
-					result._diagnostics.Add($"Unknown concept '{conceptName}' specified with '$' prefix in being '{key}'");
+					result.AddDiagnostic($"Unknown concept '{conceptName}' specified with '$' prefix in being '{key}'");
 				}
 			}
 			else {
-				// Being-level aspect (like Stamina)
 				var aspectName = p.Name;
 				being.FieldNames.Add(aspectName);
 				being.RawFields[aspectName] = ToObject(p.Value);
 			}
 		}
 
-		result._beings.Add(being);
-		return true;
+		result.AddBeing(being);
 	}
 
 	private static string? ExtractKey(JsonElement obj, string? parentKey, string? fn) {
@@ -152,11 +185,17 @@ public sealed class JsonDataLoader : IDataLoader {
 		JsonValueKind.Object => el.EnumerateObject().ToDictionary(p => p.Name, p => ToObject(p.Value), StringComparer.OrdinalIgnoreCase),
 		JsonValueKind.Array => el.EnumerateArray().Select(ToObject).ToList(),
 		JsonValueKind.String => el.GetString(),
-		JsonValueKind.Number => el.TryGetInt32(out var i) ? i : el.TryGetInt64(out var l) ? l : el.GetDouble(),
+		JsonValueKind.Number => JsonToNumber(el),
 		JsonValueKind.True => true,
 		JsonValueKind.False => false,
-		JsonValueKind.Undefined => throw new NotImplementedException(),
-		JsonValueKind.Null => throw new NotImplementedException(),
+		JsonValueKind.Null => null,
+		JsonValueKind.Undefined => null,
 		_ => null,
 	};
+
+	private static object JsonToNumber(JsonElement el) {
+		if (el.TryGetInt32(out var i)) return i;
+		if (el.TryGetInt64(out var l)) return l;
+		return el.GetDouble();
+	}
 }

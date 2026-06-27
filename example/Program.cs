@@ -6,6 +6,7 @@ using DataCatalyst;
 using DataCatalyst.Loaders;
 using DataCatalyst.Knowledge;
 using DataCatalyst.Pipeline;
+using DataCatalyst.Pipeline.Stages;
 using DataCatalyst.Generated;
 using DataCatalyst.Composition;
 using DataCatalyst.Registry;
@@ -18,10 +19,18 @@ while (root != null && !Directory.Exists(Path.Combine(root, "Data")))
 if (string.IsNullOrEmpty(root))
 	root = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "example");
 
-var knowledge = new Pipeline()
-	.Load(root, new JsonDataLoader())
-	.AddBaker(new StateEngineBaker())
-	.Build(out var diagnostics);
+// Create registries and populate from generated code
+var registries = new RegistrySet();
+DataCatalystRegistries.Populate(registries);
+
+var knowledge = new Pipeline(registries)
+	.AddSource("Base", new JsonDataLoader(registries.Beings), Path.Combine(root, "Data"))
+	.AddSource("DLC", new JsonDataLoader(registries.Beings), Path.Combine(root, "DLC"))
+	.AddSource("Mods", new JsonDataLoader(registries.Beings), Path.Combine(root, "Mods"))
+	.AddOntology(Path.Combine(root, "Data"), ["concepts.json", "aspects.json", "relations.json"])
+	.AddOntology(Path.Combine(root, "DLC"), ["*/concepts.json", "*/aspects.json"])
+	.AddBaker(new StateEngineBaker(registries.Beings))
+	.Run(out var diagnostics);
 
 if (knowledge == null)
 {
@@ -45,17 +54,15 @@ if (knowledge.Schema != null)
 	}
 
 Console.WriteLine($"\n=== Knowledge ===");
-var arthur = knowledge.Of<Creature>().At<Arthur>();
-Console.WriteLine($"Arthur HP:   {arthur.Take<Health>().Current}/{arthur.Take<Health>().Max}");
-Console.WriteLine($"Arthur Mana: {arthur.Take<Mana>().Current}/{arthur.Take<Mana>().Max}");
+Console.WriteLine($"Arthur HP:   {knowledge.Of<Creature, Health>(typeof(Arthur)).Current}/{knowledge.Of<Creature, Health>(typeof(Arthur)).Max}");
+Console.WriteLine($"Arthur Mana: {knowledge.Of<Creature, Mana>(typeof(Arthur)).Current}/{knowledge.Of<Creature, Mana>(typeof(Arthur)).Max}");
 
-var goblin = knowledge.Of<Creature>().At<Goblin>();
-Console.WriteLine($"Goblin HP:   {goblin.Take<Health>().Current}/{goblin.Take<Health>().Max}");
-Console.WriteLine($"Goblin XP:   {knowledge.Of<Enemy>().At<Goblin>().Take<ExperienceReward>().Amount}");
+Console.WriteLine($"Goblin HP:   {knowledge.Of<Creature, Health>(typeof(Goblin)).Current}/{knowledge.Of<Creature, Health>(typeof(Goblin)).Max}");
+Console.WriteLine($"Goblin XP:   {knowledge.Of<Enemy, ExperienceReward>(typeof(Goblin)).Amount}");
 
 // === StateEngine Simulation ===
 Console.WriteLine($"\n=== StateEngine Simulation ===");
-var stateGroupDef = knowledge.Of<GameState>().At<BasicAI>().Take<StateGroup>();
+var stateGroupDef = knowledge.Of<State, StateGroup>(typeof(BasicAI));
 var baked = knowledge.GetBaked<BakedStateGroup, DataCatalyst.Generated.BasicAI>();
 
 Ref<State> currentState = baked.DefaultState;
@@ -64,18 +71,22 @@ Console.WriteLine($"Initial State: {currentState}");
 var viableStatesList = new List<Ref<State>>();
 foreach (var name in stateGroupDef.States)
 {
-	Type? stateType = null;
-	foreach (var r in BeingRegistry.All)
+	var idx = knowledge.GetBeingIndex<DataCatalyst.Generated.BasicAI>();
+	if (idx >= 0)
 	{
-		if (r.BeingType.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+		var targetPool = knowledge.GetPool(typeof(State));
+		if (targetPool != null)
 		{
-			stateType = r.BeingType;
-			break;
+			// Use knowledge to resolve state types
+			foreach (var r in registries.Beings.All)
+			{
+				if (r.BeingType.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+				{
+					viableStatesList.Add(new Ref<State>(r.BeingType));
+					break;
+				}
+			}
 		}
-	}
-	if (stateType != null)
-	{
-		viableStatesList.Add(new Ref<State>(stateType));
 	}
 }
 var viableStates = viableStatesList.ToArray();
@@ -91,7 +102,8 @@ for (int step = 1; step <= 10; step++)
 	}
 
 	var reader = new SimulationSensorReader { Timer = timer };
-	var evalResult = StateEngineEvaluator.Evaluate(
+	var evaluator = new StateEngineEvaluator();
+	var evalResult = evaluator.Evaluate(
 		currentState,
 		baked,
 		viableStates,
@@ -113,13 +125,13 @@ for (int step = 1; step <= 10; step++)
 
 Console.WriteLine($"\nDone.");
 
-struct SimulationSensorReader : ISensorReader
+struct SimulationSensorReader : StateEngineEvaluator.ISensorReader
 {
 	public float Timer;
 
 	public float ReadSensor(Ref<Sensor> sensor)
 	{
-		if (sensor == typeof(DataCatalyst.Generated.Timer))
+		if (sensor.BeingType == typeof(DataCatalyst.Generated.Timer))
 		{
 			return Timer;
 		}

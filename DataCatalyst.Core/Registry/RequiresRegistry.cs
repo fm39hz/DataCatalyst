@@ -3,13 +3,14 @@ namespace DataCatalyst.Registry;
 using System;
 using System.Collections.Generic;
 
-public static class RequiresRegistry {
-	private static readonly Dictionary<string, string[]> _requires = new(StringComparer.OrdinalIgnoreCase);
-	private static readonly Dictionary<string, string[]> _suggests = new(StringComparer.OrdinalIgnoreCase);
-	private static bool _frozen;
+public sealed class RequiresRegistry : IRequiresRegistry {
+	private readonly Dictionary<string, string[]> _requires = new(StringComparer.OrdinalIgnoreCase);
+	private readonly Dictionary<string, string[]> _suggests = new(StringComparer.OrdinalIgnoreCase);
 
-	public static void Register(string concept, string[] requires, string[] suggests) {
-		if (_frozen) {
+	public bool Frozen { get; private set; }
+
+	public void Register(string concept, string[] requires, string[] suggests) {
+		if (Frozen) {
 			throw new InvalidOperationException("Registry frozen");
 		}
 
@@ -19,15 +20,15 @@ public static class RequiresRegistry {
 		}
 	}
 
-	public static string[] GetRequired(string concept)
+	public string[] GetRequired(string concept)
 		=> _requires.TryGetValue(concept, out var a) ? a : [];
 
-	public static string[] GetSuggested(string concept)
+	public string[] GetSuggested(string concept)
 		=> _suggests.TryGetValue(concept, out var a) ? a : [];
 
-	public static bool HasConcept(string concept) => _requires.ContainsKey(concept);
+	public bool HasConcept(string concept) => _requires.ContainsKey(concept) || _suggests.ContainsKey(concept);
 
-	public static IReadOnlyCollection<string> AllConcepts => _requires.Keys;
+	public IReadOnlyCollection<string> AllConcepts => _requires.Keys;
 
-	internal static void Freeze() => _frozen = true;
+	public void Freeze() => Frozen = true;
 }

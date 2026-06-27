@@ -29,17 +29,21 @@ public sealed class SchemaRegistry {
 	}
 
 	public int DefineConcept(string name, string[] aspectNames) {
-		var id = _conceptNameToId.TryGetValue(name, out var existing) ? existing : _nextConceptId++;
-		_conceptNameToId[name] = id;
-		_conceptIdToName[id] = name;
-		_conceptAspects[id] = [.. aspectNames.Select(GetAspectId)];
+		if (!_conceptNameToId.TryGetValue(name, out var id)) {
+			id = _nextConceptId++;
+			_conceptNameToId[name] = id;
+			_conceptIdToName[id] = name;
+		}
+		// Always update aspects: SchemaStage re-defines concepts with runtime
+		// aspect mappings that may differ from ontology's initial definition.
+		_conceptAspects[id] = [.. aspectNames.Select(GetAspectId).Where(x => x.HasValue).Select(x => x!.Value)];
 		return id;
 	}
 
-	public int GetAspectId(string name) =>
-		_aspectNameToId.TryGetValue(name, out var id) ? id : -1;
-	public int GetConceptId(string name) =>
-		_conceptNameToId.TryGetValue(name, out var id) ? id : -1;
+	public int? GetAspectId(string name) =>
+		_aspectNameToId.TryGetValue(name, out var id) ? id : null;
+	public int? GetConceptId(string name) =>
+		_conceptNameToId.TryGetValue(name, out var id) ? id : null;
 	public bool TryGetAspectName(int id, out string? name) =>
 		_aspectIdToName.TryGetValue(id, out name);
 	public bool TryGetConceptName(int id, out string? name) =>

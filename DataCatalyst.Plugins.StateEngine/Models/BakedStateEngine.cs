@@ -1,16 +1,33 @@
 namespace DataCatalyst.StateEngine.Models;
 
+using System;
 using System.Collections.Frozen;
 using DataCatalyst;
 using DataCatalyst.Compare;
-using DataCatalyst.Generated;
+using DataCatalyst.Composition;
 
 public sealed class BakedStateGroup {
-	public string GroupId { get; init; } = string.Empty;
-	public Ref<State> DefaultState { get; set; }
-	public FrozenDictionary<Ref<State>, BakedState> States { get; init; } = FrozenDictionary<Ref<State>, BakedState>.Empty;
-	public string RequiredTrait { get; set; } = string.Empty;
-	public float PriorityTier { get; set; }
+	private string _groupId = string.Empty;
+	public string GroupId {
+		get => _groupId;
+		init => _groupId = value ?? throw new ArgumentNullException(nameof(GroupId));
+	}
+
+	public Ref<State> DefaultState { get; init; }
+
+	private FrozenDictionary<Ref<State>, BakedState> _states = FrozenDictionary<Ref<State>, BakedState>.Empty;
+	public FrozenDictionary<Ref<State>, BakedState> States {
+		get => _states;
+		init => _states = value ?? FrozenDictionary<Ref<State>, BakedState>.Empty;
+	}
+
+	private string _requiredTrait = string.Empty;
+	public string RequiredTrait {
+		get => _requiredTrait;
+		init => _requiredTrait = value ?? string.Empty;
+	}
+
+	public float PriorityTier { get; init; }
 }
 
 public sealed class BakedState {

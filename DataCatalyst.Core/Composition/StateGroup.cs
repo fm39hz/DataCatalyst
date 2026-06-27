@@ -1,10 +1,12 @@
 namespace DataCatalyst.Composition;
 
 using System.Collections.Generic;
+using DataCatalyst;
 using DataCatalyst.Attributes;
+using DataCatalyst.Composition;
 
 [GameAspect]
-public readonly record struct StateGroup {
+public readonly record struct StateGroup : IRevealedBy<State> {
 	public string DefaultState { get; init; }
 	public List<string> States { get; init; }
 	public float PriorityTier { get; init; }
@@ -20,7 +22,7 @@ public readonly record struct StateTransitions {
 
 [GameAspect]
 public readonly record struct TransitionDef {
-	public Ref<Generated.State> TargetState { get; init; }
+	public Ref<State> TargetState { get; init; }
 	public int Priority { get; init; }
 	public ConditionGroupDef? Conditions { get; init; }
 	public List<SensorInfluenceDef>? Influences { get; init; }
@@ -35,7 +37,7 @@ public readonly record struct ConditionGroupDef {
 
 [GameAspect]
 public readonly record struct SensorConditionDef {
-	public Ref<Generated.Sensor> Sensor { get; init; }
+	public Ref<Sensor> Sensor { get; init; }
 	public string Op { get; init; }
 	public float Value { get; init; }
 	public float? ExitValue { get; init; }
@@ -43,6 +45,6 @@ public readonly record struct SensorConditionDef {
 
 [GameAspect]
 public readonly record struct SensorInfluenceDef {
-	public Ref<Generated.Sensor> Sensor { get; init; }
+	public Ref<Sensor> Sensor { get; init; }
 	public float Weight { get; init; }
 }
