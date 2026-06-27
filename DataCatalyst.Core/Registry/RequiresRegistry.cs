@@ -9,9 +9,14 @@ public static class RequiresRegistry {
 	private static bool _frozen;
 
 	public static void Register(string concept, string[] requires, string[] suggests) {
-		if (_frozen) throw new InvalidOperationException("Registry frozen");
+		if (_frozen) {
+			throw new InvalidOperationException("Registry frozen");
+		}
+
 		_requires[concept] = requires;
-		if (suggests.Length > 0) _suggests[concept] = suggests;
+		if (suggests.Length > 0) {
+			_suggests[concept] = suggests;
+		}
 	}
 
 	public static string[] GetRequired(string concept)

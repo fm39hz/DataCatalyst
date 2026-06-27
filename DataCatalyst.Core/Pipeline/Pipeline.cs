@@ -31,58 +31,84 @@ public sealed class Pipeline {
 	}
 
 	public Pipeline Load(string rootPath, IDataLoader loader) {
-		if (!Directory.Exists(rootPath) || loader == null) return this;
+		if (!Directory.Exists(rootPath) || loader == null) {
+			return this;
+		}
 
 		// 1. Root ontology files
 		foreach (var ontFile in new[] { "concepts.json", "aspects.json", "relations.json" }) {
 			var p = Path.Combine(rootPath, ontFile);
-			if (File.Exists(p)) AddOntology(p);
+			if (File.Exists(p)) {
+				AddOntology(p);
+			}
 		}
 
 		// 2. Root Data/
 		var dataPath = Path.Combine(rootPath, "Data");
-		if (Directory.Exists(dataPath) && Directory.EnumerateFiles(dataPath, "*.json").Any())
+		if (Directory.Exists(dataPath) && Directory.EnumerateFiles(dataPath, "*.json").Any()) {
 			AddSource("Base", loader, dataPath);
+		}
 
 		// 3. Scan Mods/ and DLC/ subdirectories for mods.json
 		foreach (var modDir in new[] { "Mods", "DLC" }) {
 			var dir = Path.Combine(rootPath, modDir);
-			if (!Directory.Exists(dir)) continue;
+			if (!Directory.Exists(dir)) {
+				continue;
+			}
+
 			foreach (var subDir in Directory.EnumerateDirectories(dir)) {
 				var modJson = Path.Combine(subDir, "mods.json");
-				if (!File.Exists(modJson)) continue;
+				if (!File.Exists(modJson)) {
+					continue;
+				}
+
 				try {
 					var json = File.ReadAllText(modJson);
 					using var doc = JsonDocument.Parse(json);
 					var mRoot = doc.RootElement;
 					var name = Path.GetFileName(subDir);
 					var priority = 5;
-					if (mRoot.TryGetProperty("priority", out var pri) && pri.ValueKind == JsonValueKind.Number)
+					if (mRoot.TryGetProperty("priority", out var pri) && pri.ValueKind == JsonValueKind.Number) {
 						priority = pri.GetInt32();
+					}
 
 					if (mRoot.TryGetProperty("ontology", out var ont) && ont.ValueKind == JsonValueKind.Object) {
 						foreach (var ontEntry in ont.EnumerateObject()) {
 							var fileProp = ontEntry.Value;
-							if (fileProp.ValueKind != JsonValueKind.Object) continue;
-							if (!fileProp.TryGetProperty("file", out var fp) || fp.ValueKind != JsonValueKind.String) continue;
+							if (fileProp.ValueKind != JsonValueKind.Object) {
+								continue;
+							}
+
+							if (!fileProp.TryGetProperty("file", out var fp) || fp.ValueKind != JsonValueKind.String) {
+								continue;
+							}
+
 							var fpVal = fp.GetString();
-							if (string.IsNullOrEmpty(fpVal)) continue;
+							if (string.IsNullOrEmpty(fpVal)) {
+								continue;
+							}
+
 							var fullPath = Path.Combine(subDir, fpVal);
-							if (File.Exists(fullPath)) AddOntology(fullPath);
+							if (File.Exists(fullPath)) {
+								AddOntology(fullPath);
+							}
 						}
 					}
 
 					foreach (var ontFile in new[] { "concepts.json", "aspects.json", "relations.json" }) {
 						var p = Path.Combine(subDir, ontFile);
-						if (File.Exists(p)) AddOntology(p);
+						if (File.Exists(p)) {
+							AddOntology(p);
+						}
 					}
 
 					var modData = Path.Combine(subDir, "Data");
-					if (Directory.Exists(modData) && Directory.EnumerateFiles(modData, "*.json").Any())
+					if (Directory.Exists(modData) && Directory.EnumerateFiles(modData, "*.json").Any()) {
 						AddSource(name, loader, modData, s => {
 							s.Priority = priority;
 							s.MergePolicy = MergePolicy.FieldPatch;
 						});
+					}
 				}
 				catch { }
 			}
@@ -197,8 +223,9 @@ public sealed class Pipeline {
 				var json = File.ReadAllText(path);
 				using var doc = JsonDocument.Parse(json);
 				var root = doc.RootElement;
-				if (!root.TryGetProperty("concepts", out var concepts) || concepts.ValueKind != JsonValueKind.Object)
+				if (!root.TryGetProperty("concepts", out var concepts) || concepts.ValueKind != JsonValueKind.Object) {
 					continue;
+				}
 
 				foreach (var conceptEntry in concepts.EnumerateObject()) {
 					var cName = conceptEntry.Name;
@@ -207,13 +234,21 @@ public sealed class Pipeline {
 					var requires = new List<string>();
 					var suggests = new List<string>();
 					if (entry.ValueKind == JsonValueKind.Object) {
-						if (entry.TryGetProperty("$requires", out var req) && req.ValueKind == JsonValueKind.Array)
-							foreach (var item in req.EnumerateArray())
-								if (item.ValueKind == JsonValueKind.String) requires.Add(item.GetString()!);
+						if (entry.TryGetProperty("$requires", out var req) && req.ValueKind == JsonValueKind.Array) {
+							foreach (var item in req.EnumerateArray()) {
+								if (item.ValueKind == JsonValueKind.String) {
+									requires.Add(item.GetString()!);
+								}
+							}
+						}
 
-						if (entry.TryGetProperty("$suggests", out var sug) && sug.ValueKind == JsonValueKind.Array)
-							foreach (var item in sug.EnumerateArray())
-								if (item.ValueKind == JsonValueKind.String) suggests.Add(item.GetString()!);
+						if (entry.TryGetProperty("$suggests", out var sug) && sug.ValueKind == JsonValueKind.Array) {
+							foreach (var item in sug.EnumerateArray()) {
+								if (item.ValueKind == JsonValueKind.String) {
+									suggests.Add(item.GetString()!);
+								}
+							}
+						}
 					}
 
 					RequiresRegistry.Register(cName, [.. requires], [.. suggests]);
@@ -366,13 +401,20 @@ public sealed class Pipeline {
 
 	private void ValidateRequires(PipelineContext ctx) {
 		var entries = ctx.Beings;
-		if (entries == null || entries.Count == 0) return;
+		if (entries == null || entries.Count == 0) {
+			return;
+		}
 
 		foreach (var entry in entries) {
 			foreach (var conceptId in entry.Concepts) {
-				if (!Schema.TryGetConceptName(conceptId, out var cName) || cName == null) continue;
+				if (!Schema.TryGetConceptName(conceptId, out var cName) || cName == null) {
+					continue;
+				}
+
 				var required = RequiresRegistry.GetRequired(cName);
-				if (required.Length == 0) continue;
+				if (required.Length == 0) {
+					continue;
+				}
 
 				foreach (var reqAspectName in required) {
 					var reqAspectId = Schema.GetAspectId(reqAspectName);
@@ -440,7 +482,9 @@ public sealed class Pipeline {
 			var ct = FindType(kv.Key);
 			var ce = kv.Value;
 			var maxIdx = ce.Max(e => e.AssignedIndex);
-			if (maxIdx < 0) continue;
+			if (maxIdx < 0) {
+				continue;
+			}
 
 			var conceptName = Schema.TryGetConceptName(kv.Key, out var cn) ? cn : null;
 			var allowed = Schema.GetConceptAspects(kv.Key);
@@ -454,8 +498,9 @@ public sealed class Pipeline {
 					dp.Resize(maxIdx + 1);
 					foreach (var e in ce) {
 						foreach (var comp in e.Components) {
-							if (allowed == null || allowed.Contains(Schema.GetAspectId(comp.Key.Name)))
+							if (allowed == null || allowed.Contains(Schema.GetAspectId(comp.Key.Name))) {
 								dp.SetRaw(e.AssignedIndex, comp.Key, comp.Value);
+							}
 						}
 					}
 					pool = dp;
@@ -465,17 +510,23 @@ public sealed class Pipeline {
 					pool.Resize(maxIdx + 1);
 					foreach (var e in ce) {
 						foreach (var comp in e.Components) {
-							if (allowed == null || allowed.Contains(Schema.GetAspectId(comp.Key.Name)))
+							if (allowed == null || allowed.Contains(Schema.GetAspectId(comp.Key.Name))) {
 								pool.SetRaw(e.AssignedIndex, comp.Key, comp.Value);
+							}
 						}
 					}
 				}
 				pools[ct] = pool;
 
 				foreach (var rec in BeingRegistry.All) {
-					if (!rec.Concepts.Contains(ct)) continue;
+					if (!rec.Concepts.Contains(ct)) {
+						continue;
+					}
+
 					var found = entries.FirstOrDefault(e => e.Key == rec.BeingType.Name);
-					if (found != null) beingIndices[rec.BeingType] = found.AssignedIndex;
+					if (found != null) {
+						beingIndices[rec.BeingType] = found.AssignedIndex;
+					}
 				}
 			}
 			else if (conceptName != null) {
@@ -486,8 +537,9 @@ public sealed class Pipeline {
 					foreach (var kv2 in e.AspectFields) {
 						dp.SetRawValue(e.AssignedIndex, kv2.Key, kv2.Value);
 					}
-					if (!string.IsNullOrEmpty(e.Key) && !dynamicIndices.ContainsKey(e.Key))
+					if (!string.IsNullOrEmpty(e.Key) && !dynamicIndices.ContainsKey(e.Key)) {
 						dynamicIndices[e.Key] = e.AssignedIndex;
+					}
 				}
 				dynamicPools[conceptName] = dp;
 			}

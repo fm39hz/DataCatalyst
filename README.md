@@ -48,9 +48,9 @@ graph TD
     Being --> Aspect3[Aspect Z]
 ```
 
-- **Aspect**: An aspect of a being (e.g., `Health`, `CombatStats`). It defines a specific facet of data.
-- **Being**: A being that exists in the game world (e.g., `Goblin`, `Arthur`).
-- **Concept**: A concept that defines the nature or identity of a being (e.g., `Creature`, `Enemy`, `Hero`).
+- **Concept**: A **perspective** through which a being can be observed (e.g., `Creature`, `Enemy`, `Hero`). Concepts are orthogonal viewpoints.
+- **Aspect**: A **lens** for observing a facet of a being (e.g., `Health`, `CombatStats`). A concept _reveals_ which aspects become visible through it.
+- **Being**: A **thing that exists** in the game world (e.g., `Goblin`, `Arthur`). A being IS, independent of how it's categorized or observed.
 
 ### Orthogonality
 
@@ -120,6 +120,9 @@ public record struct CombatStats { public int BaseDamage; public int BaseDefense
 // Simple fluent API, mix & match your source
 Knowledge knowledge = new Pipeline()
     .AddSource("Base", new JsonDataLoader(), "Data/")
+    .AddOntology("concepts.json")
+    .AddOntology("aspects.json")
+    .AddOntology("relations.json")
     .Build(out var diagnostics);
 
 // Access - type-safe and compile-time checked
@@ -127,7 +130,7 @@ int hp  = knowledge.Of<Creature>().At<Goblin>().Take<Health>().Initial;
 int atk = knowledge.Of<Enemy>().At<Goblin>().Take<CombatStats>().BaseDamage;
 ```
 
-`Goblin` is a generated `being` marker type implementing `IBelongTo<Creature>`, `IBelongTo<Enemy>`.
+`Goblin` is a generated `being` marker type implementing `IViewableAs<Creature>`, `IViewableAs<Enemy>`.
 
 ---
 
@@ -162,7 +165,7 @@ Define your concepts, aspects, and beings to map out the structure of your game.
 
 #### Concept
 
-A Concept represents semantic classification. It is a marker type defined as a C# struct.
+A Concept represents a perspective/viewpoint. It is a marker type defined as a C# struct or generated from ontology.
 
 ```csharp
 [GameConcept]
@@ -171,7 +174,7 @@ public record struct Creature : IConcept;
 
 #### Aspect
 
-An Aspect is a modular data struct attached to concepts or beings.
+An Aspect is a lens/data struct for observing a specific facet of a being.
 
 ```csharp
 [GameAspect]
@@ -360,7 +363,8 @@ Register the baker in the pipeline and fetch the compiled graph directly from th
 // 1. Build - Baker executes automatically during compilation
 var knowledge = new Pipeline()
     .AddSource("Base", new JsonDataLoader(), "Data/")
-    .AddBaker(new StateEngineBaker()) // Register the baker in the pipeline!
+    .AddOntology("concepts.json")
+    .AddBaker(new StateEngineBaker())
     .Build(out var diagnostics);
 
 // 2. Retrieve - Get the pre-compiled FSM directly from Knowledge using Being type
@@ -385,17 +389,8 @@ var result = StateEngineEvaluator.Evaluate(
 DataCatalyst is modular, letting you install only the components your project needs.
 
 ```bash
-dotnet add package DataCatalyst                               # SourceGen + Core
-dotnet add package DataCatalyst.Loaders.Json                  # JSON loader
-dotnet add package DataCatalyst.Extensions                    # Compare, Composition, Materialization
-dotnet add package DataCatalyst.Plugins.StateEngine
-dotnet add package DataCatalyst.Plugins.StateEngine.SourceGen
-```
-
-SourceGen packages can be registered as analyzers in C# project files:
-
-```xml
-<PackageReference Include="DataCatalyst.SourceGen" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+dotnet add package DataCatalyst                                 # Core + SourceGen + JSON loader
+dotnet add package DataCatalyst.Plugins.StateEngine             # FSM plugin (optional)
 ```
 
 ---

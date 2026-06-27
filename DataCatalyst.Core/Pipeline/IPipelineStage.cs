@@ -1,8 +1,6 @@
 namespace DataCatalyst.Pipeline;
 
-using DataCatalyst.Registry;
-
 public interface IPipelineStage {
-	string Name { get; }
-	void Execute(PipelineContext ctx);
+	public string Name { get; }
+	public void Execute(PipelineContext ctx);
 }

@@ -8,7 +8,10 @@ public static class AspectFieldRegistry {
 	private static bool _frozen;
 
 	public static void Register(string aspectName, Dictionary<string, Type> fields) {
-		if (_frozen) throw new InvalidOperationException("Registry frozen");
+		if (_frozen) {
+			throw new InvalidOperationException("Registry frozen");
+		}
+
 		_fields[aspectName] = fields;
 	}
 

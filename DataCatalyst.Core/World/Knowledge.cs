@@ -58,8 +58,10 @@ public sealed class Knowledge {
 	public IEnumerable<string> GetDynamicConceptNames() => _dynamicPools.Keys;
 
 	public TBaked GetBaked<TBaked>(string beingKey) {
-		if (_bakedCache.TryGetValue(typeof(TBaked), out var inner) && inner.TryGetValue(beingKey, out var obj))
+		if (_bakedCache.TryGetValue(typeof(TBaked), out var inner) && inner.TryGetValue(beingKey, out var obj)) {
 			return (TBaked)obj;
+		}
+
 		throw new KeyNotFoundException($"No baked data of type '{typeof(TBaked).Name}' found for being '{beingKey}'");
 	}
 
@@ -69,8 +71,10 @@ public sealed class Knowledge {
 	public IReadOnlyDictionary<string, TBaked> GetBaked<TBaked>() {
 		if (_bakedCache.TryGetValue(typeof(TBaked), out var inner)) {
 			var result = new Dictionary<string, TBaked>(StringComparer.OrdinalIgnoreCase);
-			foreach (var kv in inner)
+			foreach (var kv in inner) {
 				result[kv.Key] = (TBaked)kv.Value;
+			}
+
 			return result;
 		}
 		return new Dictionary<string, TBaked>();
