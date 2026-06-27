@@ -65,7 +65,7 @@ A drone is `Mechanical` but not `Humanoid`. A zombie is `Humanoid` but not `Mech
 
 ```mermaid
 wardley-beta
-title Orthogonal Semantic Space: High-Fidelity Being Profiles
+title Orthogonal Semantic Space
 size [1100, 850]
 
 evolution "Direct Being-level" -> "Structural Lens" -> "Core Manifested" -> "Abstract / Untyped"
@@ -104,12 +104,12 @@ TH_Health -> TH_CombatStats
 TH_CombatStats -> TH_Loyalty
 TH_Loyalty -> TH_SkeletonRig
 
-note "Revealed Attributes (from Ontology.json)" [0.80, 0.70]
-note "Unmapped Attributes (from Being.json)" [0.15, 0.20]
-note "RoboticKnight silhouette (Triangle vertices)" [0.83, 0.45]
-note "Hound silhouette (Diamond vertices)" [0.53, 0.45]
-note "TraitorHero silhouette (Square vertices)" [0.68, 0.45]
-note "GhostEntity (Structural marker only)" [0.30, 0.70]
+note "Revealed" [0.80, 0.70]
+note "Unmapped" [0.15, 0.20]
+note "RoboticKnight silhouette" [0.83, 0.45]
+note "Hound silhouette" [0.53, 0.45]
+note "TraitorHero silhouette" [0.68, 0.45]
+note "GhostEntity" [0.30, 0.70]
 ```
 
 ### Mathematical Model
