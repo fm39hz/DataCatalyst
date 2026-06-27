@@ -1,35 +1,34 @@
 namespace DataCatalyst.Knowledge;
 
 using System;
-using System.Collections.Frozen;
 using System.Collections.Generic;
 using DataCatalyst.Schema;
 using DataCatalyst.Storage;
 
 public sealed class Knowledge {
-	internal readonly FrozenDictionary<Type, IStoragePool> Pools;
-	internal readonly FrozenDictionary<Type, int> BeingIndices;
+	internal readonly IReadOnlyDictionary<Type, IStoragePool> Pools;
+	internal readonly IReadOnlyDictionary<Type, int> BeingIndices;
 	internal readonly SchemaRegistry? Schema;
-	private readonly FrozenDictionary<Type, FrozenDictionary<string, object>> _bakedCache;
-	private FrozenDictionary<string, IStoragePool> _dynamicPools = FrozenDictionary<string, IStoragePool>.Empty;
-	private FrozenDictionary<string, int> _dynamicIndices = FrozenDictionary<string, int>.Empty;
+	private readonly IReadOnlyDictionary<Type, IReadOnlyDictionary<string, object>> _bakedCache;
+	private IReadOnlyDictionary<string, IStoragePool> _dynamicPools = new Dictionary<string, IStoragePool>();
+	private IReadOnlyDictionary<string, int> _dynamicIndices = new Dictionary<string, int>();
 
 	internal Knowledge(Dictionary<Type, IStoragePool> pools, Dictionary<Type, int> beingIndices,
 		SchemaRegistry? schema, Dictionary<Type, Dictionary<string, object>> bakedCache) {
-		Pools = pools.ToFrozenDictionary();
-		BeingIndices = beingIndices.ToFrozenDictionary();
+		Pools = pools;
+		BeingIndices = beingIndices;
 		Schema = schema;
 
-		var frozenCache = new Dictionary<Type, FrozenDictionary<string, object>>();
+		var cache = new Dictionary<Type, IReadOnlyDictionary<string, object>>();
 		foreach (var kv in bakedCache) {
-			frozenCache[kv.Key] = kv.Value.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
+			cache[kv.Key] = kv.Value;
 		}
-		_bakedCache = frozenCache.ToFrozenDictionary();
+		_bakedCache = cache;
 	}
 
 	internal void SetDynamicPools(Dictionary<string, IStoragePool> pools, Dictionary<string, int> indices) {
-		_dynamicPools = pools.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
-		_dynamicIndices = indices.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
+		_dynamicPools = pools;
+		_dynamicIndices = indices;
 	}
 
 	public ConceptScope<TConcept> Of<TConcept>()
@@ -38,7 +37,6 @@ public sealed class Knowledge {
 			throw new InvalidOperationException(
 				$"Concept '{typeof(TConcept).Name}' has no data in this world");
 		}
-
 		return new ConceptScope<TConcept>(this);
 	}
 
@@ -51,7 +49,6 @@ public sealed class Knowledge {
 	public IStoragePool? GetPool(Type conceptType)
 		=> Pools.TryGetValue(conceptType, out var pool) ? pool : null;
 
-	// Dynamic (mod) API
 	public IStoragePool? GetDynamicPool(string conceptName)
 		=> _dynamicPools.TryGetValue(conceptName, out var pool) ? pool : null;
 
@@ -61,9 +58,8 @@ public sealed class Knowledge {
 	public IEnumerable<string> GetDynamicConceptNames() => _dynamicPools.Keys;
 
 	public TBaked GetBaked<TBaked>(string beingKey) {
-		if (_bakedCache.TryGetValue(typeof(TBaked), out var inner) && inner.TryGetValue(beingKey, out var obj)) {
+		if (_bakedCache.TryGetValue(typeof(TBaked), out var inner) && inner.TryGetValue(beingKey, out var obj))
 			return (TBaked)obj;
-		}
 		throw new KeyNotFoundException($"No baked data of type '{typeof(TBaked).Name}' found for being '{beingKey}'");
 	}
 
@@ -73,12 +69,11 @@ public sealed class Knowledge {
 	public IReadOnlyDictionary<string, TBaked> GetBaked<TBaked>() {
 		if (_bakedCache.TryGetValue(typeof(TBaked), out var inner)) {
 			var result = new Dictionary<string, TBaked>(StringComparer.OrdinalIgnoreCase);
-			foreach (var kv in inner) {
+			foreach (var kv in inner)
 				result[kv.Key] = (TBaked)kv.Value;
-			}
 			return result;
 		}
-		return FrozenDictionary<string, TBaked>.Empty;
+		return new Dictionary<string, TBaked>();
 	}
 
 	public bool TryGetBaked<TBaked>(string beingKey, out TBaked result) {

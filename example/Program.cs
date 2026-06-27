@@ -3,10 +3,9 @@ using System.IO;
 using System.Linq;
 using System.Collections.Generic;
 using DataCatalyst;
-using Example;
+using DataCatalyst.Loaders;
 using DataCatalyst.Knowledge;
 using DataCatalyst.Pipeline;
-using DataCatalyst.Loaders;
 using DataCatalyst.Generated;
 using DataCatalyst.Composition;
 using DataCatalyst.Registry;
@@ -20,12 +19,7 @@ if (string.IsNullOrEmpty(root))
 	root = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "example");
 
 var knowledge = new Pipeline()
-	.AddSource("Base", new JsonDataLoader(), Path.Combine(root, "Data"), s =>
-		{ s.Priority = 0; s.MergePolicy = MergePolicy.Patch; })
-	.AddSource("DLC", new JsonDataLoader(), Path.Combine(root, "DLC"), s =>
-		{ s.Priority = 1; s.MergePolicy = MergePolicy.Patch; })
-	.AddSource("Mods", new JsonDataLoader(), Path.Combine(root, "Mods"), s =>
-		{ s.Priority = 2; s.MergePolicy = MergePolicy.FieldPatch; })
+	.Load(root, new JsonDataLoader())
 	.AddBaker(new StateEngineBaker())
 	.Build(out var diagnostics);
 

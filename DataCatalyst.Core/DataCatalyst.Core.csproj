@@ -3,17 +3,15 @@
 		<TargetFramework>net10.0</TargetFramework>
 		<RootNamespace>DataCatalyst.Core</RootNamespace>
 		<AssemblyName>DataCatalyst.Core</AssemblyName>
-		<Description>DataCatalyst runtime infrastructure — primitive registry, data graph, catalog builder, and supporting types.</Description>
+		<Description>DataCatalyst runtime — pipeline, knowledge, storage, ontology, JSON loader, extensions</Description>
 		<PackageTags>data-catalyst;game-data;runtime;core</PackageTags>
+		<LangVersion>latest</LangVersion>
+		<Nullable>enable</Nullable>
+		<IsAotCompatible Condition="'$(TargetFramework)' == 'net10.0'">true</IsAotCompatible>
 	</PropertyGroup>
 
-
-	<ItemGroup>
-		<ProjectReference Include="..\DataCatalyst.Abstractions\DataCatalyst.Abstractions.csproj"/>
-	</ItemGroup>
 	<ItemGroup>
 		<InternalsVisibleTo Include="DataCatalyst.Plugins.StateEngine" />
-		<InternalsVisibleTo Include="DataCatalyst.Loaders.Json" />
 		<InternalsVisibleTo Include="Example" />
 		<InternalsVisibleTo Include="DataCatalyst.Tests" />
 	</ItemGroup>

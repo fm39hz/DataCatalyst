@@ -8,6 +8,5 @@
 	</PropertyGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\DataCatalyst.Core\DataCatalyst.Core.csproj"/>
-		<ProjectReference Include="..\DataCatalyst.Extensions\DataCatalyst.Extensions.csproj"/>
 	</ItemGroup>
 </Project>

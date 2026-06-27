@@ -20,22 +20,12 @@ public readonly struct OntologyFile {
 }
 
 public sealed class OntologyBuilder {
-	public Dictionary<string, List<string>> Requires { get; } = new(StringComparer.OrdinalIgnoreCase);
-	public Dictionary<string, List<string>> Suggests { get; } = new(StringComparer.OrdinalIgnoreCase);
-	public Dictionary<string, Dictionary<string, string>> AspectFields { get; } = new(StringComparer.OrdinalIgnoreCase);
-
-	public void AddRequires(string concept, params string[] aspects) {
-		if (!Requires.ContainsKey(concept))
-			Requires[concept] = [.. aspects];
-	}
-	public void AddSuggests(string concept, params string[] aspects) {
-		if (!Suggests.ContainsKey(concept))
-			Suggests[concept] = [.. aspects];
-	}
-	public void AddAspectFields(string aspect, Dictionary<string, string> fields) {
-		if (!AspectFields.ContainsKey(aspect))
-			AspectFields[aspect] = fields;
-	}
+	public System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<string>> Requires { get; } = new(System.StringComparer.OrdinalIgnoreCase);
+	public System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<string>> Suggests { get; } = new(System.StringComparer.OrdinalIgnoreCase);
+	public System.Collections.Generic.Dictionary<string, System.Collections.Generic.Dictionary<string, string>> AspectFields { get; } = new(System.StringComparer.OrdinalIgnoreCase);
+	public void AddRequires(string concept, params string[] aspects) { if (!Requires.ContainsKey(concept)) Requires[concept] = [.. aspects]; }
+	public void AddSuggests(string concept, params string[] aspects) { if (!Suggests.ContainsKey(concept)) Suggests[concept] = [.. aspects]; }
+	public void AddAspectFields(string aspect, System.Collections.Generic.Dictionary<string, string> fields) { if (!AspectFields.ContainsKey(aspect)) AspectFields[aspect] = fields; }
 }
 
 public interface IOntologyParser {
@@ -53,6 +43,7 @@ internal sealed class BuiltinJsonParser : IOntologyParser {
 			if (root.ValueKind != JsonValueKind.Object) return false;
 			if (root.TryGetProperty("concepts", out var c) && c.ValueKind == JsonValueKind.Object) return true;
 			if (root.TryGetProperty("aspects", out var a) && a.ValueKind == JsonValueKind.Object) return true;
+			if (root.TryGetProperty("relations", out var r) && r.ValueKind == JsonValueKind.Object) return true;
 			return false;
 		}
 		catch { return false; }
@@ -222,6 +213,9 @@ public sealed class AspectGenerator : IIncrementalGenerator {
 		var jsonData = context.AdditionalTextsProvider
 			.Where(f => Path.GetExtension(f.Path).Equals(".json", StringComparison.OrdinalIgnoreCase))
 			.Select((t, _) => {
+				var fName = Path.GetFileName(t.Path);
+				if (fName.Equals("mods.json", StringComparison.OrdinalIgnoreCase)) return "";
+
 				var content = t.GetText()?.ToString() ?? "";
 				if (string.IsNullOrEmpty(content)) {
 					return "";
@@ -236,7 +230,8 @@ public sealed class AspectGenerator : IIncrementalGenerator {
 
 					// Skip ontology files (content-detected, not filename-based)
 					if ((r.TryGetProperty("concepts", out var ck) && ck.ValueKind == JsonValueKind.Object) ||
-						(r.TryGetProperty("aspects", out var ak) && ak.ValueKind == JsonValueKind.Object)) {
+						(r.TryGetProperty("aspects", out var ak) && ak.ValueKind == JsonValueKind.Object) ||
+						(r.TryGetProperty("relations", out var rk) && rk.ValueKind == JsonValueKind.Object)) {
 						return "";
 					}
 
@@ -344,7 +339,8 @@ public sealed class AspectGenerator : IIncrementalGenerator {
 							var r = d.RootElement;
 							if (r.ValueKind == JsonValueKind.Object &&
 								((r.TryGetProperty("concepts", out var ck) && ck.ValueKind == JsonValueKind.Object) ||
-								 (r.TryGetProperty("aspects", out var ak) && ak.ValueKind == JsonValueKind.Object))) {
+								 (r.TryGetProperty("aspects", out var ak) && ak.ValueKind == JsonValueKind.Object) ||
+								 (r.TryGetProperty("relations", out var rk) && rk.ValueKind == JsonValueKind.Object))) {
 								if (sb.Length > 0) sb.Append('\0');
 								sb.Append(content);
 							}
@@ -443,6 +439,8 @@ public sealed class AspectGenerator : IIncrementalGenerator {
 				foreach (var cn in allOntologyConcepts) knownConceptNames.Add(cn);
 			}
 
+			// Collect framework aspect types from referenced assemblies (StateGroup, StateTransitions, etc.)
+			var frameworkAspects = new List<AspectInfo?>();
 			var conceptAttr = compilation.GetTypeByMetadataName("DataCatalyst.Attributes.GameConceptAttribute");
 			var conceptInterface = compilation.GetTypeByMetadataName("DataCatalyst.IConcept");
 			var aspectAttr = compilation.GetTypeByMetadataName("DataCatalyst.Attributes.GameAspectAttribute");
@@ -452,7 +450,7 @@ public sealed class AspectGenerator : IIncrementalGenerator {
 				var isSystem = name.StartsWith("System") || name.StartsWith("Microsoft") || name == "mscorlib" || name == "netstandard" || name.StartsWith("Windows") || name.StartsWith("Mono");
 				if (!isSystem) {
 					FindConceptsInNamespace(assembly.GlobalNamespace, conceptAttr, conceptInterface, conceptNames);
-					FindAspectsInNamespace(assembly.GlobalNamespace, aspectAttr, aspectNames);
+					FindAspectsInNamespaceEx(assembly.GlobalNamespace, aspectAttr, aspectNames, frameworkAspects);
 				}
 			}
 
@@ -601,9 +599,16 @@ public sealed class AspectGenerator : IIncrementalGenerator {
 				}
 			}
 
-			// Build combined aspect list (C# [GameAspect] + ontology-generated)
+			// Build combined aspect list (C# [GameAspect] + ontology-generated + framework)
 			var combinedAspects = new List<AspectInfo?>();
 			combinedAspects.AddRange(aspects);
+			foreach (var fa in frameworkAspects) {
+				if (fa != null && !combinedAspects.Any(a => a?.Name == fa.Name)) {
+					combinedAspects.Add(fa);
+					if (!aspectDict.ContainsKey(fa.Name))
+						aspectDict[fa.Name] = fa;
+				}
+			}
 			if (hasOntology) {
 				foreach (var kv in ontologyAspects) {
 					if (aspectDict.TryGetValue(kv.Key, out var ai) && !combinedAspects.Any(a => a?.Name == kv.Key)) {
@@ -967,6 +972,29 @@ public sealed class {cn}Pool : global::DataCatalyst.Storage.IStoragePool {{
 				if (IsConcept(typeSymbol, conceptAttr, conceptInterface)) {
 					conceptNames.Add(typeSymbol.Name);
 				}
+			}
+		}
+	}
+
+	private static void FindAspectsInNamespaceEx(INamespaceSymbol ns, INamedTypeSymbol? aspectAttr, HashSet<string> aspectNames, List<AspectInfo?> results) {
+		foreach (var member in ns.GetMembers()) {
+			if (member is INamespaceSymbol nestedNs)
+				FindAspectsInNamespaceEx(nestedNs, aspectAttr, aspectNames, results);
+			else if (member is INamedTypeSymbol typeSymbol && aspectAttr != null
+				&& typeSymbol.GetAttributes().Any(ad => SymbolEqualityComparer.Default.Equals(ad.AttributeClass, aspectAttr))) {
+				var name = typeSymbol.Name;
+				var nsName = typeSymbol.ContainingNamespace?.ToDisplayString() ?? "DataCatalyst";
+				aspectNames.Add(name);
+				var props = new List<string>();
+				foreach (var m in typeSymbol.GetMembers()) {
+					if (m.IsStatic || m.DeclaredAccessibility != Accessibility.Public) continue;
+					if (m is IPropertySymbol prop && !prop.IsReadOnly)
+						props.Add($"{prop.Name}:{prop.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}");
+					else if (m is IFieldSymbol field && !field.IsConst)
+						props.Add($"{field.Name}:{field.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}");
+				}
+				props.Sort();
+				results.Add(new AspectInfo(name, nsName, string.Join(";", props)));
 			}
 		}
 	}

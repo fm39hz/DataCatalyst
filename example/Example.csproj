@@ -13,18 +13,13 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<AdditionalFiles Include="*.json" />
-		<AdditionalFiles Include="*.xml" Condition="'$(EnableXmlOntology)' == 'true'" />
-		<AdditionalFiles Include="Data/**/*.json" />
+		<AdditionalFiles Include="Data/*.json" />
 		<AdditionalFiles Include="DLC/**/*.json" />
 		<AdditionalFiles Include="Mods/**/*.json" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\DataCatalyst.Abstractions\DataCatalyst.Abstractions.csproj" />
 		<ProjectReference Include="..\DataCatalyst.Core\DataCatalyst.Core.csproj" />
-		<ProjectReference Include="..\DataCatalyst.Loaders.Json\DataCatalyst.Loaders.Json.csproj" />
-		<ProjectReference Include="..\DataCatalyst.Extensions\DataCatalyst.Extensions.csproj" />
 		<ProjectReference Include="..\DataCatalyst.Plugins.StateEngine\DataCatalyst.Plugins.StateEngine.csproj" />
 		<ProjectReference Include="..\DataCatalyst.SourceGen\DataCatalyst.SourceGen.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" SetTargetFramework="TargetFramework=netstandard2.0" />
 	</ItemGroup>

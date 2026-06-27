@@ -30,6 +30,67 @@ public sealed class Pipeline {
 		return this;
 	}
 
+	public Pipeline Load(string rootPath, IDataLoader loader) {
+		if (!Directory.Exists(rootPath) || loader == null) return this;
+
+		// 1. Root ontology files
+		foreach (var ontFile in new[] { "concepts.json", "aspects.json", "relations.json" }) {
+			var p = Path.Combine(rootPath, ontFile);
+			if (File.Exists(p)) AddOntology(p);
+		}
+
+		// 2. Root Data/
+		var dataPath = Path.Combine(rootPath, "Data");
+		if (Directory.Exists(dataPath) && Directory.EnumerateFiles(dataPath, "*.json").Any())
+			AddSource("Base", loader, dataPath);
+
+		// 3. Scan Mods/ and DLC/ subdirectories for mods.json
+		foreach (var modDir in new[] { "Mods", "DLC" }) {
+			var dir = Path.Combine(rootPath, modDir);
+			if (!Directory.Exists(dir)) continue;
+			foreach (var subDir in Directory.EnumerateDirectories(dir)) {
+				var modJson = Path.Combine(subDir, "mods.json");
+				if (!File.Exists(modJson)) continue;
+				try {
+					var json = File.ReadAllText(modJson);
+					using var doc = JsonDocument.Parse(json);
+					var mRoot = doc.RootElement;
+					var name = Path.GetFileName(subDir);
+					var priority = 5;
+					if (mRoot.TryGetProperty("priority", out var pri) && pri.ValueKind == JsonValueKind.Number)
+						priority = pri.GetInt32();
+
+					if (mRoot.TryGetProperty("ontology", out var ont) && ont.ValueKind == JsonValueKind.Object) {
+						foreach (var ontEntry in ont.EnumerateObject()) {
+							var fileProp = ontEntry.Value;
+							if (fileProp.ValueKind != JsonValueKind.Object) continue;
+							if (!fileProp.TryGetProperty("file", out var fp) || fp.ValueKind != JsonValueKind.String) continue;
+							var fpVal = fp.GetString();
+							if (string.IsNullOrEmpty(fpVal)) continue;
+							var fullPath = Path.Combine(subDir, fpVal);
+							if (File.Exists(fullPath)) AddOntology(fullPath);
+						}
+					}
+
+					foreach (var ontFile in new[] { "concepts.json", "aspects.json", "relations.json" }) {
+						var p = Path.Combine(subDir, ontFile);
+						if (File.Exists(p)) AddOntology(p);
+					}
+
+					var modData = Path.Combine(subDir, "Data");
+					if (Directory.Exists(modData) && Directory.EnumerateFiles(modData, "*.json").Any())
+						AddSource(name, loader, modData, s => {
+							s.Priority = priority;
+							s.MergePolicy = MergePolicy.FieldPatch;
+						});
+				}
+				catch { }
+			}
+		}
+
+		return this;
+	}
+
 	public Knowledge.Knowledge Build(out DiagnosticBag diagnostics) {
 		diagnostics = new DiagnosticBag();
 		var ctx = new PipelineContext { Schema = Schema };

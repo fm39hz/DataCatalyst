@@ -1,0 +1,13 @@
+{
+	"Dragon": {
+		"$Creature": {
+			"Health": { "Current": 500, "Max": 500 },
+			"CombatStats": { "BaseDamage": 80, "BaseDefense": 40, "AttackSpeed": 0.5 },
+			"Label": { "Name": "Elder Dragon" }
+		},
+		"$DragonCreature": {
+			"FlightSpeed": { "MaxSpeed": 25.0 },
+			"DragonBreath": { "Damage": 120, "Element": "Fire" }
+		}
+	}
+}

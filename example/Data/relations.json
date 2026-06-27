@@ -1,0 +1,13 @@
+{
+	"$schema": "https://raw.githubusercontent.com/fm39hz/DataCatalyst/main/schemas/ontology.schema.json",
+	"$version": "1.0",
+	"relations": {
+		"Creature": {
+			"$requires": ["Health", "CombatStats", "Label"],
+			"$suggests": ["Stamina", "Mana"]
+		},
+		"Enemy": {
+			"$suggests": ["PatrolRadius", "ExperienceReward", "Mana"]
+		}
+	}
+}

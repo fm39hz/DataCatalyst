@@ -1,0 +1,14 @@
+{
+	"$schema": "https://raw.githubusercontent.com/fm39hz/DataCatalyst/main/schemas/ontology.schema.json",
+	"$version": "1.0",
+	"concepts": {
+		"Creature": {},
+		"Enemy": {},
+		"Hero": {},
+		"Item": {},
+		"Weapon": {},
+		"GameState": {},
+		"Sensor": {},
+		"State": {}
+	}
+}
