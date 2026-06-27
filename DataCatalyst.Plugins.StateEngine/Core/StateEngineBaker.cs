@@ -118,7 +118,9 @@ public class StateEngineBaker : Pipeline.IBaker<StateGroup, BakedStateGroup> {
 
 		var bakedGroup = new BakedStateGroup {
 			GroupId = beingKey,
-			States = statesMap.ToFrozenDictionary()
+			States = statesMap.ToFrozenDictionary(),
+			RequiredTrait = source.RequiredTrait,
+			PriorityTier = source.PriorityTier
 		};
 
 		if (!string.IsNullOrEmpty(source.DefaultState)) {

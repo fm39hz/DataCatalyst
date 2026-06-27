@@ -10,6 +10,7 @@ public readonly record struct StateGroup {
 	public float PriorityTier { get; init; }
 	public float TierScale { get; init; }
 	public float DepthPenalty { get; init; }
+	public string RequiredTrait { get; init; }
 }
 
 [GameAspect]

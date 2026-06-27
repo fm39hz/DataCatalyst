@@ -23,6 +23,10 @@
 		<IsAotCompatible>true</IsAotCompatible>
 	</PropertyGroup>
 
+	<PropertyGroup>
+		<PublishAot Condition="'$(TargetFramework)' != 'net10.0'">false</PublishAot>
+	</PropertyGroup>
+
 	<PropertyGroup Condition="'$(IsPackable)' != 'false'">
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 	</PropertyGroup>

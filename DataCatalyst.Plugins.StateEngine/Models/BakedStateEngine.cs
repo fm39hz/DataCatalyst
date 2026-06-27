@@ -9,6 +9,8 @@ public sealed class BakedStateGroup {
 	public string GroupId { get; init; } = string.Empty;
 	public Ref<State> DefaultState { get; set; }
 	public FrozenDictionary<Ref<State>, BakedState> States { get; init; } = FrozenDictionary<Ref<State>, BakedState>.Empty;
+	public string RequiredTrait { get; set; } = string.Empty;
+	public float PriorityTier { get; set; }
 }
 
 public sealed class BakedState {

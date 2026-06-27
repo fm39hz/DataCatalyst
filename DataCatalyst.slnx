@@ -8,4 +8,7 @@
 	<Project Path="DataCatalyst.Plugins.StateEngine/DataCatalyst.Plugins.StateEngine.csproj"/>
 	<Project Path="DataCatalyst.Plugins.StateEngine.SourceGen/DataCatalyst.Plugins.StateEngine.SourceGen.csproj"/>
 	<Project Path="DataCatalyst.Tests/DataCatalyst.Tests.csproj"/>
+	<Project Path="DataCatalyst.Ontology/DataCatalyst.Ontology.csproj"/>
+	<Project Path="DataCatalyst.Ontology.Parsers.Json/DataCatalyst.Ontology.Parsers.Json.csproj"/>
+	<Project Path="DataCatalyst.Ontology.Parsers.Xml/DataCatalyst.Ontology.Parsers.Xml.csproj"/>
 </Solution>

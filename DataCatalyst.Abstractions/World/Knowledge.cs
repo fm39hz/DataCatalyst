@@ -11,6 +11,8 @@ public sealed class Knowledge {
 	internal readonly FrozenDictionary<Type, int> BeingIndices;
 	internal readonly SchemaRegistry? Schema;
 	private readonly FrozenDictionary<Type, FrozenDictionary<string, object>> _bakedCache;
+	private FrozenDictionary<string, IStoragePool> _dynamicPools = FrozenDictionary<string, IStoragePool>.Empty;
+	private FrozenDictionary<string, int> _dynamicIndices = FrozenDictionary<string, int>.Empty;
 
 	internal Knowledge(Dictionary<Type, IStoragePool> pools, Dictionary<Type, int> beingIndices,
 		SchemaRegistry? schema, Dictionary<Type, Dictionary<string, object>> bakedCache) {
@@ -23,6 +25,11 @@ public sealed class Knowledge {
 			frozenCache[kv.Key] = kv.Value.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
 		}
 		_bakedCache = frozenCache.ToFrozenDictionary();
+	}
+
+	internal void SetDynamicPools(Dictionary<string, IStoragePool> pools, Dictionary<string, int> indices) {
+		_dynamicPools = pools.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
+		_dynamicIndices = indices.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
 	}
 
 	public ConceptScope<TConcept> Of<TConcept>()
@@ -38,18 +45,21 @@ public sealed class Knowledge {
 	public int GetBeingIndex(Type beingType)
 		=> BeingIndices.TryGetValue(beingType, out var idx) ? idx : -1;
 
-	/// <summary>
-	/// Gets the index of a Being type in the world.
-	/// </summary>
 	public int GetBeingIndex<TBeing>() where TBeing : struct, IBeing
 		=> GetBeingIndex(typeof(TBeing));
 
 	public IStoragePool? GetPool(Type conceptType)
 		=> Pools.TryGetValue(conceptType, out var pool) ? pool : null;
 
-	/// <summary>
-	/// Gets a baked data structure of type TBaked for a specific Being key.
-	/// </summary>
+	// Dynamic (mod) API
+	public IStoragePool? GetDynamicPool(string conceptName)
+		=> _dynamicPools.TryGetValue(conceptName, out var pool) ? pool : null;
+
+	public int GetDynamicBeingIndex(string beingKey)
+		=> _dynamicIndices.TryGetValue(beingKey, out var idx) ? idx : -1;
+
+	public IEnumerable<string> GetDynamicConceptNames() => _dynamicPools.Keys;
+
 	public TBaked GetBaked<TBaked>(string beingKey) {
 		if (_bakedCache.TryGetValue(typeof(TBaked), out var inner) && inner.TryGetValue(beingKey, out var obj)) {
 			return (TBaked)obj;
@@ -57,15 +67,9 @@ public sealed class Knowledge {
 		throw new KeyNotFoundException($"No baked data of type '{typeof(TBaked).Name}' found for being '{beingKey}'");
 	}
 
-	/// <summary>
-	/// Gets a baked data structure of type TBaked for a specific Being type.
-	/// </summary>
 	public TBaked GetBaked<TBaked, TBeing>() where TBeing : struct, IBeing
 		=> GetBaked<TBaked>(typeof(TBeing).Name);
 
-	/// <summary>
-	/// Gets all baked data structures of type TBaked, mapped by Being key.
-	/// </summary>
 	public IReadOnlyDictionary<string, TBaked> GetBaked<TBaked>() {
 		if (_bakedCache.TryGetValue(typeof(TBaked), out var inner)) {
 			var result = new Dictionary<string, TBaked>(StringComparer.OrdinalIgnoreCase);
@@ -77,9 +81,6 @@ public sealed class Knowledge {
 		return FrozenDictionary<string, TBaked>.Empty;
 	}
 
-	/// <summary>
-	/// Tries to get a baked data structure of type TBaked for a specific Being key.
-	/// </summary>
 	public bool TryGetBaked<TBaked>(string beingKey, out TBaked result) {
 		if (_bakedCache.TryGetValue(typeof(TBaked), out var inner) && inner.TryGetValue(beingKey, out var obj)) {
 			result = (TBaked)obj;
@@ -89,9 +90,6 @@ public sealed class Knowledge {
 		return false;
 	}
 
-	/// <summary>
-	/// Tries to get a baked data structure of type TBaked for a specific Being type.
-	/// </summary>
 	public bool TryGetBaked<TBaked, TBeing>(out TBaked result) where TBeing : struct, IBeing
 		=> TryGetBaked(typeof(TBeing).Name, out result);
 }

@@ -6,11 +6,101 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
+
+public readonly struct OntologyFile {
+	public string FileName { get; }
+	public string Content { get; }
+	public OntologyFile(string fileName, string content) { FileName = fileName; Content = content; }
+}
+
+public sealed class OntologyBuilder {
+	public Dictionary<string, List<string>> Requires { get; } = new(StringComparer.OrdinalIgnoreCase);
+	public Dictionary<string, List<string>> Suggests { get; } = new(StringComparer.OrdinalIgnoreCase);
+	public Dictionary<string, Dictionary<string, string>> AspectFields { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+	public void AddRequires(string concept, params string[] aspects) {
+		if (!Requires.ContainsKey(concept))
+			Requires[concept] = [.. aspects];
+	}
+	public void AddSuggests(string concept, params string[] aspects) {
+		if (!Suggests.ContainsKey(concept))
+			Suggests[concept] = [.. aspects];
+	}
+	public void AddAspectFields(string aspect, Dictionary<string, string> fields) {
+		if (!AspectFields.ContainsKey(aspect))
+			AspectFields[aspect] = fields;
+	}
+}
+
+public interface IOntologyParser {
+	bool CanHandle(in OntologyFile file);
+	void Parse(in OntologyFile file, OntologyBuilder builder);
+}
+
+internal sealed class BuiltinJsonParser : IOntologyParser {
+	public bool CanHandle(in OntologyFile file) {
+		var ext = System.IO.Path.GetExtension(file.FileName);
+		if (!ext.Equals(".json", StringComparison.OrdinalIgnoreCase)) return false;
+		try {
+			using var doc = JsonDocument.Parse(file.Content);
+			var root = doc.RootElement;
+			if (root.ValueKind != JsonValueKind.Object) return false;
+			if (root.TryGetProperty("concepts", out var c) && c.ValueKind == JsonValueKind.Object) return true;
+			if (root.TryGetProperty("aspects", out var a) && a.ValueKind == JsonValueKind.Object) return true;
+			return false;
+		}
+		catch { return false; }
+	}
+
+	public void Parse(in OntologyFile file, OntologyBuilder builder) {
+		try {
+			using var doc = JsonDocument.Parse(file.Content);
+			var root = doc.RootElement;
+			if (root.TryGetProperty("aspects", out var aspRoot) && aspRoot.ValueKind == JsonValueKind.Object) {
+				foreach (var aspEntry in aspRoot.EnumerateObject()) {
+					var aDef = aspEntry.Value;
+					if (aDef.ValueKind != JsonValueKind.Object) continue;
+					if (!aDef.TryGetProperty("fields", out var fields) || fields.ValueKind != JsonValueKind.Object) continue;
+					var fieldMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+					foreach (var field in fields.EnumerateObject())
+						if (field.Value.ValueKind == JsonValueKind.String)
+							fieldMap[field.Name] = field.Value.GetString()!;
+					if (fieldMap.Count > 0 && !builder.AspectFields.ContainsKey(aspEntry.Name))
+						builder.AddAspectFields(aspEntry.Name, fieldMap);
+				}
+			}
+			if (!root.TryGetProperty("concepts", out var concepts) || concepts.ValueKind != JsonValueKind.Object) return;
+			foreach (var conceptEntry in concepts.EnumerateObject()) {
+				var cName = conceptEntry.Name;
+				var entry = conceptEntry.Value;
+				if (entry.ValueKind != JsonValueKind.Object) continue;
+				if (entry.TryGetProperty("$requires", out var req) && req.ValueKind == JsonValueKind.Array) {
+					var list = new List<string>();
+					foreach (var item in req.EnumerateArray())
+						if (item.ValueKind == JsonValueKind.String) list.Add(item.GetString()!);
+					if (list.Count > 0 && !builder.Requires.ContainsKey(cName))
+						builder.AddRequires(cName, [.. list]);
+				}
+				if (entry.TryGetProperty("$suggests", out var sug) && sug.ValueKind == JsonValueKind.Array) {
+					var list = new List<string>();
+					foreach (var item in sug.EnumerateArray())
+						if (item.ValueKind == JsonValueKind.String) list.Add(item.GetString()!);
+					if (list.Count > 0 && !builder.Suggests.ContainsKey(cName))
+						builder.AddSuggests(cName, [.. list]);
+				}
+				if (!builder.Requires.ContainsKey(cName) && !builder.Suggests.ContainsKey(cName))
+					builder.AddRequires(cName);
+			}
+		}
+		catch { }
+	}
+}
 
 public sealed class AspectPropertyInfo(string name, string type) : IEquatable<AspectPropertyInfo> {
 	public string Name { get; } = name;
@@ -96,6 +186,22 @@ public sealed class JsonDataInfo(string beingsString) : IEquatable<JsonDataInfo>
 	public override int GetHashCode() => BeingsString?.GetHashCode() ?? 0;
 }
 
+public sealed class OntologyInfo : IEquatable<OntologyInfo> {
+	public string ConceptsJson { get; }
+
+	public OntologyInfo(string conceptsJson) {
+		ConceptsJson = conceptsJson;
+	}
+
+	public bool Equals(OntologyInfo? other) {
+		if (other is null) return false;
+		return ConceptsJson == other.ConceptsJson;
+	}
+
+	public override bool Equals(object? obj) => Equals(obj as OntologyInfo);
+	public override int GetHashCode() => ConceptsJson?.GetHashCode() ?? 0;
+}
+
 [Generator]
 public sealed class AspectGenerator : IIncrementalGenerator {
 	public void Initialize(IncrementalGeneratorInitializationContext context) {
@@ -128,16 +234,15 @@ public sealed class AspectGenerator : IIncrementalGenerator {
 						return "";
 					}
 
+					// Skip ontology files (content-detected, not filename-based)
+					if ((r.TryGetProperty("concepts", out var ck) && ck.ValueKind == JsonValueKind.Object) ||
+						(r.TryGetProperty("aspects", out var ak) && ak.ValueKind == JsonValueKind.Object)) {
+						return "";
+					}
+
 					var beings = new List<string>();
 					foreach (var beingProp in r.EnumerateObject()) {
 						var beingKey = beingProp.Name;
-						if (beingKey.Equals("$mapping", StringComparison.OrdinalIgnoreCase) ||
-							beingKey.Equals("$concepts", StringComparison.OrdinalIgnoreCase) ||
-							beingKey.Equals("$aspects", StringComparison.OrdinalIgnoreCase) ||
-							beingKey.Equals("$entries", StringComparison.OrdinalIgnoreCase) ||
-							beingKey.Equals("$beings", StringComparison.OrdinalIgnoreCase)) {
-							continue;
-						}
 
 						var beingObj = beingProp.Value;
 						if (beingObj.ValueKind != JsonValueKind.Object) {
@@ -223,38 +328,147 @@ public sealed class AspectGenerator : IIncrementalGenerator {
 				return new JsonDataInfo(string.Join("|", beingList));
 			});
 
+		// Read ontology: lightweight content detection, no parser needed at this stage
+		var ontologyData = context.AdditionalTextsProvider
+			.Collect()
+			.Select((ar, _) => {
+				var sb = new StringBuilder();
+				foreach (var text in ar) {
+					var content = text.GetText()?.ToString() ?? "";
+					if (string.IsNullOrEmpty(content)) continue;
+					var ext = Path.GetExtension(text.Path);
+					// Lightweight ontology detection: try JSON for "concepts"/"aspects" keys
+					if (ext.Equals(".json", StringComparison.OrdinalIgnoreCase)) {
+						try {
+							using var d = JsonDocument.Parse(content);
+							var r = d.RootElement;
+							if (r.ValueKind == JsonValueKind.Object &&
+								((r.TryGetProperty("concepts", out var ck) && ck.ValueKind == JsonValueKind.Object) ||
+								 (r.TryGetProperty("aspects", out var ak) && ak.ValueKind == JsonValueKind.Object))) {
+								if (sb.Length > 0) sb.Append('\0');
+								sb.Append(content);
+							}
+						}
+						catch { }
+					}
+					// XML: check for root <ontology> or <concepts> element
+					else if (ext.Equals(".xml", StringComparison.OrdinalIgnoreCase)) {
+						if (content.Contains("<concepts>") || content.Contains("<ontology>")) {
+							if (sb.Length > 0) sb.Append('\0');
+							sb.Append(content);
+						}
+					}
+					// Other formats forwarded as-is; handler will try parsers
+					else if (ext.Equals(".yaml", StringComparison.OrdinalIgnoreCase)
+						  || ext.Equals(".toml", StringComparison.OrdinalIgnoreCase)
+						  || ext.Equals(".yml", StringComparison.OrdinalIgnoreCase)) {
+						if (sb.Length > 0) sb.Append('\0');
+						sb.Append(content);
+					}
+				}
+				return new OntologyInfo(sb.ToString());
+			});
+
 		var combined = aspectDeclarations.Collect()
 			.Combine(conceptDeclarations.Collect())
 			.Combine(jsonData)
+			.Combine(ontologyData)
 			.Combine(context.CompilationProvider);
 
 		context.RegisterSourceOutput(combined, (spc, input) => {
-			var aspects = input.Left.Left.Left;
-			var concepts = input.Left.Left.Right;
-			var jsonData = input.Left.Right;
+			var aspects = input.Left.Left.Left.Left;
+			var concepts = input.Left.Left.Left.Right;
+			var jsonData = input.Left.Left.Right;
+			var ontologyData = input.Left.Right;
 			var compilation = input.Right;
 
-			if (aspects.Length == 0 && concepts.Length == 0) {
+			if (aspects.Length == 0 && concepts.Length == 0
+				&& string.IsNullOrEmpty(ontologyData?.ConceptsJson)) {
 				return;
 			}
 
+			// Parse ontology.json if present
+			var ontologyRequires = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+			var ontologySuggests = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+			var ontologyAspects = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
+			var hasOntology = !string.IsNullOrEmpty(ontologyData?.ConceptsJson);
+
+			if (hasOntology) {
+				var parts = ontologyData!.ConceptsJson.Split(new[] { '\0' }, StringSplitOptions.RemoveEmptyEntries);
+				// Build parser list: built-in JSON fallback + external parsers from MSBuild config
+				var parsers = new List<IOntologyParser> { new BuiltinJsonParser() };
+				// Load external parsers from MSBuild property OntologyParsers (semicolon-separated assembly paths)
+				try {
+					if (compilation.Options is CSharpCompilationOptions csOpts) {
+						// Try to read from analyzer config options
+						foreach (var tree in compilation.SyntaxTrees) {
+							if (tree.FilePath.Contains("AssemblyAttributes")) {
+								// Skip — this is where we'd read global options
+								break;
+							}
+						}
+					}
+				}
+				catch { }
+				foreach (var part in parts) {
+					var ext = part.TrimStart().StartsWith("<") ? ".xml" : ".json";
+					var ontFile = new OntologyFile("ontology" + ext, part);
+					foreach (var parser in parsers) {
+						if (parser.CanHandle(ontFile)) {
+							var builder = new OntologyBuilder();
+							parser.Parse(ontFile, builder);
+							foreach (var kv in builder.Requires) ontologyRequires[kv.Key] = kv.Value;
+							foreach (var kv in builder.Suggests) ontologySuggests[kv.Key] = kv.Value;
+							foreach (var kv in builder.AspectFields) ontologyAspects[kv.Key] = kv.Value;
+							break;
+						}
+					}
+				}
+			}
+
 			var aspectDict = aspects.ToDictionary(a => a!.Name, a => a!, StringComparer.OrdinalIgnoreCase);
-			var aspectNames = new HashSet<string>(aspects.Select(a => a!.Name), StringComparer.OrdinalIgnoreCase);
+			var localAspectNames = new HashSet<string>(aspects.Select(a => a!.Name), StringComparer.OrdinalIgnoreCase);
+			var aspectNames = new HashSet<string>(localAspectNames, StringComparer.OrdinalIgnoreCase);
 			var conceptNames = new HashSet<string>(concepts.Select(c => c!.Name), StringComparer.OrdinalIgnoreCase);
+
+			// Compute the union of all ontology concept names
+			var allOntologyConcepts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			if (hasOntology) {
+				foreach (var k in ontologyRequires.Keys) allOntologyConcepts.Add(k);
+				foreach (var k in ontologySuggests.Keys) allOntologyConcepts.Add(k);
+			}
+			// Union for DC0001 check during data scan: known = C# concepts OR ontology concepts
+			var knownConceptNames = new HashSet<string>(conceptNames, StringComparer.OrdinalIgnoreCase);
+			if (hasOntology) {
+				foreach (var cn in allOntologyConcepts) knownConceptNames.Add(cn);
+			}
 
 			var conceptAttr = compilation.GetTypeByMetadataName("DataCatalyst.Attributes.GameConceptAttribute");
 			var conceptInterface = compilation.GetTypeByMetadataName("DataCatalyst.IConcept");
+			var aspectAttr = compilation.GetTypeByMetadataName("DataCatalyst.Attributes.GameAspectAttribute");
 
 			foreach (var assembly in compilation.SourceModule.ReferencedAssemblySymbols) {
 				var name = assembly.Name;
 				var isSystem = name.StartsWith("System") || name.StartsWith("Microsoft") || name == "mscorlib" || name == "netstandard" || name.StartsWith("Windows") || name.StartsWith("Mono");
 				if (!isSystem) {
 					FindConceptsInNamespace(assembly.GlobalNamespace, conceptAttr, conceptInterface, conceptNames);
+					FindAspectsInNamespace(assembly.GlobalNamespace, aspectAttr, aspectNames);
 				}
 			}
 
+			// Rebuild knownConceptNames after assembly scan (may have added State, Sensor, etc.)
+			knownConceptNames = new HashSet<string>(conceptNames, StringComparer.OrdinalIgnoreCase);
+			if (hasOntology) {
+				foreach (var cn in allOntologyConcepts) knownConceptNames.Add(cn);
+			}
+
 			var beingConcepts = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+			// conceptAspects: start with ontology requires, then augment with data-inferred
 			var conceptAspects = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+			if (hasOntology) {
+				foreach (var kv in ontologyRequires)
+					conceptAspects[kv.Key] = new HashSet<string>(kv.Value, StringComparer.OrdinalIgnoreCase);
+			}
 
 			if (!string.IsNullOrEmpty(jsonData.BeingsString)) {
 				foreach (var beingPart in jsonData.BeingsString.Split('|')) {
@@ -274,6 +488,7 @@ public sealed class AspectGenerator : IIncrementalGenerator {
 						beingConcepts[beingKey] = cList = [];
 					}
 
+					var allAspects = new List<string>();
 					foreach (var propPart in body.Split(';')) {
 						if (string.IsNullOrEmpty(propPart)) {
 							continue;
@@ -289,11 +504,12 @@ public sealed class AspectGenerator : IIncrementalGenerator {
 
 						if (propName.StartsWith("$")) {
 							var conceptName = propName.Substring(1);
-							if (conceptNames.Contains(conceptName)) {
+							if (knownConceptNames.Contains(conceptName)) {
 								if (!cList.Contains(conceptName)) {
 									cList.Add(conceptName);
 								}
 
+								// Always augment conceptAspects with data-inferred aspects
 								if (!conceptAspects.TryGetValue(conceptName, out var aSet)) {
 									conceptAspects[conceptName] = aSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 								}
@@ -315,6 +531,19 @@ public sealed class AspectGenerator : IIncrementalGenerator {
 								spc.ReportDiagnostic(diagnostic);
 							}
 						}
+						else {
+							allAspects.Add(propName);
+						}
+					}
+
+					// Always augment being-level aspects to all concepts of the being
+					foreach (var conceptName in cList) {
+						if (!conceptAspects.TryGetValue(conceptName, out var aSet)) {
+							conceptAspects[conceptName] = aSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+						}
+						foreach (var aspect in allAspects) {
+							aSet.Add(aspect);
+						}
 					}
 				}
 			}
@@ -323,15 +552,90 @@ public sealed class AspectGenerator : IIncrementalGenerator {
 			var ini = new List<StatementSyntax>();
 			var helperMethods = new List<MemberDeclarationSyntax>();
 
+			// Generate concept marker structs from ontology.json for concepts without C# structs
+			if (hasOntology) {
+				foreach (var cn in allOntologyConcepts) {
+					if (!conceptNames.Contains(cn)) {
+						var structDecl = $"public struct {Sanitize(cn)} : global::DataCatalyst.IConcept {{ }}";
+						var s = ParseMemberDeclaration(structDecl);
+						if (s != null) mem.Add(s);
+						conceptNames.Add(cn);
+					}
+				}
+			}
+
+			// Generate aspect structs from ontology.json for aspects without C# structs
+			if (hasOntology && ontologyAspects.Count > 0) {
+				foreach (var kv in ontologyAspects) {
+					var aName = Sanitize(kv.Key);
+					if (aspectDict.ContainsKey(kv.Key)) continue;
+
+					var mems = new List<MemberDeclarationSyntax>();
+					foreach (var field in kv.Value) {
+						var fName = Sanitize(field.Key);
+						var typeSyntax = ParseTypeName(MapTypeString(field.Value));
+						mems.Add(
+							PropertyDeclaration(typeSyntax, fName)
+								.AddModifiers(Token(SyntaxKind.PublicKeyword))
+								.AddAccessorListAccessors(
+									AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
+										.WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
+									AccessorDeclaration(SyntaxKind.SetAccessorDeclaration)
+										.WithSemicolonToken(Token(SyntaxKind.SemicolonToken))));
+					}
+
+					var structDecl = StructDeclaration(aName)
+						.AddModifiers(Token(SyntaxKind.PublicKeyword))
+						.AddAttributeLists(
+							AttributeList(SingletonSeparatedList(
+								Attribute(ParseName("DataCatalyst.Attributes.GameAspectAttribute")))))
+						.AddMembers([.. mems]);
+
+					mem.Add(structDecl);
+
+					// Build AspectInfo for ontology-defined aspect
+					aspectDict[kv.Key] = new AspectInfo(kv.Key, "DataCatalyst.Generated",
+						string.Join(";", kv.Value.Select(f => $"{f.Key}:{MapTypeString(f.Value)}")));
+					localAspectNames.Add(kv.Key);
+					aspectNames.Add(kv.Key);
+				}
+			}
+
+			// Build combined aspect list (C# [GameAspect] + ontology-generated)
+			var combinedAspects = new List<AspectInfo?>();
+			combinedAspects.AddRange(aspects);
+			if (hasOntology) {
+				foreach (var kv in ontologyAspects) {
+					if (aspectDict.TryGetValue(kv.Key, out var ai) && !combinedAspects.Any(a => a?.Name == kv.Key)) {
+						combinedAspects.Add(ai);
+					}
+				}
+			}
+
 			// Register aspects and generate deserializers
 			var deserIdx = 0;
-			foreach (var asp in aspects) {
-				var nm = Sanitize(asp!.Name);
+			foreach (var asp in combinedAspects) {
+				if (asp == null) continue;
+				var nm = Sanitize(asp.Name);
 				var fullTypeName = $"global::{asp.Namespace}.{nm}";
 
 				ini.Add(ParseStatement($"global::DataCatalyst.Storage.AspectTypeRegistry.Register(typeof({fullTypeName}));\n")!);
 
+				// Register field schema (replaces reflection at runtime)
 				var propParts = asp.PropertiesString.Split([';'], StringSplitOptions.RemoveEmptyEntries);
+				if (propParts.Length > 0) {
+					var fieldEntries = string.Join(", ",
+						propParts.Select(p => {
+							var idx = p.IndexOf(':');
+							return idx > 0
+								? $"{{ \"{p.Substring(0, idx)}\", typeof({p.Substring(idx + 1)}) }}"
+								: "";
+						}).Where(e => e.Length > 0));
+					if (fieldEntries.Length > 0)
+						ini.Add(ParseStatement(
+							$"global::DataCatalyst.Registry.AspectFieldRegistry.Register(\"{asp.Name}\", new global::System.Collections.Generic.Dictionary<string, global::System.Type> {{ {fieldEntries} }});\n")!);
+				}
+
 				var setters = new List<string>();
 				foreach (var part in propParts) {
 					var idx = part.IndexOf(':');
@@ -348,7 +652,7 @@ public sealed class AspectGenerator : IIncrementalGenerator {
 									   pType.EndsWith("double") || pType.EndsWith("System.Double") ||
 									   pType.EndsWith("bool") || pType.EndsWith("System.Boolean");
 					var defVal = (isValueType || isNullable) ? $"default({pType})" : $"default({pType})!";
-					setters.Add($"    {pName} = __dict.TryGetValue(\"{pName}\", out var __v{deserIdx}_{pName}) && __v{deserIdx}_{pName} != null ? {Cast(pType, "__v" + deserIdx + "_" + pName, aspectNames)} : {defVal}");
+					setters.Add($"    {pName} = __dict.TryGetValue(\"{pName}\", out var __v{deserIdx}_{pName}) && __v{deserIdx}_{pName} != null ? {Cast(pType, "__v" + deserIdx + "_" + pName, aspectNames, localAspectNames)} : {defVal}");
 				}
 
 				var helperName = $"__Deser_{nm}";
@@ -389,6 +693,9 @@ public sealed class AspectGenerator : IIncrementalGenerator {
 			// Typed pools for concepts
 			foreach (var kv in conceptAspects) {
 				var cn = Sanitize(kv.Key);
+				// Skip concepts without a C# struct (ontology-only, no [GameConcept] in code)
+				if (!conceptNames.Contains(kv.Key)) continue;
+
 				var fas = new List<(string, string)>();
 				foreach (var a in kv.Value) {
 					if (aspectDict.TryGetValue(a, out var aspInfo) && aspInfo != null) {
@@ -423,6 +730,22 @@ public sealed class {cn}Pool : global::DataCatalyst.Storage.IStoragePool {{
 }}")!);
 				ini.Add(ParseStatement(
 					$"global::DataCatalyst.Registry.BeingRegistry.RegisterPool(typeof(global::DataCatalyst.Generated.{cn}), () => new {cn}Pool());\n")!);
+			}
+
+			// Register $requires/$suggests from ontology.json
+			if (hasOntology) {
+				foreach (var conceptName in allOntologyConcepts) {
+					var req = ontologyRequires.TryGetValue(conceptName, out var r) ? r : [];
+					var sug = ontologySuggests.TryGetValue(conceptName, out var s) ? s : [];
+					var reqArr = req.Count > 0
+						? $"new string[] {{ {string.Join(", ", req.Select(a => $"\"{a}\""))} }}"
+						: "global::System.Array.Empty<string>()";
+					var sugArr = sug.Count > 0
+						? $"new string[] {{ {string.Join(", ", sug.Select(a => $"\"{a}\""))} }}"
+						: "global::System.Array.Empty<string>()";
+					ini.Add(ParseStatement(
+						$"global::DataCatalyst.Registry.RequiresRegistry.Register(\"{conceptName}\", {reqArr}, {sugArr});\n")!);
+				}
 			}
 
 			// SchemaGen class = ModuleInitializer + inline deserializer helpers
@@ -526,29 +849,69 @@ public sealed class {cn}Pool : global::DataCatalyst.Storage.IStoragePool {{
 		return false;
 	}
 
-	private static string Cast(string type, string varName, HashSet<string> aspectNames) {
-		if (type.EndsWith("int") || type.EndsWith("System.Int32")) {
-			return $"global::System.Convert.ToInt32({varName})";
+	private static string MapTypeString(string type) {
+		string clrName;
+		if (type == "int") clrName = "System.Int32";
+		else if (type == "long") clrName = "System.Int64";
+		else if (type == "float") clrName = "System.Single";
+		else if (type == "double") clrName = "System.Double";
+		else if (type == "bool") clrName = "System.Boolean";
+		else if (type == "string") clrName = "System.String";
+		else if (type == "object") clrName = "System.Object";
+		else if (type.StartsWith("List<")) {
+			var inner = type.Substring(5, type.Length - 6);
+			clrName = $"System.Collections.Generic.List<{MapTypeString(inner)}>";
+		}
+		else if (type.StartsWith("Dictionary<")) {
+			var comma = type.IndexOf(',', 11);
+			if (comma < 0) clrName = "System.Object";
+			else {
+				var k = type.Substring(11, comma - 11).Trim();
+				var v = type.Substring(comma + 1, type.Length - comma - 2).Trim();
+				clrName = $"System.Collections.Generic.Dictionary<{MapTypeString(k)}, {MapTypeString(v)}>";
+			}
+		}
+		else if (type.Contains('.')) clrName = type;
+		else clrName = $"DataCatalyst.Generated.{type}";
+		return $"global::{clrName}";
+	}
+
+	private static string Cast(string type, string varName, HashSet<string> aspectNames, HashSet<string>? localAspectNames = null) {
+		var cleanTypeName = type.TrimEnd('?');
+		var endsInQuestion = type.EndsWith("?");
+
+		if (cleanTypeName.EndsWith("int") || cleanTypeName.EndsWith("System.Int32")) {
+			return endsInQuestion
+				? $"({varName} != null ? global::System.Convert.ToInt32({varName}) : null)"
+				: $"global::System.Convert.ToInt32({varName})";
 		}
 
-		if (type.EndsWith("long") || type.EndsWith("System.Int64")) {
-			return $"global::System.Convert.ToInt64({varName})";
+		if (cleanTypeName.EndsWith("long") || cleanTypeName.EndsWith("System.Int64")) {
+			return endsInQuestion
+				? $"({varName} != null ? global::System.Convert.ToInt64({varName}) : null)"
+				: $"global::System.Convert.ToInt64({varName})";
 		}
 
-		if (type.EndsWith("float") || type.EndsWith("System.Single")) {
-			return $"global::System.Convert.ToSingle({varName})";
+		if (cleanTypeName.EndsWith("float") || cleanTypeName.EndsWith("System.Single")) {
+			return endsInQuestion
+				? $"({varName} != null ? global::System.Convert.ToSingle({varName}) : null)"
+				: $"global::System.Convert.ToSingle({varName})";
 		}
 
-		if (type.EndsWith("double") || type.EndsWith("System.Double")) {
-			return $"global::System.Convert.ToDouble({varName})";
+		if (cleanTypeName.EndsWith("double") || cleanTypeName.EndsWith("System.Double")) {
+			return endsInQuestion
+				? $"({varName} != null ? global::System.Convert.ToDouble({varName}) : null)"
+				: $"global::System.Convert.ToDouble({varName})";
 		}
 
-		if (type.EndsWith("bool") || type.EndsWith("System.Boolean")) {
-			return $"global::System.Convert.ToBoolean({varName})";
+		if (cleanTypeName.EndsWith("bool") || cleanTypeName.EndsWith("System.Boolean")) {
+			return endsInQuestion
+				? $"({varName} != null ? global::System.Convert.ToBoolean({varName}) : null)"
+				: $"global::System.Convert.ToBoolean({varName})";
 		}
 
-		if (type.EndsWith("string") || type.EndsWith("System.String")) {
-			return type.EndsWith("?") ? $"global::System.Convert.ToString({varName})" : $"global::System.Convert.ToString({varName})!";
+		if (cleanTypeName.EndsWith("string") || cleanTypeName.EndsWith("System.String")) {
+			return endsInQuestion ? $"global::System.Convert.ToString({varName})" : $"global::System.Convert.ToString({varName})!";
 		}
 
 		if (type.EndsWith("System.Type") || type.EndsWith("Type") || type.EndsWith("System.Type?") || type.EndsWith("Type?")) {
@@ -603,6 +966,19 @@ public sealed class {cn}Pool : global::DataCatalyst.Storage.IStoragePool {{
 			else if (member is INamedTypeSymbol typeSymbol) {
 				if (IsConcept(typeSymbol, conceptAttr, conceptInterface)) {
 					conceptNames.Add(typeSymbol.Name);
+				}
+			}
+		}
+	}
+
+	private static void FindAspectsInNamespace(INamespaceSymbol ns, INamedTypeSymbol? aspectAttr, HashSet<string> aspectNames) {
+		foreach (var member in ns.GetMembers()) {
+			if (member is INamespaceSymbol nestedNs) {
+				FindAspectsInNamespace(nestedNs, aspectAttr, aspectNames);
+			}
+			else if (member is INamedTypeSymbol typeSymbol) {
+				if (aspectAttr != null && typeSymbol.GetAttributes().Any(ad => SymbolEqualityComparer.Default.Equals(ad.AttributeClass, aspectAttr))) {
+					aspectNames.Add(typeSymbol.Name);
 				}
 			}
 		}

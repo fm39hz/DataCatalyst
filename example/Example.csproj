@@ -6,13 +6,15 @@
 		<Nullable>enable</Nullable>
 		<EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
 		<CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)/Generated</CompilerGeneratedFilesOutputPath>
-		<PublishAot>true</PublishAot>
+		<PublishAot Condition="'$(PublishAot)' == ''">true</PublishAot>
 		<OptimizationPreference>Speed</OptimizationPreference>
 		<IlcGenerateCompleteTypeMetadata>false</IlcGenerateCompleteTypeMetadata>
 		<IlcTrimMetadata>true</IlcTrimMetadata>
 	</PropertyGroup>
 
 	<ItemGroup>
+		<AdditionalFiles Include="*.json" />
+		<AdditionalFiles Include="*.xml" Condition="'$(EnableXmlOntology)' == 'true'" />
 		<AdditionalFiles Include="Data/**/*.json" />
 		<AdditionalFiles Include="DLC/**/*.json" />
 		<AdditionalFiles Include="Mods/**/*.json" />

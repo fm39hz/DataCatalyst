@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<RootNamespace>DataCatalyst.Ontology</RootNamespace>
+		<AssemblyName>DataCatalyst.Ontology</AssemblyName>
+		<Nullable>enable</Nullable>
+		<LangVersion>latest</LangVersion>
+		<IsPackable>true</IsPackable>
+		<Description>DataCatalyst ontology parser abstractions</Description>
+	</PropertyGroup>
+</Project>

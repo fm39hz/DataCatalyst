@@ -400,9 +400,16 @@ SourceGen packages can be registered as analyzers in C# project files:
 
 ---
 
-## 🛠️ Editor
+## 🛠️ DataCatalyst Editor (WIP)
 
-A node graph editor is currently under development but will not be finished anytime soon.
+A **Visual Data Topology Suite** built with SvelteKit and Tauri, designed to bridge the gap between abstract game data and human spatial intuition. Instead of forcing designers to navigate flat, nested JSON files, the editor translates the orthogonal nature of the ABC model into a tangible geometric playground.
+
+### Key Capabilities
+
+- **Geometric Assembly Workspace:** A reactive $X/Y$ coordinate canvas where Concepts and Aspects act as physical building blocks. Dragging nodes from the palette dynamically expands the semantic axes, morphing entity shapes in real-time.
+- **Semantic Silhouettes (Direct Manipulation):** Beings are visualized as closed polygons, generating an instant visual profile of their archetype and power budget. Designers can interact directly with geometric vertices to override values or inline-preview assets.
+- **Dual-View Graph Engine:** Seamlessly switch between the **Orthogonal View** (for structural data profiling and inheritance tracking) and the **Traversal Graph View** (powered by Svelte Flow for composing hierarchical StateEngine FSMs).
+- **Visual Balancing (Overlay Comparison):** Stack multiple entity silhouettes on top of each other to instantly compare progression curves, archetypes, and data differentials without spreadsheet fatigue.
 
 ---
 
