@@ -48,27 +48,82 @@ graph TD
     Being --> Aspect3[Aspect Z]
 ```
 
-- **Concept**: A **perspective** through which a being can be observed (e.g., `Creature`, `Enemy`, `Hero`). Concepts are orthogonal viewpoints.
-- **Aspect**: A **lens** for observing a facet of a being (e.g., `Health`, `CombatStats`). A concept _reveals_ which aspects become visible through it.
-- **Being**: A **thing that exists** in the game world (e.g., `Goblin`, `Arthur`). A being IS, independent of how it's categorized or observed.
+- **Concept**: A **perspective** (viewpoint) through which a being can be observed (e.g., `Humanoid`, `Mechanical`, `Creature`). Concepts are strictly orthogonal and are NOT categories or rigid class taxonomies.
+- **Aspect**: A **lens** for observing a specific facet or raw data structure of a being (e.g., `SkeletonRig`, `BatteryCapacity`, `Loyalty`).
+- **Being**: A **thing that exists** in the game world (e.g., `RoboticKnight`, `Hound`). A being IS, independent of how it's categorized, observed, or filtered by systems.
 
 ### Orthogonality
 
-For example, the being `Goblin` belongs to 2 Concepts (`Creature`, `Enemy`) and has 5 Aspects (`Health`, `CombatStats`, `PatrolRadius`, `Stamina`, `Mana`). Since `Stamina` and `Mana` are being-level aspects, they do not belong to the concept definitions but are still possessed by the being. Connecting these coordinate points on the XY axes reveals the closed geometric shape of the `Goblin` being:
+Concepts are not hierarchical; they are clean, independent axes. Deeper abstraction yields cleaner atomic aspects.
 
-![Being Orthogonality](docs/being_orthogonal_space.png)
+For example, consider two completely different beings: `RoboticKnight` and `Hound`.
+
+- `RoboticKnight` maps to 2 Concepts: `Humanoid` (revealing its `SkeletonRig` for human animations) and `Mechanical` (revealing `BatteryCapacity`). It also possesses `Loyalty` as a free-floating, being-level aspect (loyalty to the king does not need a "Knight" concept wrapper).
+- `Hound` (The counter-example) maps to `Creature` (revealing `BiomedicalStats`) but also possesses `Loyalty` directly.
+
+A drone is `Mechanical` but not `Humanoid`. A zombie is `Humanoid` but not `Mechanical`. A machine and a dog can both share `Loyalty` without sharing any common bloodline or base class. Connecting these coordinate points on the XY axes reveals the true closed semantic silhouette of a being:
+
+```mermaid
+wardley-beta
+title Orthogonal Semantic Space: High-Fidelity Being Profiles
+size [1100, 850]
+
+evolution "Direct Being-level" -> "Structural Lens" -> "Core Manifested" -> "Abstract / Untyped"
+
+anchor Humanoid [0.90, 0.45]
+anchor Mechanical [0.75, 0.45]
+anchor Creature [0.60, 0.45]
+anchor Combatant [0.45, 0.45]
+anchor GhostEntity [0.30, 0.45]
+
+component RK_SkeletonRig [0.90, 0.70] label [-30, -10] (build)
+component RK_Battery [0.75, 0.70] (build)
+component RK_MarketValue [0.75, 0.20] label [-50, -10] (build)
+component RK_Loyalty [0.90, 0.20] (build)
+
+RK_SkeletonRig -> RK_Battery
+RK_Battery -> RK_MarketValue
+RK_MarketValue -> RK_Loyalty
+RK_Loyalty -> RK_SkeletonRig
+
+component H_Health [0.60, 0.70] (buy)
+component H_CombatStats [0.45, 0.70] label [-40, -10] (buy)
+component H_Loyalty [0.60, 0.20] label [-30, -10] (buy)
+
+H_Health -> H_CombatStats
+H_CombatStats -> H_Loyalty
+H_Loyalty -> H_Health
+
+component TH_SkeletonRig [0.90, 0.75] (outsource)
+component TH_Health [0.60, 0.75] label [-40, -10] (outsource)
+component TH_CombatStats [0.45, 0.75] (outsource)
+component TH_Loyalty [0.45, 0.20] (outsource)
+
+TH_SkeletonRig -> TH_Health
+TH_Health -> TH_CombatStats
+TH_CombatStats -> TH_Loyalty
+TH_Loyalty -> TH_SkeletonRig
+
+note "Revealed Attributes (from Ontology.json)" [0.80, 0.70]
+note "Unmapped Attributes (from Being.json)" [0.15, 0.20]
+note "RoboticKnight silhouette (Triangle vertices)" [0.83, 0.45]
+note "Hound silhouette (Diamond vertices)" [0.53, 0.45]
+note "TraitorHero silhouette (Square vertices)" [0.68, 0.45]
+note "GhostEntity (Structural marker only)" [0.30, 0.70]
+```
 
 ### Mathematical Model
 
 Mathematically, the game design database is a space defined by two orthogonal axes:
 
 - **Concept Axis ($C$)**: The space of Concepts. A Being $B$ must map to at least one Concept ($|Concepts(B)| \ge 1$).
-- **Aspect Axis ($A$)**: The space of Aspects. Aspects are free-floating and can belong to a Being directly or connect to a Concept.
+- **Aspect Axis ($A$)**: The space of Aspects. Aspects are free-floating and can belong to a Being directly or connect via a Concept projection.
 
 A Being $B_i$ is a coordinate point in the Cartesian product of the Concept power set and Aspect power set:
 
 ```math
 B_i = (C_{B_i}, A_{B_i}) \quad \text{where} \quad C_{B_i} \subseteq C, \ A_{B_i} \subseteq A
+
 ```
 
 ---
@@ -80,20 +135,23 @@ B_i = (C_{B_i}, A_{B_i}) \quad \text{where} \quad C_{B_i} \subseteq C, \ A_{B_i}
 ```bash
 dotnet add package DataCatalyst
 dotnet add package DataCatalyst.Loaders.Json
+
 ```
 
 ### 2. Write Data
 
-`Data/Creatures.json`:
+`Data/Units.json`:
 
 ```json
 {
-	"Goblin": {
-		"$Creature": {
-			"Health": { "Initial": 40, "Max": 40 },
-			"CombatStats": { "BaseDamage": 6, "BaseDefense": 3 }
+	"RoboticKnight": {
+		"$Humanoid": {
+			"SkeletonRig": { "BoneCount": 24, "IsBipedal": true }
 		},
-		"$Enemy": {}
+		"$Mechanical": {
+			"BatteryCapacity": { "MaxJoules": 5000, "Efficiency": 0.95 }
+		},
+		"Loyalty": { "Value": 100 }
 	}
 }
 ```
@@ -102,16 +160,20 @@ dotnet add package DataCatalyst.Loaders.Json
 
 ```csharp
 [GameConcept]
-public record struct Creature : IConcept;
+public record struct Humanoid : IConcept;
 
 [GameConcept]
-public record struct Enemy : IConcept;
+public record struct Mechanical : IConcept;
 
 [GameAspect]
-public record struct Health { public int Initial; public int Max; }
+public record struct SkeletonRig { public int BoneCount; public bool IsBipedal; }
 
 [GameAspect]
-public record struct CombatStats { public int BaseDamage; public int BaseDefense; }
+public record struct BatteryCapacity { public int MaxJoules; public double Efficiency; }
+
+[GameAspect]
+public record struct Loyalty { public int Value; }
+
 ```
 
 ### 4. Load, Build & Query
@@ -125,12 +187,13 @@ Knowledge knowledge = new Pipeline()
     .AddOntology("relations.json")
     .Build(out var diagnostics);
 
-// Access - type-safe and compile-time checked
-int hp  = knowledge.Of<Creature>().At<Goblin>().Take<Health>().Initial;
-int atk = knowledge.Of<Enemy>().At<Goblin>().Take<CombatStats>().BaseDamage;
+// Access - type-safe, compile-time checked, and perspective-driven
+int bones = knowledge.Of<Humanoid>().At<RoboticKnight>().Take<SkeletonRig>().BoneCount;
+int power = knowledge.Of<Mechanical>().At<RoboticKnight>().Take<BatteryCapacity>().MaxJoules;
+
 ```
 
-`Goblin` is a generated `being` marker type implementing `IViewableAs<Creature>`, `IViewableAs<Enemy>`.
+`RoboticKnight` is a generated `being` marker type implementing `IViewableAs<Humanoid>`, `IViewableAs<Mechanical>`.
 
 ---
 
@@ -149,6 +212,7 @@ graph TD
     KNOWLEDGE --> VIEW[Type-Safe Views]
     KNOWLEDGE --> MATERIALIZER[IMaterializer]
     MATERIALIZER --> RUNTIME[Unity / Godot / ECS / Custom Engine]
+
 ```
 
 ---
@@ -165,21 +229,46 @@ Define your concepts, aspects, and beings to map out the structure of your game.
 
 #### Concept
 
-A Concept represents a perspective/viewpoint. It is a marker type defined as a C# struct or generated from ontology.
+A Concept represents a perspective/viewpoint. Define them in `concepts.json`:
 
-```csharp
-[GameConcept]
-public record struct Creature : IConcept;
+```json
+{ "concepts": { "Humanoid": {}, "Mechanical": {}, "Creature": {} } }
 ```
 
 #### Aspect
 
-An Aspect is a lens/data struct for observing a specific facet of a being.
+An Aspect is a lens/data struct for observing a specific facet of a being. Define fields in `aspects.json`:
 
-```csharp
-[GameAspect]
-public record struct Health { public int Initial; public int Max; }
+```json
+{
+	"aspects": {
+		"SkeletonRig": {
+			"fields": { "BoneCount": "int", "IsBipedal": "bool" }
+		},
+		"BatteryCapacity": {
+			"fields": { "MaxJoules": "int", "Efficiency": "float" }
+		},
+		"Loyalty": { "fields": { "Value": "int" } }
+	}
+}
 ```
+
+#### Relations
+
+Define what each concept reveals in `relations.json`:
+
+```json
+{
+	"relations": {
+		"Humanoid": { "$reveals": ["SkeletonRig"] },
+		"Mechanical": { "$reveals": ["BatteryCapacity"] },
+		"Creature": { "$suggests": ["BiomedicalStats"] }
+	}
+}
+```
+
+> `$reveals` = aspects guaranteed to be visible through this perspective.
+> `$suggests` = aspects that may also be visible (designer guidance).
 
 ---
 
@@ -193,21 +282,21 @@ Beings can inherit aspect values from another being. Unspecified fields in the c
 
 ```json
 {
-	"BaseMonster": {
-		"$Creature": {
-			"Health": { "Initial": 100, "Max": 100 }
+	"BaseAutomaton": {
+		"$Mechanical": {
+			"BatteryCapacity": { "MaxJoules": 2000, "Efficiency": 0.8 }
 		}
 	},
-	"Goblin": {
-		"$inherits": "BaseMonster",
-		"$Creature": {
-			"Health": { "Initial": 40 }
+	"RoboticKnight": {
+		"$inherits": "BaseAutomaton",
+		"$Mechanical": {
+			"BatteryCapacity": { "MaxJoules": 5000 }
 		}
 	}
 }
 ```
 
-_Result: `Goblin` overrides `Health.Initial` to `40`, inheriting `Health.Max` as `100`._
+_Result: `RoboticKnight` overrides `BatteryCapacity.MaxJoules` to `5000`, inheriting `BatteryCapacity.Efficiency` as `0.80`._
 
 #### Cross-Reference (`$ref`)
 
@@ -215,15 +304,15 @@ You can reference other beings using the `"$ref"` key. The pipeline resolves the
 
 ```json
 {
-	"Goblin": {
-		"$Creature": {
-			"InitialWeapon": { "WeaponId": { "$ref": "WoodenClub" } }
+	"RoboticKnight": {
+		"$Mechanical": {
+			"PowerCore": { "CoreId": { "$ref": "PlutoniumCell" } }
 		}
 	}
 }
 ```
 
-_At runtime, `InitialWeapon` will be resolved to `"WoodenClub"`._
+_At runtime, `PowerCore` will be resolved to `"PlutoniumCell"`._
 
 ---
 
@@ -236,17 +325,18 @@ Query and traverse the compiled database using highly optimized, type-safe APIs.
 The final result of the pipeline is a `Knowledge` instance containing fast, flat-array storage pools.
 
 ```csharp
-// Direct lookup
-var goblin = knowledge.Of<Creature>().At<Goblin>();
-int maxHp = goblin.Take<Health>().Max;
+// Direct lookup via a concept lens
+var knight = knowledge.Of<Mechanical>().At<RoboticKnight>();
+int maxJoules = knight.Take<BatteryCapacity>().MaxJoules;
 
 // Concept-scoped view
-var creatures = knowledge.Of<Creature>();
+var machines = knowledge.Of<Mechanical>();
 foreach (var record in BeingRegistry.All) {
-    if (creatures.Has(record.BeingType)) {
-        // Process creature beings
+    if (machines.Has(record.BeingType)) {
+        // Process only mechanical beings (RoboticKnight, Drones, Turrets)
     }
 }
+
 ```
 
 ---
@@ -275,6 +365,7 @@ public class CsvDataLoader : IDataLoader {
         return result;
     }
 }
+
 ```
 
 #### Materializer
@@ -290,7 +381,8 @@ partial class EcsMaterializer : IMaterializer<Entity> {
 
 // Usage in Game Loop (Unity, Godot, ECS, etc.)
 var mat = new EcsMaterializer(knowledge);
-mat.Apply(entity, knowledge.Of<Creature>().At<Goblin>());
+mat.Apply(entity, knowledge.Of<Mechanical>().At<RoboticKnight>());
+
 ```
 
 ---
@@ -307,6 +399,7 @@ graph TD
     PIPELINE -->|2. Build & Bake FSM| KNOWLEDGE[Knowledge Base]
     KNOWLEDGE -->|3. GetBaked BakedStateGroup| EVALUATOR[StateEngineEvaluator]
     EVALUATOR -->|4. Resolve Sensor Values| RUNTIME[Evaluate Current State]
+
 ```
 
 #### Write State Data
@@ -315,25 +408,25 @@ Define states, sensors, and state groups as standard `Being` entities:
 
 ```json
 {
-	"PlayerDistance": {
+	"RechargeStationDistance": {
 		"$Sensor": {}
 	},
-	"Chase": {
+	"GoToRecharge": {
 		"$State": {}
 	},
-	"Patrol": {
+	"GuardPatrol": {
 		"$State": {},
 		"StateTransitions": {
 			"Transitions": [
 				{
-					"TargetState": { "$ref": "Chase" },
+					"TargetState": { "$ref": "GoToRecharge" },
 					"Priority": 100,
 					"Conditions": {
 						"All": [
 							{
-								"Sensor": { "$ref": "PlayerDistance" },
+								"Sensor": { "$ref": "RechargeStationDistance" },
 								"Op": "<",
-								"Value": 8.0
+								"Value": 15.0
 							}
 						]
 					}
@@ -341,11 +434,14 @@ Define states, sensors, and state groups as standard `Being` entities:
 			]
 		}
 	},
-	"GoblinAI": {
+	"KnightAI": {
 		"$GameState": {
 			"StateGroup": {
-				"DefaultState": { "$ref": "Patrol" },
-				"States": [{ "$ref": "Patrol" }, { "$ref": "Chase" }],
+				"DefaultState": { "$ref": "GuardPatrol" },
+				"States": [
+					{ "$ref": "GuardPatrol" },
+					{ "$ref": "GoToRecharge" }
+				],
 				"PriorityTier": 0,
 				"TierScale": 10000,
 				"DepthPenalty": 1000
@@ -368,18 +464,19 @@ var knowledge = new Pipeline()
     .Build(out var diagnostics);
 
 // 2. Retrieve - Get the pre-compiled FSM directly from Knowledge using Being type
-var baked = knowledge.GetBaked<BakedStateGroup, GoblinAI>();
+var baked = knowledge.GetBaked<BakedStateGroup, KnightAI>();
 
 // 3. Evaluate - ONE evaluator engine for ALL entities
 var result = StateEngineEvaluator.Evaluate(
     currentState, baked, viableStates,
     sensor => {
-        if (sensor == typeof(PlayerDistance)) {
-            return entity.DistanceToPlayer;
+        if (sensor == typeof(RechargeStationDistance)) {
+            return entity.DistanceToStation;
         }
         return 0f;
     }
 );
+
 ```
 
 ---
@@ -391,6 +488,7 @@ DataCatalyst is modular, letting you install only the components your project ne
 ```bash
 dotnet add package DataCatalyst                                 # Core + SourceGen + JSON loader
 dotnet add package DataCatalyst.Plugins.StateEngine             # FSM plugin (optional)
+
 ```
 
 ---
@@ -410,6 +508,4 @@ A **Visual Data Topology Suite** built with SvelteKit and Tauri, designed to bri
 
 ## ⚖️ License
 
-Distributed under the MIT License. See [LICENSE](LICENSE)
-
-[![Star History Chart](https://app.repohistory.com/api/svg?repo=FM39hz/DataCatalyst&type=Date&background=0D1117&color=f86262)](https://app.repohistory.com/star-history)
+Distributed under the MIT License. See [LICENSE](https://www.google.com/search?q=LICENSE)
