@@ -249,7 +249,7 @@ public sealed class AspectGenerator : IIncrementalGenerator {
                 foreach (var kv in ontologyAspects) {
                     var props = string.Join(";", kv.Value.Select(f => $"{f.Key}:{TypeMapping.MapTypeString(f.Value)}"));
                     var ai = new AspectInfo(kv.Key, "DataCatalyst.Generated", props);
-                    if (!combinedAspects.Any(a => a?.Name == kv.Key))
+                    if (!combinedAspects.Any(a => a?.Name == kv.Key) && !aspectDict.ContainsKey(kv.Key))
                         combinedAspects.Add(ai);
                 }
             }

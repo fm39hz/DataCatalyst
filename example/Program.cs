@@ -1,17 +1,14 @@
 using System;
 using System.IO;
 using System.Linq;
-using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using DataCatalyst;
 using DataCatalyst.Loaders;
 using DataCatalyst.Knowledge;
 using DataCatalyst.Pipeline;
-using DataCatalyst.Pipeline.Stages;
-using DataCatalyst.Generated;
-using DataCatalyst.Composition;
 using DataCatalyst.Registry;
-using DataCatalyst.StateEngine.Core;
-using DataCatalyst.StateEngine.Models;
+using DataCatalyst.Generated;
+using DataCatalyst.StateEngine;
 
 var root = AppContext.BaseDirectory;
 while (root != null && !Directory.Exists(Path.Combine(root, "Data")))
@@ -19,7 +16,6 @@ while (root != null && !Directory.Exists(Path.Combine(root, "Data")))
 if (string.IsNullOrEmpty(root))
 	root = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "example");
 
-// Create registries and populate from generated code
 var registries = new RegistrySet();
 DataCatalystRegistries.Populate(registries);
 
@@ -27,23 +23,18 @@ var knowledge = new Pipeline(registries)
 	.AddSource("Base", new JsonDataLoader(registries.Beings), Path.Combine(root, "Data"))
 	.AddSource("DLC", new JsonDataLoader(registries.Beings), Path.Combine(root, "DLC"))
 	.AddSource("Mods", new JsonDataLoader(registries.Beings), Path.Combine(root, "Mods"))
-	.AddOntology(Path.Combine(root, "Data"), ["concepts.json", "aspects.json", "relations.json"])
-	.AddOntology(Path.Combine(root, "DLC"), ["*/concepts.json", "*/aspects.json"])
-	.AddBaker(new StateEngineBaker(registries.Beings))
 	.Run(out var diagnostics);
 
 if (knowledge == null)
 {
 	Console.WriteLine("Pipeline build failed!");
 	foreach (var item in diagnostics.Items)
-	{
-		Console.WriteLine(item);
-	}
+		Console.WriteLine($"  {item}");
 	return;
 }
 
 Console.WriteLine($"Concepts: {knowledge.Schema?.ConceptAspects.Count}");
-Console.WriteLine($"Aspects:  {knowledge.Schema?.Aspects.Count}");
+Console.WriteLine($"Aspects:  {knowledge.Schema?.Aspects.Count}\n");
 
 if (knowledge.Schema != null)
 	foreach (var kv in knowledge.Schema.ConceptAspects)
@@ -53,88 +44,73 @@ if (knowledge.Schema != null)
 		Console.WriteLine($"  {cname}: [{string.Join(", ", anames)}]");
 	}
 
+// Query RoboticKnight
 Console.WriteLine($"\n=== Knowledge ===");
-Console.WriteLine($"Arthur HP:   {knowledge.Of<Creature, Health>(typeof(Arthur)).Current}/{knowledge.Of<Creature, Health>(typeof(Arthur)).Max}");
-Console.WriteLine($"Arthur Mana: {knowledge.Of<Creature, Mana>(typeof(Arthur)).Current}/{knowledge.Of<Creature, Mana>(typeof(Arthur)).Max}");
-
-Console.WriteLine($"Goblin HP:   {knowledge.Of<Creature, Health>(typeof(Goblin)).Current}/{knowledge.Of<Creature, Health>(typeof(Goblin)).Max}");
-Console.WriteLine($"Goblin XP:   {knowledge.Of<Enemy, ExperienceReward>(typeof(Goblin)).Amount}");
-
-// === StateEngine Simulation ===
-Console.WriteLine($"\n=== StateEngine Simulation ===");
-var stateGroupDef = knowledge.Of<State, StateGroup>(typeof(BasicAI));
-var baked = knowledge.GetBaked<BakedStateGroup, DataCatalyst.Generated.BasicAI>();
-
-Ref<State> currentState = baked.DefaultState;
-Console.WriteLine($"Initial State: {currentState}");
-
-var viableStatesList = new List<Ref<State>>();
-foreach (var name in stateGroupDef.States)
+try
 {
-	var idx = knowledge.GetBeingIndex<DataCatalyst.Generated.BasicAI>();
-	if (idx >= 0)
+	var rig = knowledge.Of<Humanoid, SkeletonRig>(typeof(RoboticKnight));
+	Console.WriteLine($"RoboticKnight — Bones: {rig.BoneCount}, Bipedal: {rig.IsBipedal}");
+	var power = knowledge.Of<Mechanical, BatteryCapacity>(typeof(RoboticKnight));
+	Console.WriteLine($"RoboticKnight — Power: {power.MaxJoules} J, Efficiency: {power.Efficiency:P}");
+}
+catch (Exception ex) { Console.WriteLine($"Error: {ex.Message}"); }
+
+// Query DLC mount
+Console.WriteLine($"\n=== DLC ===");
+var mountCount = registries.Beings.All.Count(r => r.Concepts.Any(c => c.Name == "Mount"));
+Console.WriteLine($"Mounts: {mountCount}");
+foreach (var r in registries.Beings.All)
+	if (r.Concepts.Any(c => c.Name == "Mount"))
+		Console.WriteLine($"  {r.BeingType.Name}");
+
+// State Engine — đọc ABC trực tiếp từ Knowledge
+Console.WriteLine($"\n=== StateEngine (ABC) ===");
+try
+{
+	// StateGroup từ entity
+	var sg = knowledge.Of<State, StateGroup>(typeof(RoboticKnight));
+	Console.WriteLine($"Default state: {sg.DefaultState}");
+	Console.WriteLine($"Total states:  {sg.States.Count}");
+
+	// Duyệt từng state, in links + desirability
+	foreach (var s in sg.States)
 	{
-		var targetPool = knowledge.GetPool(typeof(State));
-		if (targetPool != null)
-		{
-			// Use knowledge to resolve state types
-			foreach (var r in registries.Beings.All)
+		var links = StateEngine.GetLinks(knowledge, s);
+		var linkCount = links.Links?.Count ?? 0;
+		Console.WriteLine($"  {s}: {linkCount} link(s)");
+
+		var des = StateEngine.GetDesirability(knowledge, s);
+		Console.WriteLine($"    desirability: priority={des.Priority} influences={des.Influences?.Count ?? 0}");
+
+		if (links.Links != null)
+			foreach (var lnk in links.Links)
 			{
-				if (r.BeingType.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
-				{
-					viableStatesList.Add(new Ref<State>(r.BeingType));
-					break;
-				}
+				var hasGate = lnk.Gate != null ? " (has gate)" : "";
+				Console.WriteLine($"    -> {lnk.Target}{hasGate}");
 			}
-		}
 	}
+
+	// Evaluate: St_Idle với sensor = 15 → nên chuyển sang St_Patrol
+	Console.WriteLine($"\n=== Evaluate transitions ===");
+	var idleRef = new Ref<State>(typeof(St_Idle));
+	var idleLinks = StateEngine.GetLinks(knowledge, idleRef);
+
+	// FSM mode (first valid link)
+	var result = StateEngine.Evaluate(
+		CollectionsMarshal.AsSpan(idleLinks.Links ?? []),
+		CollectionsMarshal.AsSpan(sg.States),
+		idleRef,
+		sensor => sensor.BeingType.Name == "S_DistanceSensor" ? 15f : 0f);
+	Console.WriteLine($"Distance=15 → {result} (expected: St_Patrol)");
+
+	// với sensor = 3 → không link nào thỏa
+	result = StateEngine.Evaluate(
+		CollectionsMarshal.AsSpan(idleLinks.Links ?? []),
+		CollectionsMarshal.AsSpan(sg.States),
+		idleRef,
+		sensor => sensor.BeingType.Name == "S_DistanceSensor" ? 3f : 0f);
+	Console.WriteLine($"Distance=3  → {result} (expected: St_Idle — no valid link)");
 }
-var viableStates = viableStatesList.ToArray();
-
-float timer = 0.0f;
-
-for (int step = 1; step <= 10; step++)
-{
-	timer += 0.6f;
-	if (timer > 5.5f)
-	{
-		timer = 0.0f; // reset timer loop
-	}
-
-	var reader = new SimulationSensorReader { Timer = timer };
-	var evaluator = new StateEngineEvaluator();
-	var evalResult = evaluator.Evaluate(
-		currentState,
-		baked,
-		viableStates,
-		ref reader
-	);
-
-	if (evalResult.HasValue && !evalResult.TargetState.Equals(currentState))
-	{
-		var oldState = currentState.ToString();
-		currentState = evalResult.TargetState;
-		var newState = currentState.ToString();
-		Console.WriteLine($"Step {step:D2}: Timer = {timer:F1} -> State changed from {oldState} to {newState}");
-	}
-	else
-	{
-		Console.WriteLine($"Step {step:D2}: Timer = {timer:F1} -> State remains {currentState}");
-	}
-}
+catch (Exception ex) { Console.WriteLine($"StateEngine error: {ex.Message}"); }
 
 Console.WriteLine($"\nDone.");
-
-struct SimulationSensorReader : StateEngineEvaluator.ISensorReader
-{
-	public float Timer;
-
-	public float ReadSensor(Ref<Sensor> sensor)
-	{
-		if (sensor.BeingType == typeof(DataCatalyst.Generated.Timer))
-		{
-			return Timer;
-		}
-		return 0f;
-	}
-}

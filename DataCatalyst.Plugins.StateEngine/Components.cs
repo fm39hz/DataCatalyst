@@ -1,30 +1,33 @@
-namespace DataCatalyst.Composition;
+namespace DataCatalyst.StateEngine;
 
 using System.Collections.Generic;
 using DataCatalyst;
 using DataCatalyst.Attributes;
-using DataCatalyst.Composition;
+using DataCatalyst.Compare;
 
 [GameAspect]
 public readonly record struct StateGroup : IRevealedBy<State> {
-	public string DefaultState { get; init; }
-	public List<string> States { get; init; }
+	public Ref<State> DefaultState { get; init; }
+	public List<Ref<State>> States { get; init; }
 	public float PriorityTier { get; init; }
 	public float TierScale { get; init; }
-	public float DepthPenalty { get; init; }
 	public string RequiredTrait { get; init; }
 }
 
 [GameAspect]
-public readonly record struct StateTransitions {
-	public List<TransitionDef>? Transitions { get; init; }
+public readonly record struct StateLinks : IRevealedBy<State> {
+	public List<BeingLinkDef>? Links { get; init; }
 }
 
 [GameAspect]
-public readonly record struct TransitionDef {
-	public Ref<State> TargetState { get; init; }
+public readonly record struct BeingLinkDef {
+	public Ref<State> Target { get; init; }
+	public ConditionGroupDef? Gate { get; init; }
+}
+
+[GameAspect]
+public readonly record struct Desirability : IRevealedBy<State> {
 	public int Priority { get; init; }
-	public ConditionGroupDef? Conditions { get; init; }
 	public List<SensorInfluenceDef>? Influences { get; init; }
 }
 

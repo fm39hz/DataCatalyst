@@ -1,4 +1,4 @@
-namespace DataCatalyst.Composition;
+namespace DataCatalyst.StateEngine;
 
 using DataCatalyst;
 using DataCatalyst.Attributes;

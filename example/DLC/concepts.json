@@ -1,0 +1,5 @@
+{
+  "concepts": {
+    "Mount": { "$description": "A ridable mount.", "$reveals": ["MountSpeed"] }
+  }
+}

@@ -94,13 +94,6 @@ internal static class TypeMapping {
             return $"(global::System.Convert.ToString({varName}) is string __s_{varName} ? (global::System.Linq.Enumerable.FirstOrDefault(registries.Beings.All, r => r.BeingType.Name.Equals(__s_{varName}, global::System.StringComparison.OrdinalIgnoreCase)).BeingType ?? {fallback}) : {fallback})";
         }
 
-        if (lookupName.Contains("DataCatalyst.Ref<") || lookupName.Contains("Ref<")) {
-            var refCleanType = type.TrimEnd('?');
-            var isNullable = type.EndsWith("?");
-            var fallback = isNullable ? "null" : $"default({refCleanType})";
-            return $"(global::System.Convert.ToString({varName}) is string __s_{varName} && global::System.Linq.Enumerable.FirstOrDefault(registries.Beings.All, r => r.BeingType.Name.Equals(__s_{varName}, global::System.StringComparison.OrdinalIgnoreCase)).BeingType is global::System.Type __t_{varName} ? new {refCleanType}(__t_{varName}) : {fallback})";
-        }
-
         var cleanType = type.TrimEnd('?');
         var simpleName = cleanType.Substring(cleanType.LastIndexOf('.') + 1);
 
@@ -114,6 +107,13 @@ internal static class TypeMapping {
             return type.EndsWith("?")
                 ? $"({varName} is global::System.Collections.Generic.IDictionary<string, object?> __dict_{varName} ? global::System.Linq.Enumerable.ToDictionary(__dict_{varName}, __de => __de.Key, __de => {Cast(dictValueType, "__de.Value", aspectNames)}, global::System.StringComparer.OrdinalIgnoreCase) : null)"
                 : $"global::System.Linq.Enumerable.ToDictionary((global::System.Collections.Generic.IDictionary<string, object?>){varName}, __de => __de.Key, __de => {Cast(dictValueType, "__de.Value", aspectNames)}, global::System.StringComparer.OrdinalIgnoreCase)";
+        }
+
+        if (lookupName.Contains("DataCatalyst.Ref<") || lookupName.Contains("Ref<")) {
+            var refCleanType = type.TrimEnd('?');
+            var isNullable = type.EndsWith("?");
+            var fallback = isNullable ? "null" : $"default({refCleanType})";
+            return $"(global::System.Convert.ToString({varName}) is string __s_{varName} && global::System.Linq.Enumerable.FirstOrDefault(registries.Beings.All, r => r.BeingType.Name.Equals(__s_{varName}, global::System.StringComparison.OrdinalIgnoreCase)).BeingType is global::System.Type __t_{varName} ? new {refCleanType}(__t_{varName}) : {fallback})";
         }
 
         if (aspectNames.Contains(simpleName)) {

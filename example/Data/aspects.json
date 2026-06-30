@@ -1,15 +1,16 @@
 {
-	"$schema": "https://raw.githubusercontent.com/fm39hz/DataCatalyst/main/schemas/ontology.schema.json",
-	"$version": "1.0",
-	"aspects": {
-		"Health": { "fields": { "Current": "int", "Max": "int" } },
-		"Mana": { "fields": { "Current": "int", "Max": "int" } },
-		"CombatStats": { "fields": { "BaseDamage": "int", "BaseDefense": "int", "AttackSpeed": "float" } },
-		"Label": { "fields": { "Name": "string" } },
-		"InitialWeapon": { "fields": { "WeaponId": "string" } },
-		"ExperienceReward": { "fields": { "Amount": "int" } },
-		"PatrolRadius": { "fields": { "Meters": "int" } },
-		"Durability": { "fields": { "Points": "int" } },
-		"Stamina": { "fields": { "Current": "int", "Max": "int" } }
-	}
+  "aspects": {
+    "SkeletonRig": {
+      "$description": "Skeletal rig — bone count, bipedal status.",
+      "fields": { "BoneCount": "int", "IsBipedal": "bool" }
+    },
+    "BatteryCapacity": {
+      "$description": "Battery capacity and efficiency.",
+      "fields": { "MaxJoules": "int", "Efficiency": "float" }
+    },
+    "Loyalty": {
+      "$description": "Loyalty toward its master.",
+      "fields": { "Value": "int" }
+    }
+  }
 }

@@ -126,7 +126,7 @@ public sealed class JsonDataLoader(IBeingRegistry? registry = null) : IDataLoade
 	}
 
 	private static readonly HashSet<string> ReservedNames = new(StringComparer.OrdinalIgnoreCase) {
-		"$inherits", "inherits", "$key", "key"
+		"$description", "$inherits", "inherits", "$key", "key"
 	};
 
 	private void TryExtractBeing(JsonElement obj, string? parentKey, string? fn, LoadResult result,

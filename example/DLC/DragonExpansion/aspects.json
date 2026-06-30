@@ -1,6 +1,0 @@
-{
-	"aspects": {
-		"FlightSpeed": { "fields": { "MaxSpeed": "float" } },
-		"DragonBreath": { "fields": { "Damage": "int", "Element": "string" } }
-	}
-}

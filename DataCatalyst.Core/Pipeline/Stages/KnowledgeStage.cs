@@ -78,10 +78,10 @@ public sealed class KnowledgeStage : IPipelineStage {
 		pool.Resize(max + 1);
 		foreach (var e in ce) {
 			foreach (var comp in e.Components) {
-				if (allowed == null || rctx.Schema.GetAspectId(comp.Key.Name) is int aid && allowed.Contains(aid)) {
-					if (pool is IRawStoragePool rawPool) {
-						rawPool.SetRaw(e.AssignedIndex, comp.Key, comp.Value);
-					}
+				if (pool is IRawStoragePool rawPool) {
+					if (hasDyn && allowed != null && rctx.Schema.GetAspectId(comp.Key.Name) is int aid && !allowed.Contains(aid))
+						continue;
+					rawPool.SetRaw(e.AssignedIndex, comp.Key, comp.Value);
 				}
 			}
 		}

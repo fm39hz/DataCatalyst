@@ -146,8 +146,9 @@ internal sealed class SourceEmitter {
             foreach (var part in propParts) {
                 var (pName, pType) = ParsePropertyDef(part);
                 if (pName == null || pType == null) continue;
+                var sn = Helpers.Sanitize(pName);
                 var defVal = IsKnownValueType(pType) || pType.EndsWith("?") ? $"default({pType})" : $"default({pType})!";
-                setters.Add($"{pName} = __dict.TryGetValue(\"{pName}\", out var __v{deserIdx}_{pName}) && __v{deserIdx}_{pName} != null ? {TypeMapping.Cast(pType, "__v" + deserIdx + "_" + pName, _aspectNames)} : {defVal},");
+                setters.Add($"{sn} = __dict.TryGetValue(\"{pName}\", out var __v{deserIdx}_{pName}) && __v{deserIdx}_{pName} != null ? {TypeMapping.Cast(pType, "__v" + deserIdx + "_" + pName, _aspectNames)} : {defVal},");
             }
             var helperName = $"__Deser_{nm}";
             writer.Block($"static {fullTypeName} {helperName}(object? __n, global::DataCatalyst.Registry.RegistrySet registries)");
