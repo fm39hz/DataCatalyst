@@ -74,14 +74,15 @@ internal sealed class BuiltinJsonParser : IOntologyParser {
 					continue;
 				}
 
-				if (entry.TryGetProperty("$requires", out var req) && req.ValueKind == JsonValueKind.Array) {
+				if (!entry.TryGetProperty("$reveals", out var reqEl))
+					entry.TryGetProperty("$requires", out reqEl);
+				if (reqEl.ValueKind == JsonValueKind.Array) {
 					var list = new List<string>();
-					foreach (var item in req.EnumerateArray()) {
+					foreach (var item in reqEl.EnumerateArray()) {
 						if (item.ValueKind == JsonValueKind.String) {
 							list.Add(item.GetString()!);
 						}
 					}
-
 					if (list.Count > 0 && !builder.Requires.ContainsKey(cName)) {
 						builder.AddRequires(cName, [.. list]);
 					}

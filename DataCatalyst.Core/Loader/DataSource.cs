@@ -12,4 +12,6 @@ public sealed class DataSource(string name, IDataLoader loader, string path) {
 	public IReadOnlyList<string> DependsOn { get; init; } = [];
 	public MergePolicy MergePolicy { get; set; } = MergePolicy.Patch;
 	public IReadOnlyList<string>? Scope { get; init; }
+	public List<string> ConceptFiles { get; } = [];
+	public List<string> AspectFiles { get; } = [];
 }

@@ -65,9 +65,4 @@ public class PipelineTests {
         pipeline._stages.Should().NotBeEmpty();
     }
 
-    [Fact]
-    public void Constructor_WithNoDefaults_AddsNoStages() {
-        var pipeline = new Pipeline(new RegistrySet(), noDefaults: true);
-        pipeline._stages.Should().BeEmpty();
-    }
 }

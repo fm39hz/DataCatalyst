@@ -14,6 +14,32 @@ using DataCatalyst.Storage;
 public sealed class JsonDataLoader(IBeingRegistry? registry = null) : IDataLoader {
 	private readonly IBeingRegistry? _registry = registry;
 
+	public LoaderFileType DetectFileType(string content) {
+		try {
+			using var d = JsonDocument.Parse(content);
+			var root = d.RootElement;
+			if (root.ValueKind != JsonValueKind.Object) return LoaderFileType.Unknown;
+
+			if (root.TryGetProperty("concepts", out var c) && c.ValueKind == JsonValueKind.Object)
+				return LoaderFileType.Concept;
+			if (root.TryGetProperty("aspects", out var a) && a.ValueKind == JsonValueKind.Object)
+				return LoaderFileType.Aspect;
+
+			foreach (var entry in root.EnumerateObject()) {
+				if (entry.Name.StartsWith('$') || entry.Value.ValueKind != JsonValueKind.Object)
+					continue;
+				foreach (var sub in entry.Value.EnumerateObject()) {
+					if (sub.Name.StartsWith('$'))
+						return LoaderFileType.Being;
+				}
+			}
+			return LoaderFileType.Unknown;
+		}
+		catch (JsonException) {
+			return LoaderFileType.Unknown;
+		}
+	}
+
 	public LoadResult Load(string content, string fallbackKey) {
 		var result = new LoadResult();
 		try { ParseJson(content, fallbackKey, result); }

@@ -144,6 +144,8 @@ public sealed class AspectGenerator : IIncrementalGenerator {
             var ontologyRequires = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
             var ontologySuggests = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
             var ontologyAspects = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
+            var conceptDescriptions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var aspectDescriptions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             var hasOntology = !string.IsNullOrEmpty(ontologyData?.ConceptsJson);
             if (hasOntology) {
                 var parts = ontologyData!.ConceptsJson.Split(new[] { '\0' }, StringSplitOptions.RemoveEmptyEntries);
@@ -159,6 +161,21 @@ public sealed class AspectGenerator : IIncrementalGenerator {
                             foreach (var kv in builder.Suggests) ontologySuggests[kv.Key] = kv.Value;
                             foreach (var kv in builder.AspectFields) ontologyAspects[kv.Key] = kv.Value;
                             break;
+                        }
+                    }
+                    // Extract $description from ontology
+                    using var descDoc = JsonDocument.Parse(part);
+                    var descRoot = descDoc.RootElement;
+                    if (descRoot.TryGetProperty("concepts", out var conceptsEl)) {
+                        foreach (var entry in conceptsEl.EnumerateObject()) {
+                            if (entry.Value.TryGetProperty("$description", out var dd) && dd.ValueKind == JsonValueKind.String)
+                                conceptDescriptions[entry.Name] = dd.GetString()!;
+                        }
+                    }
+                    if (descRoot.TryGetProperty("aspects", out var aspectsEl)) {
+                        foreach (var entry in aspectsEl.EnumerateObject()) {
+                            if (entry.Value.TryGetProperty("$description", out var dd) && dd.ValueKind == JsonValueKind.String)
+                                aspectDescriptions[entry.Name] = dd.GetString()!;
                         }
                     }
                 }
@@ -184,7 +201,10 @@ public sealed class AspectGenerator : IIncrementalGenerator {
                     conceptAspects[kv.Key] = new HashSet<string>(kv.Value, StringComparer.OrdinalIgnoreCase);
             }
 
+            var beingDescriptions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (var being in jsonData.Beings) {
+                if (being.Description != null)
+                    beingDescriptions[being.Key] = being.Description;
                 var cList = new List<string>();
                 var allAspectsList = new List<string>();
                 foreach (var f in being.Fields) {
@@ -227,22 +247,35 @@ public sealed class AspectGenerator : IIncrementalGenerator {
             }
             if (hasOntology) {
                 foreach (var kv in ontologyAspects) {
-                    if (aspectDict.TryGetValue(kv.Key, out var ai) && !combinedAspects.Any(a => a?.Name == kv.Key))
+                    var props = string.Join(";", kv.Value.Select(f => $"{f.Key}:{TypeMapping.MapTypeString(f.Value)}"));
+                    var ai = new AspectInfo(kv.Key, "DataCatalyst.Generated", props);
+                    if (!combinedAspects.Any(a => a?.Name == kv.Key))
                         combinedAspects.Add(ai);
+                }
+            }
+
+            // Build aspect→concepts reverse mapping (for IRevealedBy<T> generation)
+            var aspectConcepts = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var kv in ontologyRequires) {
+                foreach (var asp in kv.Value) {
+                    if (!aspectConcepts.TryGetValue(asp, out var list))
+                        aspectConcepts[asp] = list = new List<string>();
+                    if (!list.Contains(kv.Key)) list.Add(kv.Key);
                 }
             }
 
             // ── Generate outputs via SourceEmitter ──
             var emitter = new SourceEmitter(aspectDict, aspectNames, localAspectNames,
-                conceptNsMap, conceptNames, beingConcepts, conceptAspects, combinedAspects);
+                conceptNsMap, conceptNames, beingConcepts, conceptAspects, combinedAspects,
+                beingDescriptions);
 
             var conceptsWriter = new CodeWriter();
-            emitter.EmitConceptStructs(allOntologyConcepts, hasOntology, conceptsWriter, spc);
+            emitter.EmitConceptStructs(allOntologyConcepts, hasOntology, conceptDescriptions, conceptsWriter, spc);
             if (conceptsWriter.HasContent)
                 spc.AddSource("Concepts.g.cs", conceptsWriter.ToSourceText());
 
             var aspectsWriter = new CodeWriter();
-            emitter.EmitOntologyAspects(ontologyAspects, hasOntology, aspectsWriter, spc);
+            emitter.EmitOntologyAspects(ontologyAspects, hasOntology, aspectDescriptions, aspectConcepts, aspectsWriter, spc);
             if (aspectsWriter.HasContent)
                 spc.AddSource("Aspects.g.cs", aspectsWriter.ToSourceText());
 

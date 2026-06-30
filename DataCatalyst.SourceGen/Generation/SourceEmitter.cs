@@ -16,6 +16,7 @@ internal sealed class SourceEmitter {
     private readonly Dictionary<string, List<string>> _beingConcepts;
     private readonly Dictionary<string, HashSet<string>> _conceptAspects;
     private readonly List<AspectInfo?> _combinedAspects;
+    private readonly Dictionary<string, string> _beingDescriptions;
 
     public SourceEmitter(
         Dictionary<string, AspectInfo> aspectDict,
@@ -25,7 +26,8 @@ internal sealed class SourceEmitter {
         HashSet<string> conceptNames,
         Dictionary<string, List<string>> beingConcepts,
         Dictionary<string, HashSet<string>> conceptAspects,
-        List<AspectInfo?> combinedAspects) {
+        List<AspectInfo?> combinedAspects,
+        Dictionary<string, string>? beingDescriptions = null) {
         _aspectDict = aspectDict;
         _aspectNames = aspectNames;
         _localAspectNames = localAspectNames;
@@ -34,6 +36,14 @@ internal sealed class SourceEmitter {
         _beingConcepts = beingConcepts;
         _conceptAspects = conceptAspects;
         _combinedAspects = combinedAspects;
+        _beingDescriptions = beingDescriptions ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static void XmlDoc(CodeWriter w, string? text) {
+        if (string.IsNullOrEmpty(text)) return;
+        w.Line("/// <summary>");
+        w.Line($"/// {text}");
+        w.Line("/// </summary>");
     }
 
     public string ConceptRef(string name) => _conceptNsMap.TryGetValue(name, out var ns)
@@ -43,6 +53,7 @@ internal sealed class SourceEmitter {
     public void EmitConceptStructs(
         HashSet<string> allOntologyConcepts,
         bool hasOntology,
+        Dictionary<string, string>? descriptions,
         CodeWriter writer,
         SourceProductionContext spc) {
         if (!hasOntology) return;
@@ -51,10 +62,11 @@ internal sealed class SourceEmitter {
         writer.Block("namespace DataCatalyst.Generated");
         foreach (var cn in allOntologyConcepts) {
             if (_conceptNames.Contains(cn)) continue;
+            if (descriptions != null && descriptions.TryGetValue(cn, out var d))
+                XmlDoc(writer, d);
             writer.Line($"public struct {Helpers.Sanitize(cn)} : global::DataCatalyst.IConcept {{ }}");
             _conceptNames.Add(cn);
-            if (!_conceptNsMap.ContainsKey(cn))
-                _conceptNsMap[cn] = "DataCatalyst.Generated";
+            if (!_conceptNsMap.ContainsKey(cn)) _conceptNsMap[cn] = "DataCatalyst.Generated";
         }
         writer.EndBlock();
     }
@@ -62,6 +74,8 @@ internal sealed class SourceEmitter {
     public void EmitOntologyAspects(
         Dictionary<string, Dictionary<string, string>> ontologyAspects,
         bool hasOntology,
+        Dictionary<string, string>? descriptions,
+        Dictionary<string, List<string>> aspectConcepts,
         CodeWriter writer,
         SourceProductionContext spc) {
         if (!hasOntology || ontologyAspects.Count == 0) return;
@@ -71,14 +85,28 @@ internal sealed class SourceEmitter {
         foreach (var kv in ontologyAspects) {
             var aName = Helpers.Sanitize(kv.Key);
             if (_aspectDict.ContainsKey(kv.Key)) continue;
+            if (descriptions != null && descriptions.TryGetValue(kv.Key, out var d))
+                XmlDoc(writer, d);
             writer.Line("[global::DataCatalyst.Attributes.GameAspectAttribute]");
-            writer.Block($"public struct {aName}");
+
+            // Add IRevealedBy<T> for each concept that reveals this aspect
+            var ifaces = "";
+            if (aspectConcepts.TryGetValue(kv.Key, out var concepts)) {
+                ifaces = string.Join(", ", concepts.Select(c => $"global::DataCatalyst.IRevealedBy<{ConceptRef(c)}>"));
+            }
+            if (!string.IsNullOrEmpty(ifaces))
+                writer.Line($"public struct {aName} : {ifaces}");
+            else
+                writer.Line($"public struct {aName}");
+            writer.Line("{");
+            writer.Indent();
             foreach (var field in kv.Value) {
                 var fName = Helpers.Sanitize(field.Key);
                 var fType = TypeMapping.MapTypeString(field.Value);
                 writer.Line($"public {fType} {fName} {{ get; set; }}");
             }
-            writer.EndBlock();
+            writer.Unindent();
+            writer.Line("}");
             _aspectDict[kv.Key] = new AspectInfo(kv.Key, "DataCatalyst.Generated",
                 string.Join(";", kv.Value.Select(f => $"{f.Key}:{TypeMapping.MapTypeString(f.Value)}")));
             _localAspectNames.Add(kv.Key);
@@ -208,6 +236,8 @@ internal sealed class SourceEmitter {
         writer.Block("namespace DataCatalyst.Generated");
         foreach (var kv in _beingConcepts) {
             var en = Helpers.Sanitize(kv.Key);
+            if (_beingDescriptions.TryGetValue(kv.Key, out var d))
+                XmlDoc(writer, d);
             var ifaces = string.Join(", ", kv.Value.Select(c => $"global::DataCatalyst.IViewableAs<{ConceptRef(c)}>"));
             if (string.IsNullOrEmpty(ifaces))
                 writer.Line($"public record struct {en} : global::DataCatalyst.IBeing {{ }}");
@@ -311,9 +341,14 @@ internal sealed class SourceEmitter {
             var beingObj = beingProp.Value;
             if (beingObj.ValueKind != JsonValueKind.Object) continue;
 
+            string? description = null;
+            if (beingObj.TryGetProperty("$description", out var descProp) && descProp.ValueKind == JsonValueKind.String)
+                description = descProp.GetString();
+
             var fields = new List<BeingFieldInfo>();
             foreach (var prop in beingObj.EnumerateObject()) {
-                if (prop.Name.Equals("$inherits", StringComparison.OrdinalIgnoreCase) ||
+                if (prop.Name.Equals("$description", StringComparison.OrdinalIgnoreCase) ||
+                    prop.Name.Equals("$inherits", StringComparison.OrdinalIgnoreCase) ||
                     prop.Name.Equals("inherits", StringComparison.OrdinalIgnoreCase))
                     continue;
 
@@ -325,7 +360,7 @@ internal sealed class SourceEmitter {
                 nested.Sort();
                 fields.Add(new BeingFieldInfo(prop.Name, nested.ToArray()));
             }
-            beings.Add(new BeingEntry(beingKey, fields.ToArray(), new string[0]));
+            beings.Add(new BeingEntry(beingKey, fields.ToArray(), new string[0], description));
         }
         return new JsonDataInfo(beings.ToArray());
     }

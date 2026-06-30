@@ -57,10 +57,12 @@ public sealed class LoadResult {
 	}
 }
 
-public interface IDataLoader {
+	public interface IDataLoader {
 	public LoadResult Load(string content, string fallbackKey);
 	public LoadResult LoadFile(string path);
 	public LoadResult LoadDirectory(string path);
+
+	public LoaderFileType DetectFileType(string content) => LoaderFileType.Unknown;
 
 	public Task<LoadResult> LoadAsync(string content, string fallbackKey)
 		=> Task.FromResult(Load(content, fallbackKey));

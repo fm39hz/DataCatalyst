@@ -11,18 +11,15 @@ using DataCatalyst.Schema;
 
 public sealed class Pipeline : IPipeline {
 	internal List<DataSource> _sources = [];
-	internal List<string> _ontology = [];
 	internal List<IBaker> _bakers = [];
 	internal List<IPipelineStage> _stages = [];
 
 	public SchemaRegistry Schema { get; } = new();
 	public RegistrySet Registries { get; }
 
-	public Pipeline(RegistrySet registries, bool noDefaults = false) {
+	public Pipeline(RegistrySet registries) {
 		Registries = registries;
-		if (!noDefaults) {
-			_stages.AddRange(DefaultStages());
-		}
+		_stages.AddRange(DefaultStages());
 	}
 
 	private static List<IPipelineStage> DefaultStages() => [
@@ -80,7 +77,7 @@ public sealed class Pipeline : IPipeline {
 
 	public Knowledge? Run(out DiagnosticBag diagnostics) {
 		_stages = [.. _stages.OrderBy(s => s.Order)];
-		var ctx = new PipelineContext(Schema, _sources, _ontology, _bakers, Registries);
+		var ctx = new PipelineContext(Schema, _sources, _bakers, Registries);
 		diagnostics = ctx.Diagnostics;
 
 		foreach (var s in _stages) {

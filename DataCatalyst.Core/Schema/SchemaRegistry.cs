@@ -18,6 +18,9 @@ public sealed class SchemaRegistry {
 
 	public int DefineAspect(string name, Dictionary<string, Type> fields) {
 		if (_aspectNameToId.TryGetValue(name, out var existing)) {
+			// Update fields if already defined (OntologyStage may register with object-first,
+			// SchemaStage later provides correct types from generated code)
+			_aspects[existing] = new AspectSchema(name, fields);
 			return existing;
 		}
 
