@@ -1,5 +1,0 @@
-<Project>
-	<ItemGroup>
-		<AdditionalFiles Include="Data/**/*.json" />
-	</ItemGroup>
-</Project>

@@ -1,0 +1,16 @@
+{
+  "aspects": {
+    "SkeletonRig": {
+      "$description": "Skeletal rig — bone count, bipedal status.",
+      "fields": { "BoneCount": "int", "IsBipedal": "bool" }
+    },
+    "BatteryCapacity": {
+      "$description": "Battery capacity and efficiency.",
+      "fields": { "MaxJoules": "int", "Efficiency": "float" }
+    },
+    "Loyalty": {
+      "$description": "Loyalty toward its master.",
+      "fields": { "Value": "int" }
+    }
+  }
+}

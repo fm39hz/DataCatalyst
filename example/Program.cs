@@ -1,128 +1,66 @@
-using System;
-using System.IO;
-using System.Linq;
-using System.Collections.Generic;
-using DataCatalyst;
-using Example;
-using DataCatalyst.Knowledge;
-using DataCatalyst.Pipeline;
-using DataCatalyst.Loaders;
-using DataCatalyst.Generated;
-using DataCatalyst.Composition;
-using DataCatalyst.Registry;
-using DataCatalyst.StateEngine.Core;
-using DataCatalyst.StateEngine.Models;
+using System.Runtime.InteropServices;
+using Catalyst;
+using Catalyst.Generated;
+using Catalyst.Loaders;
+using Catalyst.Pipeline;
+using Catalyst.Registry;
+using Catalyst.StateEngine;
 
 var root = AppContext.BaseDirectory;
-while (root != null && !Directory.Exists(Path.Combine(root, "Data")))
-    root = Directory.GetParent(root)?.FullName!;
-if (string.IsNullOrEmpty(root))
-    root = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "example");
-
-var knowledge = new Pipeline()
-    .AddSource("Base", new JsonDataLoader(), Path.Combine(root, "Data"), s =>
-        { s.Priority = 0; s.MergePolicy = MergePolicy.Patch; })
-    .AddSource("DLC", new JsonDataLoader(), Path.Combine(root, "DLC"), s =>
-        { s.Priority = 1; s.MergePolicy = MergePolicy.Patch; })
-    .AddSource("Mods", new JsonDataLoader(), Path.Combine(root, "Mods"), s =>
-        { s.Priority = 2; s.MergePolicy = MergePolicy.FieldPatch; })
-    .AddBaker(new StateEngineBaker())
-    .Build(out var diagnostics);
-
-if (knowledge == null)
-{
-    Console.WriteLine("Pipeline build failed!");
-    foreach (var item in diagnostics.Items)
-    {
-        Console.WriteLine(item);
-    }
-    return;
+while (root != null && !Directory.Exists(Path.Combine(root, "Data"))) {
+	root = Directory.GetParent(root)?.FullName!;
 }
 
-Console.WriteLine($"Concepts: {knowledge.Schema?.ConceptAspects.Count}");
-Console.WriteLine($"Aspects:  {knowledge.Schema?.Aspects.Count}");
-
-if (knowledge.Schema != null)
-    foreach (var kv in knowledge.Schema.ConceptAspects)
-    {
-        var cname = knowledge.Schema.TryGetConceptName(kv.Key, out var n) ? n! : "?";
-        var anames = kv.Value.Select(id => knowledge.Schema.TryGetAspectName(id, out var a) ? a! : "?").ToArray();
-        Console.WriteLine($"  {cname}: [{string.Join(", ", anames)}]");
-    }
-
-Console.WriteLine($"\n=== Knowledge ===");
-var arthur = knowledge.Of<Creature>().At<Arthur>();
-Console.WriteLine($"Arthur HP:   {arthur.Take<Health>().Current}/{arthur.Take<Health>().Max}");
-Console.WriteLine($"Arthur Mana: {arthur.Take<Mana>().Current}/{arthur.Take<Mana>().Max}");
-
-var goblin = knowledge.Of<Creature>().At<Goblin>();
-Console.WriteLine($"Goblin HP:   {goblin.Take<Health>().Current}/{goblin.Take<Health>().Max}");
-Console.WriteLine($"Goblin XP:   {knowledge.Of<Enemy>().At<Goblin>().Take<ExperienceReward>().Amount}");
-
-// === StateEngine Simulation ===
-Console.WriteLine($"\n=== StateEngine Simulation ===");
-var stateGroupDef = knowledge.Of<GameState>().At<BasicAI>().Take<StateGroup>();
-var baked = knowledge.GetBaked<BakedStateGroup, global::DataCatalyst.Generated.BasicAI>();
-
-Ref<State> currentState = baked.DefaultState;
-Console.WriteLine($"Initial State: {currentState}");
-
-var viableStatesList = new List<Ref<State>>();
-foreach (var name in stateGroupDef.States) {
-    Type? stateType = null;
-    foreach (var r in BeingRegistry.All) {
-        if (r.BeingType.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) {
-            stateType = r.BeingType;
-            break;
-        }
-    }
-    if (stateType != null) {
-        viableStatesList.Add(new Ref<State>(stateType));
-    }
+if (string.IsNullOrEmpty(root)) {
+	root = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "example");
 }
-var viableStates = viableStatesList.ToArray();
 
-float timer = 0.0f;
+var registries = new RegistrySet();
+CatalystRegistries.Populate(registries);
 
-for (int step = 1; step <= 10; step++)
-{
-    timer += 0.6f;
-    if (timer > 5.5f)
-    {
-        timer = 0.0f; // reset timer loop
-    }
+var knowledge = new Pipeline(registries)
+	.AddSource("Base", new JsonDataLoader(registries.Beings), Path.Combine(root, "Data"))
+	.AddSource("DLC", new JsonDataLoader(registries.Beings), Path.Combine(root, "DLC"))
+	.AddSource("Mods", new JsonDataLoader(registries.Beings), Path.Combine(root, "Mods"))
+	.Build(out var diag);
 
-    var reader = new SimulationSensorReader { Timer = timer };
-    var evalResult = StateEngineEvaluator.Evaluate(
-        currentState,
-        baked,
-        viableStates,
-        ref reader
-    );
-
-    if (evalResult.HasValue && !evalResult.TargetState.Equals(currentState))
-    {
-        var oldState = currentState.ToString();
-        currentState = evalResult.TargetState;
-        var newState = currentState.ToString();
-        Console.WriteLine($"Step {step:D2}: Timer = {timer:F1} -> State changed from {oldState} to {newState}");
-    }
-    else
-    {
-        Console.WriteLine($"Step {step:D2}: Timer = {timer:F1} -> State remains {currentState}");
-    }
+foreach (var item in diag.Items) {
+	Console.Error.WriteLine($"  {item}");
 }
+
+// Query RoboticKnight via concept-revealed aspects
+Console.WriteLine($"=== Knowledge ===");
+var rig = knowledge.Of<Humanoid, SkeletonRig>(typeof(RoboticKnight));
+Console.WriteLine($"RoboticKnight — Bones: {rig.BoneCount}, Bipedal: {rig.IsBipedal}");
+var power = knowledge.Of<Mechanical, BatteryCapacity>(typeof(RoboticKnight));
+Console.WriteLine($"RoboticKnight — Power: {power.MaxJoules} J, Efficiency: {power.Efficiency:P}");
+
+// State Engine — FSM từ ABC primitives
+Console.WriteLine($"\n=== StateEngine ===");
+var sg = knowledge.Of<State, StateGroup>(typeof(RoboticKnight));
+Console.WriteLine($"Default state: {sg.DefaultState}");
+foreach (var s in sg.States) {
+	var links = StateEngine.GetLinks(knowledge, s);
+	var des = StateEngine.GetDesirability(knowledge, s);
+	Console.WriteLine($"  {s}: {links.Links?.Count ?? 0} link(s) [priority={des.Priority}]");
+}
+
+// Evaluate: St_Idle với sensor = 15 → chuyển sang St_Patrol
+var idleRef = new Ref<State>(typeof(St_Idle));
+var idleLinks = StateEngine.GetLinks(knowledge, idleRef);
+
+var result = StateEngine.Evaluate(
+	CollectionsMarshal.AsSpan(idleLinks.Links ?? []),
+	CollectionsMarshal.AsSpan(sg.States),
+	idleRef,
+	sensor => sensor.BeingType.Name == "S_DistanceSensor" ? 15f : 0f);
+Console.WriteLine($"\nSensor=15 → {result} (expected: St_Patrol)");
+
+result = StateEngine.Evaluate(
+	CollectionsMarshal.AsSpan(idleLinks.Links ?? []),
+	CollectionsMarshal.AsSpan(sg.States),
+	idleRef,
+	sensor => sensor.BeingType.Name == "S_DistanceSensor" ? 3f : 0f);
+Console.WriteLine($"Sensor=3  → {result} (expected: St_Idle — no valid link)");
 
 Console.WriteLine($"\nDone.");
-
-struct SimulationSensorReader : ISensorReader {
-    public float Timer;
-
-    public float ReadSensor(Ref<Sensor> sensor) {
-        if (sensor == typeof(global::DataCatalyst.Generated.Timer))
-        {
-            return Timer;
-        }
-        return 0f;
-    }
-}

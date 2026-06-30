@@ -1,0 +1,6 @@
+{
+  "concepts": {
+    "Humanoid": { "$description": "Human-shaped, bipedal form.", "$reveals": ["SkeletonRig"] },
+    "Mechanical": { "$description": "Machinery-based construction.", "$reveals": ["BatteryCapacity"] }
+  }
+}

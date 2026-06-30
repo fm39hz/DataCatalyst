@@ -1,0 +1,8 @@
+{
+  "aspects": {
+    "MountSpeed": {
+      "$description": "Speed bonus provided by a mount.",
+      "fields": { "bonus": "int", "maxSteps": "int" }
+    }
+  }
+}

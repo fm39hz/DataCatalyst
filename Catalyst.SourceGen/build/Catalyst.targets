@@ -1,0 +1,8 @@
+<Project>
+	<ItemGroup>
+		<AdditionalFiles Include="Data/**/*.json" />
+		<AdditionalFiles Include="*.json" />
+		<AdditionalFiles Include="*.xml" Condition="'$(EnableXmlOntology)' == 'true'" />
+		<AdditionalFiles Include="ontology/**/*.json" Condition="Exists('ontology/')" />
+	</ItemGroup>
+</Project>

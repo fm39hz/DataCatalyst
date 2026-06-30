@@ -1,0 +1,56 @@
+{
+  "RoboticKnight": {
+    "$description": "An autonomous knight with basic patrol AI.",
+    "$Humanoid": { "SkeletonRig": { "BoneCount": 24, "IsBipedal": true } },
+    "$Mechanical": { "BatteryCapacity": { "MaxJoules": 5000, "Efficiency": 0.95 } },
+    "$State": {
+      "StateGroup": {
+        "DefaultState": { "$ref": "St_Idle" },
+        "States": [{ "$ref": "St_Idle" }, { "$ref": "St_Patrol" }, { "$ref": "St_Attack" }],
+        "PriorityTier": 0,
+        "TierScale": 10000
+      }
+    },
+    "Loyalty": { "Value": 100 }
+  },
+  "S_DistanceSensor": { "$Sensor": {} },
+  "St_Idle": {
+    "$State": {},
+    "StateLinks": {
+      "Links": [{
+        "Target": { "$ref": "St_Patrol" },
+        "Gate": { "All": [{ "Sensor": { "$ref": "S_DistanceSensor" }, "Op": ">", "Value": 10.0 }] }
+      }]
+    },
+    "Desirability": {
+      "Priority": 0,
+      "Influences": [{ "Sensor": { "$ref": "S_DistanceSensor" }, "Weight": 0.5 }]
+    }
+  },
+  "St_Patrol": {
+    "$State": {},
+    "StateLinks": {
+      "Links": [
+        { "Target": { "$ref": "St_Attack" }, "Gate": { "All": [{ "Sensor": { "$ref": "S_DistanceSensor" }, "Op": "<", "Value": 5.0 }] } },
+        { "Target": { "$ref": "St_Idle" }, "Gate": { "All": [{ "Sensor": { "$ref": "S_DistanceSensor" }, "Op": ">", "Value": 20.0 }] } }
+      ]
+    },
+    "Desirability": {
+      "Priority": 10,
+      "Influences": [{ "Sensor": { "$ref": "S_DistanceSensor" }, "Weight": 0.5 }]
+    }
+  },
+  "St_Attack": {
+    "$State": {},
+    "StateLinks": {
+      "Links": [{
+        "Target": { "$ref": "St_Patrol" },
+        "Gate": { "All": [{ "Sensor": { "$ref": "S_DistanceSensor" }, "Op": ">", "Value": 8.0 }] }
+      }]
+    },
+    "Desirability": {
+      "Priority": 30,
+      "Influences": [{ "Sensor": { "$ref": "S_DistanceSensor" }, "Weight": 1.0 }]
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "WarHorse": {
+    "$description": "A trained warhorse for mounted combat.",
+    "$Mount": { "MountSpeed": { "bonus": 2, "maxSteps": 8 } }
+  }
+}

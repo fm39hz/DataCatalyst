@@ -1,0 +1,6 @@
+<Solution>
+	<Project Path="Catalyst/Catalyst.csproj"/>
+	<Project Path="Catalyst.SourceGen/Catalyst.SourceGen.csproj"/>
+	<Project Path="Catalyst.StateEngine/Catalyst.StateEngine.csproj"/>
+	<Project Path="Catalyst.Tests/Catalyst.Tests.csproj"/>
+</Solution>
