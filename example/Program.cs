@@ -2,13 +2,13 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
-using DataCatalyst;
-using DataCatalyst.Loaders;
-using DataCatalyst.Knowledge;
-using DataCatalyst.Pipeline;
-using DataCatalyst.Registry;
-using DataCatalyst.Generated;
-using DataCatalyst.StateEngine;
+using Catalyst;
+using Catalyst.Loaders;
+using Catalyst.Knowledge;
+using Catalyst.Pipeline;
+using Catalyst.Registry;
+using Catalyst.Generated;
+using Catalyst.StateEngine;
 
 var root = AppContext.BaseDirectory;
 while (root != null && !Directory.Exists(Path.Combine(root, "Data")))
@@ -17,7 +17,7 @@ if (string.IsNullOrEmpty(root))
 	root = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "example");
 
 var registries = new RegistrySet();
-DataCatalystRegistries.Populate(registries);
+CatalystRegistries.Populate(registries);
 
 var knowledge = new Pipeline(registries)
 	.AddSource("Base", new JsonDataLoader(registries.Beings), Path.Combine(root, "Data"))

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<Description>FSM evaluator for Catalyst. Reads StateTransitions aspect from ABC pools, evaluates conditions and priorities. No ECS coupling, no game-specific types.</Description>
+		<PackageTags>data-catalyst;state-machine;fsm;plugin</PackageTags>
+		<Nullable>enable</Nullable>
+		<PackageId>Catalyst.StateEngine</PackageId>
+	</PropertyGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\Catalyst\Catalyst.csproj"/>
+	</ItemGroup>
+</Project>

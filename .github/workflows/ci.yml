@@ -42,7 +42,7 @@ jobs:
       - run: dotnet build -c Release
 
       - name: Pack
-        run: dotnet pack DataCatalyst.slnx -c Release -o ./artifacts --no-build
+        run: dotnet pack Catalyst.slnx -c Release -o ./artifacts --no-build
 
       - name: NuGet login (OIDC → temp API key)
         uses: NuGet/login@v1

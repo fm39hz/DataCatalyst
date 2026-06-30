@@ -19,8 +19,8 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\DataCatalyst.Core\DataCatalyst.Core.csproj" />
-		<ProjectReference Include="..\DataCatalyst.Plugins.StateEngine\DataCatalyst.Plugins.StateEngine.csproj" />
-		<ProjectReference Include="..\DataCatalyst.SourceGen\DataCatalyst.SourceGen.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" SetTargetFramework="TargetFramework=netstandard2.0" />
+		<ProjectReference Include="..\Catalyst\Catalyst.csproj" />
+		<ProjectReference Include="..\Catalyst.StateEngine\Catalyst.StateEngine.csproj" />
+		<ProjectReference Include="..\Catalyst.SourceGen\Catalyst.SourceGen.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" SetTargetFramework="TargetFramework=netstandard2.0" />
 	</ItemGroup>
 </Project>

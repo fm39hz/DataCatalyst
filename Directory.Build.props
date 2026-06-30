@@ -11,8 +11,8 @@
 		<Authors>FM39hz</Authors>
 		<Copyright>Copyright (c) 2026 FM39hz</Copyright>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
-		<PackageProjectUrl>https://github.com/fm39hz/DataCatalyst</PackageProjectUrl>
-		<RepositoryUrl>https://github.com/fm39hz/DataCatalyst</RepositoryUrl>
+		<PackageProjectUrl>https://github.com/fm39hz/Catalyst</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/fm39hz/Catalyst</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 		<PackageTags>roslyn;source-generator;c#;code-generation;json;data;game-development</PackageTags>
 		<MinVerTagPrefix>v-modular-</MinVerTagPrefix>

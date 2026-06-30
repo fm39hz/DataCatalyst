@@ -1,7 +1,7 @@
-# DataCatalyst
+# Catalyst
 
-[![NuGet Version](https://img.shields.io/nuget/v/DataCatalyst?style=flat-square)](https://www.nuget.org/packages/DataCatalyst/)
-[![CI Status](https://img.shields.io/github/actions/workflow/status/fm39hz/DataCatalyst/ci.yml?branch=master&style=flat-square)](https://github.com/fm39hz/DataCatalyst/actions)
+[![NuGet Version](https://img.shields.io/nuget/v/Catalyst?style=flat-square)](https://www.nuget.org/packages/Catalyst/)
+[![CI Status](https://img.shields.io/github/actions/workflow/status/fm39hz/Catalyst/ci.yml?branch=master&style=flat-square)](https://github.com/fm39hz/Catalyst/actions)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
 
 Game modeling framework for C#/.NET.
@@ -35,7 +35,7 @@ graph TD
 
 ## 🧬 Core Idea
 
-Everything in DataCatalyst is built from three primitives: **Aspect**, **Being**, and **Concept** (the ABC model).
+Everything in Catalyst is built from three primitives: **Aspect**, **Being**, and **Concept** (the ABC model).
 
 ### The ABC Model
 
@@ -135,7 +135,7 @@ B_i = (C_{B_i}, A_{B_i}) \quad \text{where} \quad C_{B_i} \subseteq C, \ A_{B_i}
 ### 1. Install
 
 ```bash
-dotnet add package DataCatalyst
+dotnet add package Catalyst
 
 ```
 
@@ -187,14 +187,13 @@ public record struct Loyalty { public int Value; }
 ```csharp
 // Create registries, populate from generated code
 var registries = new RegistrySet();
-DataCatalystRegistries.Populate(registries);
+CatalystRegistries.Populate(registries);
 
 // Fluent API - mix & match your sources
 var knowledge = new Pipeline(registries)
     .AddSource("Base", new JsonDataLoader(registries.Beings), "Data/")
     .AddSource("DLC", new JsonDataLoader(registries.Beings), "DownloadableContent/")    // the loader will auto discover nested sub sections
     .AddSource("Mod", new JsonDataLoader(registries.Beings), "Mods/")
-    .AddBaker(new StateEngineBaker(registries.Beings))
     .Run(out var diagnostics);
 
 // Access - type-safe, compile-time checked via IRevealedBy<TConcept>
@@ -208,7 +207,7 @@ int power = knowledge.Of<Mechanical, BatteryCapacity>(typeof(RoboticKnight)).Max
 
 ## 🏗️ Architecture
 
-DataCatalyst processes your design GDD database through a statically resolved compilation pipeline, converting raw files into highly optimized flat memory layouts.
+Catalyst processes your design GDD database through a statically resolved compilation pipeline, converting raw files into highly optimized flat memory layouts.
 
 ```mermaid
 graph TD
@@ -311,11 +310,11 @@ Beings can inherit aspect values from another being. Unspecified fields in the c
 }
 ```
 
-_Result: `RoboticKnight` overrides `BatteryCapacity.MaxJoules` to `5000`, inheriting `BatteryCapacity.Efficiency` as `0.80`._
+> Result: `RoboticKnight` overrides `BatteryCapacity.MaxJoules` to `5000`, inheriting `BatteryCapacity.Efficiency` as `0.80`.
 
 #### Cross-Reference (`$ref`)
 
-You can reference other beings using the `"$ref"` key. The pipeline resolves these references at build time, replacing the reference object with the target being's key string.
+You can reference other beings using the `"$ref"` key. The pipeline resolves these references at build time. CrossRefStage flattens `{"$ref": "X"}` to `"X"`, then the type-specific deserializer converts it to the final typed value (`Ref<T>`, string, etc.).
 
 `Data/beings.json`:
 
@@ -330,7 +329,7 @@ You can reference other beings using the `"$ref"` key. The pipeline resolves the
 }
 ```
 
-_At runtime, `PowerCore` will be resolved to `"PlutoniumCell"`._
+> During pipeline build, `$ref` is resolved by CrossRefStage. For `Ref<T>` fields the final value is `Ref<T>(typeof(PlutoniumCell))`.
 
 ---
 
@@ -361,19 +360,19 @@ Bridge the engine-agnostic database to your specific game loader and engine obje
 
 #### Loader
 
-Implement `IDataLoader` to support formats like CSV, YAML, MsgPack, etc.
+Implement `IDataLoader` to support formats like YAML, MsgPack, etc.
 
 ```csharp
-public class CsvDataLoader : IDataLoader {
+public class YamlDataLoader : IDataLoader {
     public LoadResult Load(string content, string fallbackKey) {
         var result = new LoadResult();
-        // Parse CSV string content -> RawBeing
+        // Parse yaml string content -> RawBeing
         return result;
     }
     public LoadResult LoadFile(string path) => Load(File.ReadAllText(path), Path.GetFileNameWithoutExtension(path));
     public LoadResult LoadDirectory(string path) {
         var result = new LoadResult();
-        foreach (var file in Directory.EnumerateFiles(path, "*.csv")) {
+        foreach (var file in Directory.EnumerateFiles(path, "*.yaml")) {
             result._beings.AddRange(LoadFile(file)._beings);
         }
         return result;
@@ -384,7 +383,7 @@ public class CsvDataLoader : IDataLoader {
 
 #### Materializer
 
-Bridge DataCatalyst's `Knowledge` to engine-specific game objects or entities. Define a pattern once, and SourceGen dispatches all aspects automatically.
+Bridge Catalyst's `Knowledge` to engine-specific game objects or entities. Define a pattern once, and SourceGen dispatches all aspects automatically.
 
 ```csharp
 [Materializer]
@@ -401,115 +400,79 @@ mat.Apply(entity, knowledge.Of<Mechanical, BatteryCapacity>(typeof(RoboticKnight
 
 ---
 
-## 🔌 Bundled Plugin
+## 🔌 Catalyst.StateEngine
 
-### StateEngine
-
-StateEngine is a data-driven hierarchical FSM. FSM components (States, Sensors, and Transitions) are completely normalized into core ABC primitives, allowing you to modify complex behaviors and condition graphs purely via data declarations. Baking is integrated directly into the Core Pipeline, executing FSM compilation during database build.
-
-```mermaid
-graph TD
-    JSON[Raw JSON Files] -->|1. Register StateEngineBaker| PIPELINE[Pipeline]
-    PIPELINE -->|2. Build & Bake FSM| KNOWLEDGE[Knowledge Base]
-    KNOWLEDGE -->|3. GetBaked BakedStateGroup| EVALUATOR[StateEngineEvaluator]
-    EVALUATOR -->|4. Resolve Sensor Values| RUNTIME[Evaluate Current State]
-
-```
+StateEngine is a FSM evaluator built on ABC primitives. States are Beings with `$State` concept. Links (`StateLinks`) define graph edges with optional gates. `Desirability` scores each goal state.
 
 #### Write State Data
 
-Define states, sensors, and state groups as standard `Being` entities in `Data/beings.json`:
+States, sensors, and state groups are standard Being entities in `Data/beings.json`:
 
 ```json
 {
-	"RechargeStationDistance": {
-		"$Sensor": {}
-	},
-	"GoToRecharge": {
-		"$State": {}
-	},
-	"GuardPatrol": {
+	"S_DistanceSensor": { "$Sensor": {} },
+	"St_Idle": {
 		"$State": {},
-		"StateTransitions": {
-			"Transitions": [
+		"StateLinks": {
+			"Links": [
 				{
-					"TargetState": { "$ref": "GoToRecharge" },
-					"Priority": 100,
-					"Conditions": {
+					"Target": { "$ref": "St_Patrol" },
+					"Gate": {
 						"All": [
 							{
-								"Sensor": { "$ref": "RechargeStationDistance" },
-								"Op": "<",
-								"Value": 15.0
+								"Sensor": { "$ref": "S_DistanceSensor" },
+								"Op": ">",
+								"Value": 10.0
 							}
 						]
 					}
 				}
 			]
-		}
+		},
+		"Desirability": { "Priority": 0 }
 	},
+	"St_Patrol": { "$State": {}, "Desirability": { "Priority": 10 } },
 	"KnightAI": {
 		"$State": {
 			"StateGroup": {
-				"DefaultState": { "$ref": "GuardPatrol" },
-				"States": [
-					{ "$ref": "GuardPatrol" },
-					{ "$ref": "GoToRecharge" }
-				],
-				"PriorityTier": 0,
-				"TierScale": 10000,
-				"DepthPenalty": 1000
+				"DefaultState": { "$ref": "St_Idle" },
+				"States": [{ "$ref": "St_Idle" }, { "$ref": "St_Patrol" }]
 			}
 		}
 	}
 }
 ```
 
-#### Bake & Evaluate FSM
-
-Register the baker in the pipeline and fetch the compiled graph directly from the knowledge base at runtime:
+#### Evaluate FSM
 
 ```csharp
-// 1. Build — State, Sensor are concepts; StateGroup, StateTransitions are aspects
-var registries = new RegistrySet();
-DataCatalystRegistries.Populate(registries);
+// Read StateLinks from current state + Desirability from target states
+var links = StateEngine.GetLinks(knowledge, currentState);
+var viable = knowledge.Of<State, StateGroup>(typeof(KnightAI)).States;
 
-var knowledge = new Pipeline(registries)
-    .AddSource("Base", new JsonDataLoader(registries.Beings), "Data/")
-    .AddBaker(new StateEngineBaker(registries.Beings))
-    .Run(out var diagnostics);
-
-// 2. Retrieve - Get the pre-compiled FSM directly from Knowledge using Being type
-var baked = knowledge.GetBaked<BakedStateGroup, KnightAI>();
-
-// 3. Evaluate - ONE evaluator engine for ALL entities
-var evaluator = new StateEngineEvaluator();
-var result = evaluator.Evaluate(
-    currentState, baked, viableStates,
-    sensor => {
-        if (sensor == typeof(RechargeStationDistance)) {
-            return entity.DistanceToStation;
-        }
-        return 0f;
-    }
-);
+var next = StateEngine.Evaluate(
+    CollectionsMarshal.AsSpan(links.Links ?? []),
+    CollectionsMarshal.AsSpan(viable),
+    currentState,
+    sensor => entity.DistanceToStation,
+    target => StateEngine.GetDesirability(knowledge, target));
 ```
 
 ---
 
 ## 📦 Packages
 
-DataCatalyst is modular, letting you install only the components your project needs.
+Catalyst is modular, letting you install only the components your project needs.
 
 ```bash
-dotnet add package DataCatalyst
-dotnet add package DataCatalyst.Plugins.StateEngine             # FSM plugin (optional)
+dotnet add package Catalyst
+dotnet add package Catalyst.StateEngine                    # FSM evaluator (optional)
 
 ```
 
 ---
 
-## 🛠️ DataCatalyst Editor (WIP)
+## 🛠️ Catalyst Editor (WIP)
 
 The editor is a visual workspace for authoring and inspecting the semantic structure of a game database.
 

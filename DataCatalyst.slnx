@@ -1,6 +1,0 @@
-<Solution>
-	<Project Path="DataCatalyst.Core/DataCatalyst.Core.csproj"/>
-	<Project Path="DataCatalyst.SourceGen/DataCatalyst.SourceGen.csproj"/>
-	<Project Path="DataCatalyst.Plugins.StateEngine/DataCatalyst.Plugins.StateEngine.csproj"/>
-	<Project Path="DataCatalyst.Tests/DataCatalyst.Tests.csproj"/>
-</Solution>
