@@ -5,8 +5,8 @@ using Catalyst.Loader;
 using Catalyst.Storage;
 
 public interface ILoadContext : IDiagnosticContext {
-    IReadOnlyList<DataSource> Sources { get; }
-    HashSet<string> Keys { get; }
-    Dictionary<string, List<string>> Mappings { get; }
-    List<RawBeing>? Raw { get; set; }
+	public IReadOnlyList<DataSource> Sources { get; }
+	public HashSet<string> Keys { get; }
+	public Dictionary<string, List<string>> Mappings { get; }
+	public List<RawBeing>? Raw { get; set; }
 }

@@ -2,7 +2,6 @@ namespace Catalyst.Storage;
 
 using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 
 internal sealed class GenericPool : ITypedStoragePool {
 	private readonly List<Dictionary<Type, object>> _rows = [];

@@ -57,7 +57,7 @@ public sealed class LoadResult {
 	}
 }
 
-	public interface IDataLoader {
+public interface IDataLoader {
 	public LoadResult Load(string content, string fallbackKey);
 	public LoadResult LoadFile(string path);
 	public LoadResult LoadDirectory(string path);

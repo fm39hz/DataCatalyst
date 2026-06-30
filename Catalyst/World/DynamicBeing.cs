@@ -1,9 +1,7 @@
 namespace Catalyst.Modding;
 
-using System;
-using Catalyst.Storage;
-using Catalyst.Schema;
 using System.Collections.Generic;
+using Catalyst.Storage;
 
 public readonly ref struct DynamicConcept {
 	private readonly Knowledge.Knowledge _knowledge;
@@ -29,14 +27,14 @@ public readonly ref struct DynamicConcept {
 	public bool Has(string beingKey) => _knowledge.GetDynamicBeingIndex(beingKey) >= 0;
 }
 
-	public readonly ref struct DynamicBeing {
-		private readonly IRawStoragePool? _pool;
-		private readonly Knowledge.Knowledge? _knowledge;
-		private readonly string _conceptName;
+public readonly ref struct DynamicBeing {
+	private readonly IRawStoragePool? _pool;
+	private readonly Knowledge.Knowledge? _knowledge;
+	private readonly string _conceptName;
 
-		public static DynamicBeing Empty => default;
+	public static DynamicBeing Empty => default;
 
-		internal DynamicBeing(Knowledge.Knowledge knowledge, IRawStoragePool pool, int index, string beingKey, string conceptName) {
+	internal DynamicBeing(Knowledge.Knowledge knowledge, IRawStoragePool pool, int index, string beingKey, string conceptName) {
 		_knowledge = knowledge;
 		_pool = pool;
 		_conceptName = conceptName;
@@ -69,12 +67,12 @@ public readonly ref struct DynamicConcept {
 		}
 
 		var raw = _pool.GetRaw(Index, aspectId.Value);
-			if (raw is System.Collections.Generic.Dictionary<string, object?> dict
-				&& dict.TryGetValue(fieldName, out var val)
-				&& val is T tVal) {
-				value = tVal;
-				return true;
-			}
+		if (raw is Dictionary<string, object?> dict
+			&& dict.TryGetValue(fieldName, out var val)
+			&& val is T tVal) {
+			value = tVal;
+			return true;
+		}
 		return false;
 	}
 

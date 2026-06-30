@@ -3,9 +3,9 @@ namespace Catalyst.Storage;
 using System;
 
 public interface IRawStoragePool {
-    int Count { get; }
-    void Resize(int size);
-    void SetRaw(int index, Type type, object value);
-    void SetRawValue(int index, int aspectId, object? value);
-    object? GetRaw(int index, int aspectId);
+	public int Count { get; }
+	public void Resize(int size);
+	public void SetRaw(int index, Type type, object value);
+	public void SetRawValue(int index, int aspectId, object? value);
+	public object? GetRaw(int index, int aspectId);
 }

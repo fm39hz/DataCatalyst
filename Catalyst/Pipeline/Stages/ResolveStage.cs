@@ -1,8 +1,6 @@
 namespace Catalyst.Pipeline.Stages;
 
-using System;
 using System.Collections.Generic;
-using System.Linq;
 using Catalyst.Storage;
 
 public sealed class ResolveStage : IPipelineStage {
@@ -17,12 +15,14 @@ public sealed class ResolveStage : IPipelineStage {
 		var resolved = new List<ResolvedBeing>();
 
 		foreach (var raw in rctx.Raw) {
-			var rb = new ResolvedBeing(raw.Key);
-			rb.AssignedIndex = raw.AssignedIndex;
-			rb.Inherits = raw.Inherits;
+			var rb = new ResolvedBeing(raw.Key) {
+				AssignedIndex = raw.AssignedIndex,
+				Inherits = raw.Inherits
+			};
 
-			foreach (var kv in raw.Components)
+			foreach (var kv in raw.Components) {
 				rb.Components[kv.Key] = kv.Value;
+			}
 
 			foreach (var cn in raw.Concepts) {
 				var cid = rctx.Schema.GetConceptId(cn);
@@ -34,8 +34,9 @@ public sealed class ResolveStage : IPipelineStage {
 
 			foreach (var kv in raw.RawFields) {
 				var aid = rctx.Schema.GetAspectId(kv.Key);
-				if (aid.HasValue)
+				if (aid.HasValue) {
 					rb.AspectFields[aid.Value] = kv.Value;
+				}
 			}
 
 			resolved.Add(rb);

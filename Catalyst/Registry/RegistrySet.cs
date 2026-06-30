@@ -15,12 +15,12 @@ public sealed class RegistrySet(
 	public RegistrySet()
 		: this(new BeingRegistry(), new RequiresRegistry(), new AspectFieldRegistry(), new AspectTypeRegistry()) { }
 
-		public bool Frozen => Beings.Frozen && Requires.Frozen && AspectFields.Frozen && AspectTypes.Frozen;
+	public bool Frozen => Beings.Frozen && Requires.Frozen && AspectFields.Frozen && AspectTypes.Frozen;
 
-		public void Freeze() {
-			Beings.Freeze();
-			Requires.Freeze();
-			AspectFields.Freeze();
-			AspectTypes.Freeze();
-		}
+	public void Freeze() {
+		Beings.Freeze();
+		Requires.Freeze();
+		AspectFields.Freeze();
+		AspectTypes.Freeze();
+	}
 }

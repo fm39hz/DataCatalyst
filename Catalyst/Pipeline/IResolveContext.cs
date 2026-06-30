@@ -6,8 +6,8 @@ using Catalyst.Schema;
 using Catalyst.Storage;
 
 public interface IResolveContext : IDiagnosticContext {
-    SchemaRegistry Schema { get; }
-    RegistrySet Registries { get; }
-    List<RawBeing>? Raw { get; set; }
-    List<ResolvedBeing>? Resolved { get; set; }
+	public SchemaRegistry Schema { get; }
+	public RegistrySet Registries { get; }
+	public List<RawBeing>? Raw { get; set; }
+	public List<ResolvedBeing>? Resolved { get; set; }
 }

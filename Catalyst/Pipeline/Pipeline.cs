@@ -80,7 +80,9 @@ public sealed class Pipeline : IPipeline {
 
 		try {
 			foreach (var s in _stages) {
-				if (!s.Execute(ctx)) break;
+				if (!s.Execute(ctx)) {
+					break;
+				}
 			}
 		}
 		catch (Exception ex) {

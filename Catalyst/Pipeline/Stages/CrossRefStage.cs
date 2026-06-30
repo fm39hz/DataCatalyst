@@ -10,7 +10,7 @@ public sealed class CrossRefStage : IPipelineStage {
 		var rctx = (IResolveContext)ctx;
 		var lctx = (ILoadContext)ctx;
 		if (rctx.Resolved == null || rctx.Schema == null) {
-		return !rctx.Diagnostics.HasErrors;
+			return !rctx.Diagnostics.HasErrors;
 		}
 
 		const int maxDepth = 64;
@@ -22,7 +22,9 @@ public sealed class CrossRefStage : IPipelineStage {
 			}
 			foreach (var kv in e.AspectFields) {
 				var aspectName = rctx.Schema.TryGetAspectName(kv.Key, out var n) ? n : null;
-				if (aspectName == null) continue;
+				if (aspectName == null) {
+					continue;
+				}
 
 				if (atr.TryGetType(aspectName, out var type) && type != null) {
 					try {

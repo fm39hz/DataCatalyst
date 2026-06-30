@@ -34,7 +34,7 @@ internal sealed class BuiltinJsonParser : IOntologyParser {
 
 			return false;
 		}
-		catch (System.Text.Json.JsonException) { return false; }
+		catch (JsonException) { return false; }
 	}
 
 	public void Parse(in OntologyFile file, OntologyBuilder builder) {
@@ -74,8 +74,10 @@ internal sealed class BuiltinJsonParser : IOntologyParser {
 					continue;
 				}
 
-				if (!entry.TryGetProperty("$reveals", out var reqEl))
+				if (!entry.TryGetProperty("$reveals", out var reqEl)) {
 					entry.TryGetProperty("$requires", out reqEl);
+				}
+
 				if (reqEl.ValueKind == JsonValueKind.Array) {
 					var list = new List<string>();
 					foreach (var item in reqEl.EnumerateArray()) {
@@ -104,6 +106,6 @@ internal sealed class BuiltinJsonParser : IOntologyParser {
 				}
 			}
 		}
-		catch (System.Text.Json.JsonException) { }
+		catch (JsonException) { }
 	}
 }

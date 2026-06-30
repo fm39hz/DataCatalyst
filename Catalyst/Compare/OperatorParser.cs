@@ -13,16 +13,16 @@ public static class OperatorParser {
 		_ => throw new ArgumentException($"Unknown operator '{op}'", nameof(op)),
 	};
 
-		public static bool TryParse(string op, out CompareOp result) {
-			try {
-				result = Parse(op);
-				return true;
-			}
-			catch (ArgumentException) {
-				result = default;
-				return false;
-			}
+	public static bool TryParse(string op, out CompareOp result) {
+		try {
+			result = Parse(op);
+			return true;
 		}
+		catch (ArgumentException) {
+			result = default;
+			return false;
+		}
+	}
 
 	public static bool Evaluate(float value, CompareOp op, float threshold) => op switch {
 		CompareOp.Equal => value == threshold,

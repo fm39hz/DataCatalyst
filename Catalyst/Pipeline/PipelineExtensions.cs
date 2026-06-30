@@ -19,6 +19,12 @@ public static class PipelineExtensions {
 					case LoaderFileType.Aspect:
 						s.AspectFiles.Add(file);
 						break;
+					case LoaderFileType.Unknown:
+						break;
+					case LoaderFileType.Being:
+						break;
+					default:
+						break;
 				}
 			}
 		}

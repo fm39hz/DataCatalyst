@@ -18,19 +18,27 @@ public sealed class JsonDataLoader(IBeingRegistry? registry = null) : IDataLoade
 		try {
 			using var d = JsonDocument.Parse(content);
 			var root = d.RootElement;
-			if (root.ValueKind != JsonValueKind.Object) return LoaderFileType.Unknown;
+			if (root.ValueKind != JsonValueKind.Object) {
+				return LoaderFileType.Unknown;
+			}
 
-			if (root.TryGetProperty("concepts", out var c) && c.ValueKind == JsonValueKind.Object)
+			if (root.TryGetProperty("concepts", out var c) && c.ValueKind == JsonValueKind.Object) {
 				return LoaderFileType.Concept;
-			if (root.TryGetProperty("aspects", out var a) && a.ValueKind == JsonValueKind.Object)
+			}
+
+			if (root.TryGetProperty("aspects", out var a) && a.ValueKind == JsonValueKind.Object) {
 				return LoaderFileType.Aspect;
+			}
 
 			foreach (var entry in root.EnumerateObject()) {
-				if (entry.Name.StartsWith('$') || entry.Value.ValueKind != JsonValueKind.Object)
+				if (entry.Name.StartsWith('$') || entry.Value.ValueKind != JsonValueKind.Object) {
 					continue;
+				}
+
 				foreach (var sub in entry.Value.EnumerateObject()) {
-					if (sub.Name.StartsWith('$'))
+					if (sub.Name.StartsWith('$')) {
 						return LoaderFileType.Being;
+					}
 				}
 			}
 			return LoaderFileType.Unknown;
@@ -220,8 +228,14 @@ public sealed class JsonDataLoader(IBeingRegistry? registry = null) : IDataLoade
 	};
 
 	private static object JsonToNumber(JsonElement el) {
-		if (el.TryGetInt32(out var i)) return i;
-		if (el.TryGetInt64(out var l)) return l;
+		if (el.TryGetInt32(out var i)) {
+			return i;
+		}
+
+		if (el.TryGetInt64(out var l)) {
+			return l;
+		}
+
 		return el.GetDouble();
 	}
 }

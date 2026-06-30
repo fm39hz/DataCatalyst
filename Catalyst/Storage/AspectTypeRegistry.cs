@@ -2,7 +2,6 @@ namespace Catalyst.Storage;
 
 using System;
 using System.Collections.Generic;
-using Catalyst.Registry;
 
 public sealed class AspectTypeRegistry : IAspectTypeRegistry {
 	private readonly Dictionary<string, Type> _typeByName = new(StringComparer.OrdinalIgnoreCase);
@@ -20,18 +19,22 @@ public sealed class AspectTypeRegistry : IAspectTypeRegistry {
 	public bool HasType(string name) => _typeByName.ContainsKey(name);
 
 	public void Register(Type type) {
-		if (Frozen) throw new InvalidOperationException("Registry frozen after pipeline build");
+		if (Frozen) {
+			throw new InvalidOperationException("Registry frozen after pipeline build");
+		}
+
 		_typeByName[type.Name] = type;
 	}
 
 	public void RegisterDeserializer(Type type, Func<object, object?> d) {
-		if (Frozen) throw new InvalidOperationException("Registry frozen after pipeline build");
+		if (Frozen) {
+			throw new InvalidOperationException("Registry frozen after pipeline build");
+		}
+
 		_deserializers[type] = d;
 	}
 
-	public void Freeze() {
-		Frozen = true;
-	}
+	public void Freeze() => Frozen = true;
 
 	public object? Deserialize(Type type, object? raw) {
 		if (raw == null) {

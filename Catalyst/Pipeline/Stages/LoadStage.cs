@@ -18,7 +18,7 @@ public sealed class LoadStage : IPipelineStage {
 			lctx.Diagnostics.Error(ex.Message);
 			return false;
 		}
-		var raw = new System.Collections.Generic.List<RawBeing>();
+		var raw = new List<RawBeing>();
 
 		foreach (var source in sorted) {
 			var result = source.Loader.LoadDirectory(source.Path);

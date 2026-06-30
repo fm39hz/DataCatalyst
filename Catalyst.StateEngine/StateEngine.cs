@@ -4,7 +4,6 @@ using System;
 using Catalyst;
 using Catalyst.Compare;
 using Catalyst.Knowledge;
-using Catalyst.Storage;
 
 public static class StateEngine {
 	public static Ref<State> Evaluate(
@@ -12,19 +11,20 @@ public static class StateEngine {
 		ReadOnlySpan<Ref<State>> viableStates,
 		Ref<State> currentState,
 		Func<Ref<Sensor>, float> readSensor,
-		Func<Ref<State>, Desirability>? getDesirability = null)
-	{
+		Func<Ref<State>, Desirability>? getDesirability = null) {
 		Ref<State> bestTarget = default;
 		var bestScore = float.MinValue;
 
 		for (var i = 0; i < links.Length; i++) {
 			var link = links[i];
 
-			if (!Contains(viableStates, link.Target))
+			if (!Contains(viableStates, link.Target)) {
 				continue;
+			}
 
-			if (!PassGate(link, currentState, readSensor))
+			if (!PassGate(link, currentState, readSensor)) {
 				continue;
+			}
 
 			var score = 0f;
 			if (getDesirability != null) {
@@ -55,22 +55,27 @@ public static class StateEngine {
 
 	private static bool Contains(ReadOnlySpan<Ref<State>> span, Ref<State> item) {
 		for (var i = 0; i < span.Length; i++) {
-			if (span[i].Equals(item)) return true;
+			if (span[i].Equals(item)) {
+				return true;
+			}
 		}
 		return false;
 	}
 
 	private static bool PassGate(BeingLinkDef link, Ref<State> currentState,
-		Func<Ref<Sensor>, float> readSensor)
-	{
-		if (link.Gate == null) return true;
+		Func<Ref<Sensor>, float> readSensor) {
+		if (link.Gate == null) {
+			return true;
+		}
 
 		var atTarget = currentState.Equals(link.Target);
 		var conds = link.Gate.Value;
 
 		if (conds.All != null) {
 			for (var i = 0; i < conds.All.Count; i++) {
-				if (!EvalSensor(conds.All[i], readSensor, atTarget)) return false;
+				if (!EvalSensor(conds.All[i], readSensor, atTarget)) {
+					return false;
+				}
 			}
 		}
 
@@ -79,12 +84,16 @@ public static class StateEngine {
 			for (var i = 0; i < conds.Any.Count; i++) {
 				if (EvalSensor(conds.Any[i], readSensor, atTarget)) { anyOk = true; break; }
 			}
-			if (!anyOk) return false;
+			if (!anyOk) {
+				return false;
+			}
 		}
 
 		if (conds.None != null) {
 			for (var i = 0; i < conds.None.Count; i++) {
-				if (EvalSensor(conds.None[i], readSensor, atTarget)) return false;
+				if (EvalSensor(conds.None[i], readSensor, atTarget)) {
+					return false;
+				}
 			}
 		}
 

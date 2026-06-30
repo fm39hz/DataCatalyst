@@ -1,10 +1,8 @@
 namespace Catalyst.Storage;
 
-using System;
-
 public interface ITypedStoragePool {
-    int Count { get; }
-    void Resize(int size);
-    T Get<T>(int index) where T : struct;
-    void Set<T>(int index, T value) where T : struct;
+	public int Count { get; }
+	public void Resize(int size);
+	public T Get<T>(int index) where T : struct;
+	public void Set<T>(int index, T value) where T : struct;
 }

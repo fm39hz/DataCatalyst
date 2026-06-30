@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
-using Catalyst.Registry;
 
 public sealed class OntologyStage : IPipelineStage {
 	public int Order => 5;
@@ -17,13 +16,17 @@ public sealed class OntologyStage : IPipelineStage {
 
 		// 1. Process concept files — register concepts with $reveals/$suggests
 		foreach (var path in ctx.AllConceptFiles) {
-			if (!File.Exists(path)) continue;
+			if (!File.Exists(path)) {
+				continue;
+			}
+
 			try {
 				var json = File.ReadAllText(path);
 				using var doc = JsonDocument.Parse(json);
 				var root = doc.RootElement;
-				if (!root.TryGetProperty("concepts", out var concepts) || concepts.ValueKind != JsonValueKind.Object)
+				if (!root.TryGetProperty("concepts", out var concepts) || concepts.ValueKind != JsonValueKind.Object) {
 					continue;
+				}
 
 				foreach (var entry in concepts.EnumerateObject()) {
 					var name = entry.Name;
@@ -38,13 +41,17 @@ public sealed class OntologyStage : IPipelineStage {
 
 		// 2. Process aspect files — register aspect types and IDs
 		foreach (var path in ctx.AllAspectFiles) {
-			if (!File.Exists(path)) continue;
+			if (!File.Exists(path)) {
+				continue;
+			}
+
 			try {
 				var json = File.ReadAllText(path);
 				using var doc = JsonDocument.Parse(json);
 				var root = doc.RootElement;
-				if (!root.TryGetProperty("aspects", out var aspects) || aspects.ValueKind != JsonValueKind.Object)
+				if (!root.TryGetProperty("aspects", out var aspects) || aspects.ValueKind != JsonValueKind.Object) {
 					continue;
+				}
 
 				foreach (var entry in aspects.EnumerateObject()) {
 					var name = entry.Name;

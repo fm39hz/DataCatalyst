@@ -3,7 +3,6 @@ namespace Catalyst.StateEngine;
 using System.Collections.Generic;
 using Catalyst;
 using Catalyst.Attributes;
-using Catalyst.Compare;
 
 [GameAspect]
 public readonly record struct StateGroup : IRevealedBy<State> {

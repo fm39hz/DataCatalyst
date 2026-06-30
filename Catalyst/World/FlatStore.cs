@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 
 public sealed class FlatStore {
-	internal readonly Dictionary<Type, Array> _flats = new();
+	internal readonly Dictionary<Type, Array> _flats = [];
 
 	internal T[] Get<T>() where T : struct
 		=> (T[])_flats[typeof(T)];
@@ -14,7 +14,7 @@ public sealed class FlatStore {
 			result = (T[])arr;
 			return true;
 		}
-		result = Array.Empty<T>();
+		result = [];
 		return false;
 	}
 

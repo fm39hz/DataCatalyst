@@ -13,7 +13,9 @@ public sealed class KnowledgeStage : IPipelineStage {
 	public bool Execute(PipelineContext ctx) {
 		var rctx = (IResolveContext)ctx;
 		var bctx = (IBakeContext)ctx;
-		if (rctx.Resolved == null || rctx.Resolved.Count == 0) return true;
+		if (rctx.Resolved == null || rctx.Resolved.Count == 0) {
+			return true;
+		}
 
 		var br = rctx.Registries.Beings;
 		var atr = rctx.Registries.AspectTypes;
@@ -32,7 +34,9 @@ public sealed class KnowledgeStage : IPipelineStage {
 			var ct = FindType(kv.Key, rctx.Schema, br);
 			var ce = kv.Value;
 			var max = ce.Max(e => e.AssignedIndex);
-			if (max < 0) continue;
+			if (max < 0) {
+				continue;
+			}
 
 			var cn = rctx.Schema.TryGetConceptName(kv.Key, out var n) ? n : null;
 			var allowed = rctx.Schema.GetConceptAspects(kv.Key);
@@ -70,8 +74,7 @@ public sealed class KnowledgeStage : IPipelineStage {
 		List<ResolvedBeing> ce, int max, List<int>? allowed,
 		Type ct, IBeingRegistry br, IResolveContext rctx, IAspectTypeRegistry atr,
 		Dictionary<string, ResolvedBeing> beingByTypeName,
-		Dictionary<Type, int> beingIdx)
-	{
+		Dictionary<Type, int> beingIdx) {
 		var hasDyn = allowed != null && allowed.Any(a =>
 			rctx.Schema.TryGetAspectName(a, out var _an) && _an != null && !atr.HasType(_an));
 		var pool = hasDyn ? new DynamicPool() : (br.CreatePool(ct) ?? new GenericPool());
@@ -79,15 +82,20 @@ public sealed class KnowledgeStage : IPipelineStage {
 		foreach (var e in ce) {
 			foreach (var comp in e.Components) {
 				if (pool is IRawStoragePool rawPool) {
-					if (hasDyn && allowed != null && rctx.Schema.GetAspectId(comp.Key.Name) is int aid && !allowed.Contains(aid))
+					if (hasDyn && allowed != null && rctx.Schema.GetAspectId(comp.Key.Name) is int aid && !allowed.Contains(aid)) {
 						continue;
+					}
+
 					rawPool.SetRaw(e.AssignedIndex, comp.Key, comp.Value);
 				}
 			}
 		}
 
 		foreach (var rec in br.All) {
-			if (!rec.Concepts.Contains(ct)) continue;
+			if (!rec.Concepts.Contains(ct)) {
+				continue;
+			}
+
 			if (beingByTypeName.TryGetValue(rec.BeingType.Name, out var fb)) {
 				beingIdx[rec.BeingType] = fb.AssignedIndex;
 			}
@@ -98,8 +106,7 @@ public sealed class KnowledgeStage : IPipelineStage {
 
 	private static IStoragePool CreateDynamicPool(
 		List<ResolvedBeing> ce, int max,
-		Dictionary<string, int> dynIdx)
-	{
+		Dictionary<string, int> dynIdx) {
 		var dp = new DynamicPool();
 		dp.Resize(max + 1);
 		foreach (var e in ce) {
@@ -114,7 +121,10 @@ public sealed class KnowledgeStage : IPipelineStage {
 	}
 
 	private static Type? FindType(int id, Schema.SchemaRegistry sc, IBeingRegistry br) {
-		if (!sc.TryGetConceptName(id, out var n) || n == null) return null;
+		if (!sc.TryGetConceptName(id, out var n) || n == null) {
+			return null;
+		}
+
 		foreach (var r in br.All) {
 			foreach (var c in r.Concepts) {
 				if (string.Equals(c.Name, n, StringComparison.OrdinalIgnoreCase)) {

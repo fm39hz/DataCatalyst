@@ -2,6 +2,7 @@ namespace Catalyst.Knowledge;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Catalyst;
 using Catalyst.Schema;
@@ -26,36 +27,44 @@ public sealed class Knowledge {
 
 	private int RequireBeingIndex(Type beingType) {
 		var idx = GetBeingIndex(beingType);
-		if (idx < 0) throw new InvalidOperationException($"Being '{beingType.Name}' not found");
+		if (idx < 0) {
+			throw new InvalidOperationException($"Being '{beingType.Name}' not found");
+		}
+
 		return idx;
 	}
 
 	public TAspect Of<TConcept, TAspect>(Type beingType)
 		where TConcept : struct, IConcept
-		where TAspect : struct, IRevealedBy<TConcept> {
-		return Get<TAspect>(typeof(TConcept), beingType);
-	}
+		where TAspect : struct, IRevealedBy<TConcept> => Get<TAspect>(typeof(TConcept), beingType);
 
 	public TAspect Get<TAspect>(Type conceptType, Type beingType)
 		where TAspect : struct {
 		var idx = RequireBeingIndex(beingType);
-		if (_flatStore != null && _flatStore.TryGet<TAspect>(out var arr))
+		if (_flatStore != null && _flatStore.TryGet<TAspect>(out var arr)) {
 			return arr[idx];
-		if (!Pools.TryGetValue(conceptType, out var pool))
+		}
+
+		if (!Pools.TryGetValue(conceptType, out var pool)) {
 			throw new InvalidOperationException($"No data for concept '{conceptType.Name}'");
+		}
+
 		return pool.Get<TAspect>(idx);
 	}
 
-	public TAspect About<TAspect>(Type beingType)
+	public TAspect About<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] TAspect>(Type beingType)
 		where TAspect : struct {
 		if (typeof(TAspect).GetInterfaces().Any(i => i.IsGenericType
-			&& i.GetGenericTypeDefinition() == typeof(IRevealedBy<>)))
+			&& i.GetGenericTypeDefinition() == typeof(IRevealedBy<>))) {
 			throw new InvalidOperationException(
 				$"'{typeof(TAspect).Name}' is revealed by a concept. Use Of<TConcept, TAspect>() instead of About<T>().");
+		}
 
 		var idx = RequireBeingIndex(beingType);
-		if (_flatStore != null && _flatStore.TryGet<TAspect>(out var arr) && idx < arr.Length)
+		if (_flatStore != null && _flatStore.TryGet<TAspect>(out var arr) && idx < arr.Length) {
 			return arr[idx];
+		}
+
 		throw new InvalidOperationException($"Free aspect '{typeof(TAspect).Name}' not found for '{beingType.Name}'");
 	}
 

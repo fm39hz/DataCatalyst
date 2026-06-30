@@ -5,6 +5,6 @@ using Catalyst.Knowledge;
 using Catalyst.Storage;
 
 public interface IBakeContext : IDiagnosticContext {
-    List<ResolvedBeing>? Resolved { get; }
-    Knowledge? Knowledge { get; set; }
+	public List<ResolvedBeing>? Resolved { get; }
+	public Knowledge? Knowledge { get; set; }
 }

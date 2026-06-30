@@ -8,7 +8,9 @@ public sealed class FlattenStage : IPipelineStage {
 
 	public bool Execute(PipelineContext ctx) {
 		var bctx = (IBakeContext)ctx;
-		if (bctx.Knowledge == null) return true;
+		if (bctx.Knowledge == null) {
+			return true;
+		}
 
 		var knowledge = bctx.Knowledge;
 		var store = new FlatStore();
