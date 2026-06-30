@@ -15,7 +15,7 @@
 		<RepositoryUrl>https://github.com/fm39hz/Catalyst</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 		<PackageTags>roslyn;source-generator;c#;code-generation;json;data;game-development</PackageTags>
-		<MinVerTagPrefix>v-modular-</MinVerTagPrefix>
+		<MinVerTagPrefix>v</MinVerTagPrefix>
 		<MinVerDefaultVersion>0.0.1-alpha.0</MinVerDefaultVersion>
 	</PropertyGroup>
 
