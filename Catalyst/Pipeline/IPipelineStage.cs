@@ -15,12 +15,11 @@ public interface IPipelineStage {
 }
 
 public sealed class PipelineContext(SchemaRegistry schema, IReadOnlyList<DataSource> sources,
-	IReadOnlyList<IBaker> bakers, RegistrySet registries)
+	RegistrySet registries)
 	: ILoadContext, IResolveContext, IBakeContext {
 	public DiagnosticBag Diagnostics { get; } = new();
 	public SchemaRegistry Schema { get; } = schema;
 	public IReadOnlyList<DataSource> Sources { get; } = sources;
-	public IReadOnlyList<IBaker> Bakers { get; } = bakers;
 	public RegistrySet Registries { get; } = registries;
 	public List<RawBeing>? Raw { get; set; }
 	public List<ResolvedBeing>? Resolved { get; set; }

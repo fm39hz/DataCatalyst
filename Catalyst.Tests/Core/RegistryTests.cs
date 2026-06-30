@@ -116,6 +116,6 @@ public struct DummyAspect { public int Value; }
 public class DummyPool : ITypedStoragePool {
 	public int Count => 0;
 	public void Resize(int size) { }
-	public ref readonly T Get<T>(int index) where T : struct => throw new ArgumentOutOfRangeException(nameof(index));
+	public T Get<T>(int index) where T : struct => throw new ArgumentOutOfRangeException(nameof(index));
 	public void Set<T>(int index, T value) where T : struct { }
 }

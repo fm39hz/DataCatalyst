@@ -11,7 +11,6 @@ using Catalyst.Schema;
 
 public sealed class Pipeline : IPipeline {
 	internal List<DataSource> _sources = [];
-	internal List<IBaker> _bakers = [];
 	internal List<IPipelineStage> _stages = [];
 
 	public SchemaRegistry Schema { get; } = new();
@@ -26,7 +25,7 @@ public sealed class Pipeline : IPipeline {
 		new OntologyStage(), new LoadStage(), new SchemaStage(),
 		new MergeStage(), new InheritStage(), new ResolveStage(),
 		new ValidateStage(), new CrossRefStage(), new KnowledgeStage(),
-		new BakeStage()
+		new FlattenStage()
 	];
 
 	public static List<DataSource> TopoSort(IReadOnlyList<DataSource> sources) {
@@ -75,18 +74,15 @@ public sealed class Pipeline : IPipeline {
 		return r;
 	}
 
-	public Knowledge? Run(out DiagnosticBag diagnostics) {
-		_stages = [.. _stages.OrderBy(s => s.Order)];
-		var ctx = new PipelineContext(Schema, _sources, _bakers, Registries);
+	public Knowledge Build(out DiagnosticBag diagnostics) {
+		var ctx = new PipelineContext(Schema, _sources, Registries);
 		diagnostics = ctx.Diagnostics;
 
 		foreach (var s in _stages) {
-			if (!s.Execute(ctx)) {
-				break;
-			}
+			if (!s.Execute(ctx)) break;
 		}
 
 		Registries.Freeze();
-		return ctx.Diagnostics.HasErrors ? null : ctx.Knowledge;
+		return ctx.Knowledge ?? new Knowledge([], [], null);
 	}
 }

@@ -30,7 +30,7 @@ public sealed class ValidateStage : IPipelineStage {
 				foreach (var sug in suggested) {
 					var aid = rctx.Schema.GetAspectId(sug);
 					if (aid.HasValue && !being.AspectFields.ContainsKey(aid.Value)) {
-						rctx.Diagnostics.Warn(
+						rctx.Diagnostics.Error(
 							$"Being '{being.Key}' for concept '{cname}' " +
 							$"is missing suggested aspect '{sug}'");
 					}

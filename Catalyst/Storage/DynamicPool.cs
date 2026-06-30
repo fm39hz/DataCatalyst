@@ -37,13 +37,13 @@ internal sealed class DynamicPool : IStoragePool {
 		}
 	}
 
-	public ref readonly T Get<T>(int index) where T : struct {
+	public T Get<T>(int index) where T : struct {
 		if (index < 0 || index >= _typedRow.Count) {
 			throw new ArgumentOutOfRangeException(nameof(index));
 		}
 
 		if (_typedRow[index].TryGetValue(typeof(T), out var val)) {
-			return ref System.Runtime.CompilerServices.Unsafe.Unbox<T>(val);
+			return (T)val;
 		}
 
 		throw new KeyNotFoundException($"Aspect '{typeof(T).Name}' not found at index {index}");

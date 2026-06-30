@@ -10,31 +10,16 @@ public class KnowledgeTests {
     struct K_TestBeingA : IBeing { }
     struct K_TestConceptFoo : IConcept { }
     struct K_TestAspectX : IRevealedBy<K_TestConceptFoo> { public int Value; }
-    sealed class K_TestBaked { public string? Info { get; set; } }
 
     static Knowledge CreateKnowledge(
         Dictionary<Type, ITypedStoragePool>? pools = null,
         Dictionary<Type, int>? beingIndices = null,
-        SchemaRegistry? schema = null,
-        Dictionary<Type, Dictionary<string, object>>? bakedCache = null)
+        SchemaRegistry? schema = null)
     {
         return new Knowledge(
             pools ?? [],
             beingIndices ?? [],
-            schema,
-            bakedCache ?? []);
-    }
-
-    [Fact]
-    public void GetBeingIndex_ReturnsMinusOne_ForUnknownType() {
-        var k = CreateKnowledge();
-        k.GetBeingIndex(typeof(string)).Should().Be(-1);
-    }
-
-    [Fact]
-    public void GetBeingIndex_ReturnsCorrectIndex_ForKnownType() {
-        var k = CreateKnowledge(beingIndices: new() { { typeof(K_TestBeingA), 5 } });
-        k.GetBeingIndex(typeof(K_TestBeingA)).Should().Be(5);
+            schema);
     }
 
     [Fact]
@@ -100,47 +85,6 @@ public class KnowledgeTests {
             beingIndices: new() { { typeof(K_TestBeingA), 0 } });
         k.Invoking(k => k.About<K_TestAspectX>(typeof(K_TestBeingA)))
             .Should().Throw<InvalidOperationException>();
-    }
-
-    [Fact]
-    public void GetBaked_Throws_WhenKeyMissing() {
-        var k = CreateKnowledge();
-        k.Invoking(k => k.GetBaked<K_TestBaked>("missing"))
-            .Should().Throw<KeyNotFoundException>();
-    }
-
-    [Fact]
-    public void TryGetBaked_ReturnsFalse_WhenKeyMissing() {
-        var k = CreateKnowledge();
-        k.TryGetBaked<K_TestBaked>("missing", out var _).Should().BeFalse();
-    }
-
-    [Fact]
-    public void TryGetBaked_ReturnsTrue_WhenKeyFound() {
-        var baked = new Dictionary<Type, Dictionary<string, object>> {
-            { typeof(K_TestBaked), new() { { "hero", new K_TestBaked { Info = "data" } } } }
-        };
-        var k = CreateKnowledge(bakedCache: baked);
-        k.TryGetBaked<K_TestBaked>("hero", out var result).Should().BeTrue();
-        result.Info.Should().Be("data");
-    }
-
-    [Fact]
-    public void GetBaked_ReturnsAll_WhenTypeExists() {
-        var baked = new Dictionary<Type, Dictionary<string, object>> {
-            { typeof(K_TestBaked), new() { { "a", new K_TestBaked { Info = "A" } }, { "b", new K_TestBaked { Info = "B" } } } }
-        };
-        var k = CreateKnowledge(bakedCache: baked);
-        var all = k.GetBaked<K_TestBaked>();
-        all.Should().HaveCount(2);
-        all["a"].Info.Should().Be("A");
-        all["b"].Info.Should().Be("B");
-    }
-
-    [Fact]
-    public void GetBaked_ReturnsEmpty_WhenTypeMissing() {
-        var k = CreateKnowledge();
-        k.GetBaked<K_TestBaked>().Should().BeEmpty();
     }
 
     [Fact]

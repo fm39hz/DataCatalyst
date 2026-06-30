@@ -47,25 +47,11 @@ public static class StateEngine {
 		return bestTarget.IsValid ? bestTarget : currentState;
 	}
 
-	public static StateLinks GetLinks(Knowledge knowledge, Ref<State> state) {
-		var pool = knowledge.GetPool(typeof(State));
-		if (pool == null) return default;
+	public static StateLinks GetLinks(Knowledge knowledge, Ref<State> state)
+		=> knowledge.Of<State, StateLinks>(state.BeingType);
 
-		var idx = knowledge.GetBeingIndex(state.BeingType);
-		if (idx < 0) return default;
-
-		return pool.Get<StateLinks>(idx);
-	}
-
-	public static Desirability GetDesirability(Knowledge knowledge, Ref<State> state) {
-		var pool = knowledge.GetPool(typeof(State));
-		if (pool == null) return default;
-
-		var idx = knowledge.GetBeingIndex(state.BeingType);
-		if (idx < 0) return default;
-
-		return pool.Get<Desirability>(idx);
-	}
+	public static Desirability GetDesirability(Knowledge knowledge, Ref<State> state)
+		=> knowledge.Of<State, Desirability>(state.BeingType);
 
 	private static bool Contains(ReadOnlySpan<Ref<State>> span, Ref<State> item) {
 		for (var i = 0; i < span.Length; i++) {

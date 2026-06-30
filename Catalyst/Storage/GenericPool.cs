@@ -15,13 +15,13 @@ internal sealed class GenericPool : ITypedStoragePool {
 		}
 	}
 
-	public ref readonly T Get<T>(int index) where T : struct {
+	public T Get<T>(int index) where T : struct {
 		if (index < 0 || index >= _rows.Count) {
 			throw new ArgumentOutOfRangeException(nameof(index));
 		}
 
 		if (_rows[index].TryGetValue(typeof(T), out var val)) {
-			return ref Unsafe.Unbox<T>(val);
+			return (T)val;
 		}
 
 		throw new KeyNotFoundException($"Aspect '{typeof(T).Name}' not found at index {index}");
@@ -38,7 +38,4 @@ internal sealed class GenericPool : ITypedStoragePool {
 			_rows[index][type] = value;
 		}
 	}
-
-	public void SetRawValue(int index, int aspectId, object? value) { }
-	public object? GetRaw(int index, int aspectId) => null;
 }

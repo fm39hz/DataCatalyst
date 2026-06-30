@@ -279,12 +279,6 @@ internal sealed class SourceEmitter {
             writer.Block($"public struct {sn}");
             foreach (var f in fas)
                 writer.Line($"public {f.Item2} {f.Item1};");
-            writer.Block("public ref readonly T Take<T>() where T : struct");
-            writer.Line($"var ex = new global::System.ArgumentException($\"Aspect '{{typeof(T).Name}}' not found in {sn}\");");
-            foreach (var f in fas)
-                writer.Line($"if (typeof(T) == typeof({f.Item2})) return ref global::System.Runtime.CompilerServices.Unsafe.As<{f.Item2}, T>(ref global::System.Runtime.CompilerServices.Unsafe.AsRef(in this.{f.Item1}));");
-            writer.Line("throw ex;");
-            writer.EndBlock(); // Take
             writer.EndBlock(); // struct
 
             // Pool class
@@ -292,15 +286,34 @@ internal sealed class SourceEmitter {
                 $"if (typeof(T) == typeof({f.Item2})) {{ _data[index].{f.Item1} = ({f.Item2})(object)value; return; }}"));
             var setRawCases = string.Join(" ", fas.Select(f =>
                 $"if (type == typeof({f.Item2})) {{ _data[index].{f.Item1} = ({f.Item2})value; return; }}"));
-            writer.Block($"public sealed class {cn}Pool : global::Catalyst.Storage.IStoragePool");
+            var flatCases = string.Join("\n", fas.Select(f =>
+                $"var flat_{f.Item1} = new {f.Item2}[cnt];"));
+            var flatCopies = string.Join("\n", fas.Select(f =>
+                $"    flat_{f.Item1}[i] = _data[i].{f.Item1};"));
+            var flatSets = string.Join("\n", fas.Select(f =>
+                $"    store.Set(flat_{f.Item1});"));
+            writer.Block($"public sealed class {cn}Pool : global::Catalyst.Storage.IStoragePool, global::Catalyst.Storage.IFlatPool");
             writer.Line($"private {sn}[] _data = global::System.Array.Empty<{sn}>();");
             writer.Line("public int Count => _data.Length;");
             writer.Line("public void Resize(int size) => global::System.Array.Resize(ref _data, size);");
-            writer.Line($"public ref readonly T Get<T>(int index) where T : struct {{ if (index < 0 || index >= _data.Length) throw new global::System.IndexOutOfRangeException(); return ref _data[index].Take<T>(); }}");
+            var getCases = string.Join("; ", fas.Select(f =>
+                $"if (typeof(T) == typeof({f.Item2})) return (T)(object)_data[index].{f.Item1}"));
+            writer.Line($"public T Get<T>(int index) where T : struct {{ if (index < 0 || index >= _data.Length) throw new global::System.IndexOutOfRangeException(); {getCases}; throw new global::System.NotSupportedException(\"Use GetFlat<T>() via Knowledge after FlattenStage.\"); }}");
             writer.Line($"public void Set<T>(int index, T value) where T : struct {{ if (index < 0 || index >= _data.Length) throw new global::System.IndexOutOfRangeException(); {setCases} }}");
             writer.Line($"public void SetRaw(int index, global::System.Type type, object value) {{ if (index < 0 || index >= _data.Length) return; {setRawCases} }}");
             writer.Line("public void SetRawValue(int index, int aspectId, object? value) {{ }}");
             writer.Line("public object? GetRaw(int index, int aspectId) => null;");
+            writer.Block("public void Flatten(global::Catalyst.Knowledge.FlatStore store)");
+            writer.Line("var cnt = _data.Length;");
+            foreach (var f in fas)
+                writer.Line($"var flat_{f.Item1} = new {f.Item2}[cnt];");
+            writer.Line("for (int i = 0; i < cnt; i++) {");
+            foreach (var f in fas)
+                writer.Line($"    flat_{f.Item1}[i] = _data[i].{f.Item1};");
+            writer.Line("}");
+            foreach (var f in fas)
+                writer.Line($"store.Set(flat_{f.Item1});");
+            writer.EndBlock(); // Flatten
             writer.EndBlock(); // class
         }
         writer.EndBlock(); // namespace

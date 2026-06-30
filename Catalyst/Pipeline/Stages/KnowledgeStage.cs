@@ -47,7 +47,7 @@ public sealed class KnowledgeStage : IPipelineStage {
 			}
 		}
 
-		var k = new Knowledge(pools, beingIdx, rctx.Schema, []);
+		var k = new Knowledge(pools, beingIdx, rctx.Schema);
 		k.SetDynamicPools(dynPools, dynIdx);
 		bctx.Knowledge = k;
 		return true;

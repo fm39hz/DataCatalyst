@@ -23,7 +23,7 @@ public sealed class LoadStage : IPipelineStage {
 		foreach (var source in sorted) {
 			var result = source.Loader.LoadDirectory(source.Path);
 			foreach (var d in result.Diagnostics) {
-				lctx.Diagnostics.Warn(d);
+				lctx.Diagnostics.Error(d);
 			}
 
 			foreach (var b in result.Beings) {

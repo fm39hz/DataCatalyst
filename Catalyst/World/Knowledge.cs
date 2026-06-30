@@ -2,6 +2,8 @@ namespace Catalyst.Knowledge;
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using Catalyst;
 using Catalyst.Schema;
 using Catalyst.Storage;
 
@@ -9,22 +11,18 @@ public sealed class Knowledge {
 	internal readonly IReadOnlyDictionary<Type, ITypedStoragePool> Pools;
 	internal readonly IReadOnlyDictionary<Type, int> BeingIndices;
 	internal readonly SchemaRegistry? Schema;
-	private readonly BakedCache _bakedCache;
 	private readonly DynamicAccess _dynamicAccess = new();
-	internal IReadOnlyDictionary<Type, ITypedStoragePool> BeingPools { get; private set; } = new Dictionary<Type, ITypedStoragePool>();
+	internal FlatStore? _flatStore;
 
 	internal Knowledge(Dictionary<Type, ITypedStoragePool> pools, Dictionary<Type, int> beingIndices,
-		SchemaRegistry? schema, Dictionary<Type, Dictionary<string, object>> bakedCache) {
+		SchemaRegistry? schema) {
 		Pools = new Dictionary<Type, ITypedStoragePool>(pools);
 		BeingIndices = new Dictionary<Type, int>(beingIndices);
 		Schema = schema;
-		_bakedCache = new BakedCache(bakedCache);
 	}
 
 	internal void SetDynamicPools(Dictionary<string, IStoragePool> pools, Dictionary<string, int> indices)
 		=> _dynamicAccess.SetPools(pools, indices);
-
-	internal void SetBeingPools(Dictionary<Type, ITypedStoragePool> pools) => BeingPools = pools;
 
 	private int RequireBeingIndex(Type beingType) {
 		var idx = GetBeingIndex(beingType);
@@ -40,57 +38,37 @@ public sealed class Knowledge {
 
 	public TAspect Get<TAspect>(Type conceptType, Type beingType)
 		where TAspect : struct {
+		var idx = RequireBeingIndex(beingType);
+		if (_flatStore != null && _flatStore.TryGet<TAspect>(out var arr))
+			return arr[idx];
 		if (!Pools.TryGetValue(conceptType, out var pool))
 			throw new InvalidOperationException($"No data for concept '{conceptType.Name}'");
-		return pool.Get<TAspect>(RequireBeingIndex(beingType));
+		return pool.Get<TAspect>(idx);
 	}
 
 	public TAspect About<TAspect>(Type beingType)
 		where TAspect : struct {
+		if (typeof(TAspect).GetInterfaces().Any(i => i.IsGenericType
+			&& i.GetGenericTypeDefinition() == typeof(IRevealedBy<>)))
+			throw new InvalidOperationException(
+				$"'{typeof(TAspect).Name}' is revealed by a concept. Use Of<TConcept, TAspect>() instead of About<T>().");
+
 		var idx = RequireBeingIndex(beingType);
-
-		if (BeingPools.TryGetValue(beingType, out var pool)) {
-			return pool.Get<TAspect>(idx);
-		}
-
-		foreach (var p in Pools.Values) {
-			if (TryGetFromPool<TAspect>(p, idx, out var result)) {
-				return result;
-			}
-		}
-		throw new InvalidOperationException($"Aspect '{typeof(TAspect).Name}' not found for '{beingType.Name}'");
+		if (_flatStore != null && _flatStore.TryGet<TAspect>(out var arr) && idx < arr.Length)
+			return arr[idx];
+		throw new InvalidOperationException($"Free aspect '{typeof(TAspect).Name}' not found for '{beingType.Name}'");
 	}
 
-	private static bool TryGetFromPool<TAspect>(ITypedStoragePool pool, int index, out TAspect result) where TAspect : struct {
-		if (index < 0 || index >= pool.Count) {
-			result = default;
-			return false;
-		}
-		// Get<T> throws KeyNotFoundException when the aspect type is not in this pool.
-		// This is expected during cross-pool scan in About<T>. Guard with try-catch
-		// instead of requiring every consumer to check HasAspect first.
-		try { result = pool.Get<TAspect>(index); return true; }
-		catch (KeyNotFoundException) { result = default; return false; }
-	}
-
-	public int GetBeingIndex(Type beingType)
+	internal int GetBeingIndex(Type beingType)
 		=> BeingIndices.TryGetValue(beingType, out var idx) ? idx : -1;
 
-	public int GetBeingIndex<TBeing>() where TBeing : struct, IBeing
+	internal int GetBeingIndex<TBeing>() where TBeing : struct, IBeing
 		=> GetBeingIndex(typeof(TBeing));
 
-	public ITypedStoragePool? GetPool(Type conceptType)
+	internal ITypedStoragePool? GetPool(Type conceptType)
 		=> Pools.TryGetValue(conceptType, out var pool) ? pool : null;
 
 	public IRawStoragePool? GetDynamicPool(string conceptName) => _dynamicAccess.GetPool(conceptName);
 	public int GetDynamicBeingIndex(string beingKey) => _dynamicAccess.GetIndex(beingKey);
 	public IEnumerable<string> GetDynamicConceptNames() => _dynamicAccess.GetConceptNames();
-
-	public TBaked GetBaked<TBaked>(string beingKey) => _bakedCache.Get<TBaked>(beingKey);
-	public TBaked GetBaked<TBaked, TBeing>() where TBeing : struct, IBeing
-		=> GetBaked<TBaked>(typeof(TBeing).Name);
-	public IReadOnlyDictionary<string, TBaked> GetBaked<TBaked>() => _bakedCache.GetAll<TBaked>();
-	public bool TryGetBaked<TBaked>(string beingKey, out TBaked result) => _bakedCache.TryGet(beingKey, out result);
-	public bool TryGetBaked<TBaked, TBeing>(out TBaked result) where TBeing : struct, IBeing
-		=> TryGetBaked(typeof(TBeing).Name, out result);
 }

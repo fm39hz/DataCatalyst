@@ -27,6 +27,5 @@ public static class PipelineExtensions {
 		return p;
 	}
 
-	public static Pipeline AddBaker(this Pipeline p, IBaker baker) { p._bakers.Add(baker); return p; }
 	public static Pipeline AddStage(this Pipeline p, IPipelineStage stage) { p._stages.Add(stage); return p; }
 }
