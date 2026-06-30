@@ -78,8 +78,13 @@ public sealed class Pipeline : IPipeline {
 		var ctx = new PipelineContext(Schema, _sources, Registries);
 		diagnostics = ctx.Diagnostics;
 
-		foreach (var s in _stages) {
-			if (!s.Execute(ctx)) break;
+		try {
+			foreach (var s in _stages) {
+				if (!s.Execute(ctx)) break;
+			}
+		}
+		catch (Exception ex) {
+			diagnostics.Error($"Pipeline stage failed: {ex.Message}");
 		}
 
 		Registries.Freeze();

@@ -10,7 +10,7 @@ public sealed class CrossRefStage : IPipelineStage {
 		var rctx = (IResolveContext)ctx;
 		var lctx = (ILoadContext)ctx;
 		if (rctx.Resolved == null || rctx.Schema == null) {
-			return true;
+		return !rctx.Diagnostics.HasErrors;
 		}
 
 		const int maxDepth = 64;
